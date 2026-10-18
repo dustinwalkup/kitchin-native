@@ -3,12 +3,14 @@
 A private iOS app shared by two household members: groceries first, then meals, chores and notes.
 Stack: Expo + React Native + TypeScript (strict) + Expo Router, with Supabase (Postgres, Auth, Realtime, RLS), TanStack Query, Sentry, GitHub Actions, and EAS → TestFlight.
 
-- `docs/SPEC.md` is the authoritative architecture and security design. Read the relevant section before changing anything it covers.
-- `docs/TASKS.md` holds the milestone plan. 👤 = an owner-only manual step (stop and give exact instructions); 🤖 = yours.
+- `specs/mvp/` is the authoritative spec, written with the EARS spec-driven process: `1-requirements.md` → `2-design.md` → `3-tasks.md` → `4-test-plan.md`. Read the relevant requirement and design section before changing anything they cover, and cite requirement numbers (for example R7.3) in commits and PRs.
+- New features (meals, chores, notes) get their own `specs/<feature>/` folder and go through the same four phases, with explicit owner approval between each phase.
+- `docs/SPEC.md` is the research record: legacy assessment, risks, costs and documentation links. Its §3–§11 are superseded by `specs/mvp/2-design.md`.
+- `docs/TASKS.md` is the owner runbook. 👤 = an owner-only manual step (stop and give exact instructions). Its 🤖 steps are superseded by `specs/mvp/3-tasks.md`.
 
 ## Status
 
-**Spec phase.** Do not scaffold or implement anything until the owner has approved the decisions in SPEC §16. Update this line when that happens.
+**Spec phase.** Requirements and design were approved on 2026-10-18, which settles every SPEC §16 decision (`specs/mvp/2-design.md` §1.2). Do not scaffold or implement anything until the owner has approved `3-tasks.md` and `4-test-plan.md`. Update this line when that happens.
 
 ## Security rules (non-negotiable)
 
@@ -20,7 +22,7 @@ Stack: Expo + React Native + TypeScript (strict) + Expo Router, with Supabase (P
 - Every table holding household data needs:
   - `household_id`
   - explicit grants to `authenticated` only and **nothing to `anon`**; Supabase no longer auto-exposes tables
-  - RLS enabled, with the template policies from SPEC §7.4
+  - RLS enabled, with the template policies from `specs/mvp/2-design.md` §4.4
   - the audit and broadcast triggers
   - pgTAP isolation tests (SPEC Appendix B)
 - Never use `user_metadata` / `raw_user_meta_data` for authorization. `security definer` functions belong only in the `private` schema, with `set search_path = ''` and explicit `revoke execute … from public, anon`.

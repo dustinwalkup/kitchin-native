@@ -1,4 +1,4 @@
-# Kitchin Native
+# Kitchin
 
 A private, shared household app for iOS, built with React Native, Expo and Supabase. It replaces the earlier `kitchin-app` web app.
 

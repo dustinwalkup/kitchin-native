@@ -1,8 +1,8 @@
-# Kitchin Native — Rebuild Specification
+# Kitchin — Rebuild Specification
 
 | | |
 |---|---|
-| **Status** | Draft — awaiting approval (see [§16](#16-decisions-that-require-approval)). No implementation has started. |
+| **Status** | **Research record.** For the MVP, [`specs/mvp/1-requirements.md`](../specs/mvp/1-requirements.md) and [`specs/mvp/2-design.md`](../specs/mvp/2-design.md) (both approved 2026-10-18) supersede §3–§11 and §13, and settle every §16 decision. `2-design.md` §1.5 lists the corrections to this document. §2 (legacy assessment), §14 (risks), §15 (costs) and Appendix A (links) remain current. |
 | **Date** | 2026-10-18 |
 | **Audience** | The project owner, and Claude Code sessions that will implement the work |
 | **Companion docs** | [`TASKS.md`](./TASKS.md) (step-by-step plan with manual steps) · [`../CLAUDE.md`](../CLAUDE.md) (rules for agents) |

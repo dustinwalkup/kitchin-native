@@ -1,6 +1,8 @@
-# Kitchin Native — Implementation Tasks
+# Kitchin — Implementation Tasks
 
-This is the step-by-step plan for [`SPEC.md`](./SPEC.md). **Nothing here starts until the §16 decisions are approved.**
+> **This is now the owner runbook.** The 🤖 steps below are superseded by [`specs/mvp/3-tasks.md`](../specs/mvp/3-tasks.md), which also lists which 👤 step gates which task. The 👤 steps here are still current.
+
+This was the original step-by-step plan for [`SPEC.md`](./SPEC.md).
 
 | Marker | Meaning |
 |---|---|
@@ -90,7 +92,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 - [ ] 🤖 **1.8** Add `.env.example` (names and dummy values only) and `src/lib/env.ts`, which validates the required `EXPO_PUBLIC_*` variables.
 - [ ] 🤖 **1.9** Add `.github/workflows/ci.yml` (the `app` job: lint, format check, typecheck, test, secrets check) and `.github/dependabot.yml` (npm + github-actions, weekly).
 - [ ] 🤖 **1.10** Update the README with how to run the app and the npm scripts. Fill in the "Commands" section of `CLAUDE.md`.
-- [ ] 👤 **1.11** Link the project to your Expo account. Run `eas init` in the repo and accept the prompts; it writes the EAS `projectId` into the config. Commit the change, or ask Claude to commit it.
+- [x] 👤 **1.11** Link the project to your Expo account. The EAS project already exists: `@dustinwalkup/kitchin`, ID `e7d10c82-e824-4b06-b34e-295b4152a6c5` (created 2026-10-18). In 1.5, Claude sets `owner: "dustinwalkup"`, `slug: "kitchin"` and `extra.eas.projectId` in `app.config.ts`. Keep the slug the same in both variants; only `name` and the bundle ID change. Don't create a second project with `eas init`. If you need to relink, run `eas init --id e7d10c82-e824-4b06-b34e-295b4152a6c5`.
 - [ ] 👤 **1.12** Run the app:
   1. Run `npm install`.
   2. Run `npx expo run:ios`. This builds a development build with your local Xcode and opens it in the iOS Simulator. It's free and uses no EAS quota. The first build takes a few minutes.
@@ -220,7 +222,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   3. Project Settings → **Security & Privacy**: turn on **Data Scrubber** and **Use Default Scrubbers**, and turn on **Prevent Storing of IP Addresses**.
   4. Settings → **Auth Tokens** → create an **Organization Token**, used for uploading source maps at build time. Copy it, but don't share it.
 - [ ] 👤 **6.2** Store the Sentry token as an EAS secret. **Enter it yourself on the website**, so it never lands in shell history:
-  1. Go to <https://expo.dev> → your `kitchin-native` project → **Environment variables** → **Add variable**.
+  1. Go to <https://expo.dev> → your `kitchin` project → **Environment variables** → **Add variable**.
   2. Name: `SENTRY_AUTH_TOKEN`. Environment: **production**. Visibility: **Secret**. Paste the token and save.
 - [ ] 🤖 **6.3** Install and configure Sentry **by hand. Don't use `@sentry/wizard`**, because it can write the auth token into files:
   - install `@sentry/react-native` (`npx expo install`), the `@sentry/react-native/expo` config plugin (org/project slugs) and `getSentryExpoConfig` in the Metro config
@@ -244,18 +246,17 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 
 ## M7: Production environment and database deploy pipeline
 
-- [ ] 👤 **7.1** Create the production Supabase project:
-  1. In the Dashboard choose **New project**, under your org on the Free plan.
-  2. Name it `kitchin-prod` and use the region you chose (D7).
-  3. Click **Generate a password**, then save it in your password manager as "kitchin-prod DB password". Don't share it with Claude.
-  4. Note the **project ref**: the `abcd…` part of `https://supabase.com/dashboard/project/<ref>`.
+- [ ] 👤 **7.1** Create the production Supabase project. **Created 2026-10-18** by Claude with the CLI, at your request:
+  - Name `kitchin`, Free plan, Postgres 17, region **East US (Ohio)**, `us-east-2` (D7: central US; Supabase has no central-US region).
+  - Project ref: `kbctrdoinofseiventai`.
+  - [ ] **Remaining:** reset the database password so only you know it. Claude set a random one it never displayed. Go to <https://supabase.com/dashboard/project/kbctrdoinofseiventai/database/settings> → **Reset database password** → **Generate a password**, then save it in your password manager as "kitchin DB password". Don't share it with Claude.
 - [ ] 👤 **7.2** Configure Auth in Dashboard → **Authentication**:
   - [ ] Sign In / Providers → turn **off** "Allow new users to sign up"
   - [ ] Turn **off** anonymous sign-ins
   - [ ] Keep the **Email** provider enabled. Password requirements: minimum length **12**.
   - [ ] Leave the other providers disabled.
   - [ ] Dashboard → **Realtime** → Settings → turn **off "Allow public access"**, so only authorized private channels work.
-- [ ] 👤 **7.3** Create a Supabase **personal access token** for CI: Dashboard → Account (top right) → **Access Tokens** → Generate. Name it `github-actions-kitchin-native` and copy it, but don't share it. If the dashboard offers scoping, limit it to this project with the least access needed.
+- [ ] 👤 **7.3** Create a Supabase **personal access token** for CI: Dashboard → Account (top right) → **Access Tokens** → Generate. Name it `github-actions-kitchin` and copy it, but don't share it. If the dashboard offers scoping, limit it to this project with the least access needed.
 - [ ] 👤 **7.4** Set up GitHub so the deploy workflow can reach production. Which steps you follow depends on D5.
   - **If the repo is public:** repo → Settings → **Environments** → **New environment** → `production`.
     - **Required reviewers:** add yourself.
