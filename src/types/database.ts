@@ -103,6 +103,26 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"meal_entries": {
+                  Row: {
+                    "body": string,"created_at": string,"created_by": string | null,"household_id": string,"id": string,"meal_date": string,"meal_type": string,"updated_at": string,"updated_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "body": string,"created_at"?: string,"created_by"?: string | null,"household_id": string,"id"?: string,"meal_date": string,"meal_type": string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "body"?: string,"created_at"?: string,"created_by"?: string | null,"household_id"?: string,"id"?: string,"meal_date"?: string,"meal_type"?: string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "meal_entries_household_id_fkey"
+      columns: ["household_id"]
+isOneToOne: false
+      referencedRelation: "households"
+      referencedColumns: ["id"]
+    }
+                  ]
                 }
           }
           Views: {

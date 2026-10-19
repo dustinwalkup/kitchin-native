@@ -88,7 +88,7 @@ export const TEXT_PAIRS: readonly TextPair[] = [
   { fg: light.onBrand, bg: light.primary, min: 3, bold: true },
   // Primary buttons and selected chips.
   { fg: light.onBrand, bg: light.cactus, min: 3, bold: true },
-  // Reserved for Meals.
+  // The Today pill on Meals (R30.6).
   { fg: light.onBrand, bg: light.accent, min: 3, bold: true },
   // The swipe Delete action.
   { fg: light.onBrand, bg: light.destructive, min: 4.5 },
@@ -101,6 +101,9 @@ export const TEXT_PAIRS: readonly TextPair[] = [
   { fg: light.cactus, bg: light.screen, min: 3, bold: true },
   { fg: light.cactus, bg: light.background, min: 3, bold: true },
   { fg: light.primary, bg: light.screen, min: 3, bold: true },
+  // The active Meals tab label (R36.1, DD36).
+  { fg: light.accent, bg: light.background, min: 3, bold: true },
+  { fg: light.accent, bg: light.screen, min: 3, bold: true },
   ...Object.values(light.category).map(({ fg, bg }) => ({ fg, bg, min: 4.5 as const })),
 ];
 
@@ -111,4 +114,12 @@ export const TEXT_PAIRS: readonly TextPair[] = [
 export const BOUNDARY_PAIRS: readonly Pick<TextPair, 'fg' | 'bg'>[] = [
   { fg: light.controlBorder, bg: light.background },
   { fg: light.controlBorder, bg: light.screen },
+];
+
+/** Icon glyphs on their backgrounds. Icons need 3:1 (N13); theme.test.ts measures each. */
+export const ICON_PAIRS: readonly Pick<TextPair, 'fg' | 'bg'>[] = [
+  { fg: light.accent, bg: light.accentSoft }, // breakfast, 3.15 (DD32)
+  { fg: light.ink, bg: light.secondarySoft }, // lunch, 10.36
+  { fg: light.primary, bg: light.primarySoft }, // dinner, 3.58
+  { fg: light.accent, bg: light.background }, // Meals tab icon, week arrows, Add to groceries, 3.53
 ];

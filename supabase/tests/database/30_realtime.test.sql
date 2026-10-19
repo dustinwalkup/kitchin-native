@@ -1,6 +1,8 @@
 -- Realtime authorization and the broadcast triggers, acting as the seeded users (4-test-plan §2.5,
 -- task 5.1). A and B are in Household One (H1), C is in Household Two (H2), D has no membership.
 -- These fail until migrations groceries_init (task 4.2) and realtime_household_broadcast (task 5.2) land.
+-- Meals task 9.1 added DB-R-11 to DB-R-13 (meals 4-test-plan §2.3), which fail until migration
+-- meals_init (task 9.2) lands.
 --
 -- realtime.messages is partitioned by UTC day. The test can't create a missing partition (OI-7):
 -- postgres doesn't own the table and has no CREATE on schema realtime. The Realtime server creates
@@ -10,7 +12,7 @@
 -- realtime.send() sets realtime.topic for the rest of the transaction, so the topic checks run
 -- before any broadcast, and each section sets the topic it needs.
 begin;
-select plan(19);
+select plan(27);
 
 -- Fixtures, as postgres: a broadcast message on each household's topic, and a presence message on H1's.
 select lives_ok(
@@ -129,6 +131,86 @@ select results_eq(
   $$ select * from pg_temp.broadcasts_about(tests.list_id('Household One')) $$,
   $$ values ('household:' || tests.household_id('Household One'), 'UPDATE', 'grocery_lists', true) $$,
   'DB-R-09 the list update sends a private broadcast on Household One''s topic');
+
+-- Meal broadcasts (R11.2 as amended, R35.1, R38.1). Meal entries get their IDs from the server, so
+-- the messages are told apart by slot: Household One's dinner on 2030-01-10, which the seed never
+-- uses.
+
+-- Every broadcast this transaction sent about the slot that the current role can read, oldest first.
+create function pg_temp.broadcasts_about_meal_slot()
+returns table (topic text, event text, table_name text, is_private boolean) language sql as $$
+  select m.topic, m.event, m.payload->>'table', m.private from realtime.messages m
+   where m.extension = 'broadcast'
+     and m.inserted_at >= pg_catalog.timezone('utc', pg_catalog.now())
+     and m.payload->>'table' = 'meal_entries'
+     and exists (select 1 from (values (m.payload->'record'), (m.payload->'old_record')) as r(entry)
+                  where r.entry->>'household_id' = tests.household_id('Household One')::text
+                    and r.entry->>'meal_date' = '2030-01-10' and r.entry->>'meal_type' = 'dinner')
+   order by m.inserted_at
+$$;
+
+-- Saves the slot as the current user, with PostgREST's merge-duplicates upsert (design finding 1).
+-- PL/pgSQL doesn't check the body until it runs, so the grocery checks in this file still run before
+-- meal_entries exists.
+create function pg_temp.save_meal_slot(p_body text) returns void language plpgsql as $$
+begin
+  insert into public.meal_entries (household_id, meal_date, meal_type, body)
+  values (tests.household_id('Household One'), '2030-01-10', 'dinner', p_body)
+  on conflict (household_id, meal_date, meal_type) do update
+  set household_id = excluded.household_id, meal_date = excluded.meal_date,
+      meal_type = excluded.meal_type, body = excluded.body;
+end $$;
+
+select tests.authenticate_as('member-a@example.com');
+
+select lives_ok($$ select pg_temp.save_meal_slot('Tacos') $$, 'DB-R-11 A saves an empty meal slot');
+select lives_ok($$ select pg_temp.save_meal_slot('Enchiladas') $$,
+  'DB-R-11 A saves the slot again, which updates it');
+
+reset role;
+select tests.authenticate_as('member-c@example.com');
+
+select throws_ok($$ select pg_temp.save_meal_slot('From C') $$, '42501', null,
+  'DB-R-13 C cannot save into the Household One slot');
+
+reset role;
+select tests.authenticate_as('member-a@example.com');
+
+select lives_ok(
+  $$ delete from public.meal_entries
+      where household_id = tests.household_id('Household One') and meal_date = '2030-01-10' and meal_type = 'dinner' $$,
+  'DB-R-11 A clears the slot');
+
+reset role;
+
+select results_eq(
+  $$ select * from pg_temp.broadcasts_about_meal_slot() $$,
+  $$ values ('household:' || tests.household_id('Household One'), 'INSERT', 'meal_entries', true),
+            ('household:' || tests.household_id('Household One'), 'UPDATE', 'meal_entries', true),
+            ('household:' || tests.household_id('Household One'), 'DELETE', 'meal_entries', true) $$,
+  'DB-R-11 the two saves and the clear each send a private broadcast on Household One''s topic');
+select is_empty(
+  $$ select 1 from realtime.messages m
+      where m.inserted_at >= pg_catalog.timezone('utc', pg_catalog.now())
+        and 'From C' in (m.payload->'record'->>'body', m.payload->'old_record'->>'body') $$,
+  'DB-R-13 C''s refused save sent no broadcast');
+
+-- Reading them on Household One's topic (R22.1, R22.2): A can, as the control, and C can't.
+
+select tests.set_topic(tests.household_id('Household One'));
+select tests.authenticate_as('member-a@example.com');
+
+select results_eq($$ select count(*)::int from pg_temp.broadcasts_about_meal_slot() $$, array[3],
+  'DB-R-12 control: A can read the three meal broadcasts on Household One''s topic');
+
+reset role;
+select tests.set_topic(tests.household_id('Household One'));
+select tests.authenticate_as('member-c@example.com');
+
+select is_empty($$ select * from pg_temp.broadcasts_about_meal_slot() $$,
+  'DB-R-12 C can read none of the meal broadcasts on Household One''s topic');
+
+reset role;
 
 -- A failed broadcast never blocks the write (R22.5, N7). realtime.broadcast_changes belongs to
 -- supabase_realtime_admin, so postgres can't rename it (OI-7). Instead the trigger function moves to

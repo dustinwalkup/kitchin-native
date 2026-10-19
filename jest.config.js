@@ -19,12 +19,16 @@ const thresholdGroups = [
       './src/lib/realtime/coalescer.ts',
       './src/lib/secure-session-storage.ts',
       './scripts/check-secrets.mjs',
+      // specs/meals/4-test-plan.md §9.
+      './src/lib/calendar.ts',
     ],
   },
   {
     threshold: DATA,
     patterns: [
       './src/features/groceries/hooks.ts',
+      // specs/meals/4-test-plan.md §9.
+      './src/features/meals/hooks.ts',
       './src/features/*/api.ts',
       './src/features/auth/*',
       './src/features/household/*',

@@ -5,6 +5,7 @@
 > **Amendments proposed during design** (approved together with `2-design.md`): 1.7 added, 2.2 changed, 3.9 added, edge cases 20–21 added. See [2-design.md §1.4](./2-design.md#14-requirement-amendments).
 > **Amendment proposed during test planning** (approved together with `4-test-plan.md`): edge case 22 added.
 > **Amended for meal planning** (approved with `specs/meals/2-design.md`, 2026-10-19): the glossary, 1.5, 11.2, 26.4 and Out of Scope. See [specs/meals/1-requirements.md](../meals/1-requirements.md#amendments-to-the-mvp-requirements).
+> **Amended for app deploys** (proposed with `specs/app-deploy/spec.md`, 2026-10-19, awaiting approval): 25.4, 26.9 and Out of Scope. See [specs/app-deploy/spec.md](../app-deploy/spec.md#amendments-to-the-mvp-requirements).
 
 ## Introduction
 
@@ -426,7 +427,7 @@ This requirement applies only if the owner confirms the single-category view for
 1. The app bundle SHALL contain only values that are public by design: the backend URL, the publishable key, the error-reporting DSN and the environment name.
 2. No private credential SHALL appear in the repository, the app bundle, the example environment file, or any variable whose value is bundled into the app. This covers secret keys, the legacy service-role key, database passwords, access tokens and signing keys.
 3. WHEN CI runs THEN it SHALL fail if any tracked file contains a secret-key pattern (for example `sb_secret_`, `service_role` or a private-key header).
-4. The build-time error-reporting token SHALL be stored only as a secret-visibility variable in the build service. The database deploy credentials SHALL be stored only as GitHub secrets.
+4. The build-time error-reporting token SHALL be stored only as a secret-visibility variable in the build service, and as a GitHub secret on the `production` environment for uploading update source maps. The database deploy credentials and the build-service token SHALL be stored only as GitHub secrets. *(Amended for app deploys.)*
 5. Production credentials SHALL NOT be stored on the development laptop or given to the coding agent.
 6. The repository SHALL contain no real names, email addresses or other personal data.
 7. The repository SHALL have secret scanning with push protection enabled.
@@ -459,7 +460,7 @@ This requirement applies only if the owner confirms the single-category view for
 6. The app SHALL NOT capture screenshots, view hierarchies or session replays. In production it SHALL NOT record console output as breadcrumbs.
 7. UI test identifiers SHALL be static and SHALL NOT contain household content.
 8. The app SHALL NOT send reports from debug builds. Every report SHALL be tagged with the environment (development or production) and the release.
-9. Production builds SHALL upload source maps at build time, so that reported stack traces are readable.
+9. Production builds SHALL upload source maps at build time, and over-the-air updates when they're published, so that reported stack traces are readable. *(Amended for app deploys.)*
 10. The error-reporting project SHALL have server-side data scrubbing turned on and IP address storage turned off.
 11. WHEN a member signs in THEN the app SHALL identify them to error reporting by account ID only. WHEN they sign out THEN the app SHALL clear that identity.
 
@@ -631,7 +632,7 @@ These are deferred and SHALL NOT appear in this spec's design, tasks or implemen
 - Associated Domains, which iOS needs for automatic password save prompts and app-matched password suggestions. *(Added during design.)*
 - Offline-first sync, and keeping unsent changes across app restarts.
 - Dark mode (the theme is built so it can be added later), and iPad, Android and web layouts.
-- Analytics, EAS Update (over-the-air updates) and home-screen widgets.
+- Analytics and home-screen widgets. EAS Update (over-the-air updates) is now in scope under `specs/app-deploy/`. *(Amended for app deploys.)*
 - Household invitations, creating or joining households in the app, and roles or permissions between members.
 - An activity feed and attachments.
 - End-to-end UI tests in CI, and a staging environment (unless design chooses one under D10).

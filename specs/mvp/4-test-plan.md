@@ -248,7 +248,8 @@ Setup (as postgres): insert one `broadcast` message on topic `household:<H1>` an
 | U-CFG-04 | Production produces `Kitchin` and `<prefix>.kitchin` | R24.1 |
 | U-CFG-05 | Both variants: `owner: 'dustinwalkup'`, `slug: 'kitchin'`, the EAS `projectId`, `userInterfaceStyle: 'light'`, `orientation: 'portrait'`, `supportsTablet: false`, `usesNonExemptEncryption: false` | R16.6, R29.3 |
 | U-CFG-06 | A missing URL warns and doesn't throw | §3.1 |
-| U-CFG-07 | `eas.json`: `appVersionSource: remote`; the production profile has `autoIncrement`, `distribution: store`, `environment: production` and `APP_VARIANT: production` | R24.6, R29.2 |
+| U-CFG-07 | `eas.json`: `appVersionSource: remote`; the production profile has `autoIncrement`, `distribution: store`, `channel: production`, `environment: production` and `APP_VARIANT: production` | R24.6, R29.2, R39.4 |
+| U-CFG-08 | Both variants: `runtimeVersion: { policy: 'fingerprint' }`, and `updates.url` is `https://u.expo.dev/<EAS project ID>` (`specs/app-deploy/spec.md` §4) | R39.4, R39.5 |
 
 ### 3.3 Theme — `theme.test.ts` (task 1.6)
 

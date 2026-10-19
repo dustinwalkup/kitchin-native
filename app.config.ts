@@ -5,6 +5,7 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 import { assertBackendUrl, parseVariant } from './src/lib/env-guard.ts';
 
 const BUNDLE_ID_PREFIX = 'com.dustinwalkup'; // DD9, chosen by the owner (gate G2)
+const EAS_PROJECT_ID = 'e7d10c82-e824-4b06-b34e-295b4152a6c5'; // existing project; don't run `eas init`
 const variant = parseVariant(process.env.APP_VARIANT);
 const isProd = variant === 'production';
 
@@ -58,8 +59,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
   ],
   experiments: { typedRoutes: true, reactCompiler: true },
+  // Over-the-air updates (specs/app-deploy DD37). Any native change produces a new fingerprint, so an
+  // update only reaches builds that can run it (39.5); native changes ship as a new build.
+  runtimeVersion: { policy: 'fingerprint' },
+  updates: { url: `https://u.expo.dev/${EAS_PROJECT_ID}` },
   extra: {
     appVariant: variant, // DD22
-    eas: { projectId: 'e7d10c82-e824-4b06-b34e-295b4152a6c5' }, // existing project; don't run `eas init`
+    eas: { projectId: EAS_PROJECT_ID },
   },
 });

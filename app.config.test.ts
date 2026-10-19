@@ -106,6 +106,21 @@ describe('app.config.ts', () => {
     });
   });
 
+  it.each([
+    ['development', LOCAL_URL],
+    ['production', PROD_URL],
+  ])(
+    'U-CFG-08 %s takes over-the-air updates from the EAS project, keyed by fingerprint',
+    (variant, url) => {
+      const config = loadConfig({ APP_VARIANT: variant, EXPO_PUBLIC_SUPABASE_URL: url });
+
+      expect(config.runtimeVersion).toEqual({ policy: 'fingerprint' });
+      expect(config.updates).toEqual({
+        url: 'https://u.expo.dev/e7d10c82-e824-4b06-b34e-295b4152a6c5',
+      });
+    },
+  );
+
   it('U-CFG-06 a missing URL warns and does not throw', () => {
     const config = loadConfig({});
 
@@ -239,6 +254,7 @@ describe('eas.json', () => {
     expect(eas.build.production).toMatchObject({
       autoIncrement: true,
       distribution: 'store',
+      channel: 'production', // the channel the deploy workflow publishes updates to (39.4)
       environment: 'production',
       env: { APP_VARIANT: 'production' },
     });
@@ -246,6 +262,8 @@ describe('eas.json', () => {
       environment: 'development',
       env: { APP_VARIANT: 'development' },
     });
+    // eas-cli won't submit from CI without the App Store Connect app ID (DD42).
+    expect(eas.submit.production.ios.ascAppId).toMatch(/^\d{10}$/);
   });
 
   it('builds with the .nvmrc Node version, which loads env-guard.ts for app.config.ts (OI-1)', () => {

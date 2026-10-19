@@ -81,3 +81,55 @@ describe('ESLint layer rules (§2.2)', () => {
     ).toBe(0);
   });
 });
+
+// specs/meals/4-test-plan.md §3.7.
+describe('ESLint date rules (meals §3.1)', () => {
+  it.each([
+    'getDate',
+    'getDay',
+    'getMonth',
+    'getFullYear',
+    'getHours',
+    'getMinutes',
+    'getSeconds',
+    'getMilliseconds',
+    'getTimezoneOffset',
+    'setDate',
+    'setMonth',
+    'setFullYear',
+    'setHours',
+    'setMinutes',
+    'setSeconds',
+    'setMilliseconds',
+  ])('U-LNT-04 flags the local Date method %s in src/', async (method) => {
+    const code = `export const x = new Date().${method}();`;
+    expect(await countErrors(COMPONENT, code, 'no-restricted-properties')).toBe(1);
+  });
+
+  it('U-LNT-04 flags a local Date method in src/lib/calendar.ts', async () => {
+    const code = 'export const x = (d: Date) => d.getDay();';
+    expect(await countErrors('src/lib/calendar.ts', code, 'no-restricted-properties')).toBe(1);
+  });
+
+  it('U-LNT-04 allows the UTC methods and Date.now()', async () => {
+    const code = [
+      'const d = new Date(Date.now());',
+      'd.setUTCHours(0);',
+      'export const x = [d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCDay(), d.getTime()];',
+    ].join('\n');
+    expect(await countErrors(COMPONENT, code, 'no-restricted-properties')).toBe(0);
+  });
+
+  it.each([
+    "import { useMemo } from 'react';",
+    "import { Platform } from 'react-native';",
+    "import { useQuery } from '@tanstack/react-query';",
+  ])('U-LNT-05 flags `%s` in src/lib/calendar.ts', async (code) => {
+    expect(await countErrors('src/lib/calendar.ts', code, 'no-restricted-imports')).toBe(1);
+  });
+
+  it('U-LNT-05 allows React in other src/lib modules', async () => {
+    const code = "import { useMemo } from 'react';\nexport const m = useMemo;";
+    expect(await countErrors('src/lib/toast.tsx', code, 'no-restricted-imports')).toBe(0);
+  });
+});

@@ -308,7 +308,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   - The **App Store Connect app record** already exists: "Kitchin Household" (SKU `kitchin-ios`), created by hand on 2026-10-18. EAS finds it by bundle ID. The home-screen name is still "Kitchin".
   - **App Store Connect API key:** reuse the existing "[Expo] EAS Submit" key when asked. Like the distribution certificate, it covers the whole team, not one app.
   - Processing takes about 5–15 minutes. Internal builds don't need Beta App Review.
-  - Next time, `eas build --platform ios --profile production --auto-submit` does both steps.
+  - Next time, use Actions → **EAS Deploy** → `build-and-submit` ([App deploys](#app-deploys-ota-updates-and-builds)). From the laptop, `eas build --platform ios --profile production --auto-submit` does both steps.
 - [x] 👤 **8.6** Add your wife as an internal tester. Done 2026-10-18: she's an App Store Connect user with the Developer role, and both of you are in the "Household" internal group. When the first build arrives, check that automatic distribution is on for the group.
   1. App Store Connect → **Users and Access** → **+** → invite her Apple Account email with the **Marketing** role.
      - Internal testers must be App Store Connect users with Account Holder, Admin, App Manager, Developer or Marketing roles.
@@ -347,7 +347,34 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 | 2 | Meal planning (date-based) | Spec in `specs/meals/`. Steps in [Phase 2](#phase-2-meal-planning) below |
 | 3 | Chores / tasks | Its own `specs/chores/`, through the same four phases |
 | 4 | Notes (with conflict detection) | Its own `specs/notes/`, through the same four phases |
-| later | Push notifications, Sign in with Apple linking, Face ID lock, EAS Update, widget | Each needs its own mini-spec and approval first |
+| — | OTA updates and builds from GitHub Actions | Mini-spec `specs/app-deploy/spec.md`. Steps in [App deploys](#app-deploys-ota-updates-and-builds) below |
+| later | Push notifications, Sign in with Apple linking, Face ID lock, widget | Each needs its own mini-spec and approval first |
+
+---
+
+## App deploys: OTA updates and builds
+
+The mini-spec is [`specs/app-deploy/spec.md`](../specs/app-deploy/spec.md) (draft, 2026-10-19). Its 🤖 lines use **the same numbers**, so tick both together. The workflow matches hoador's EAS Deploy, with production only.
+
+- [x] 🤖 **14.1** OTA updates and the EAS Deploy workflow (`expo-updates`, `.github/workflows/eas-deploy.yml`). After pulling it, rebuild the local development build once: `npx expo prebuild --clean --platform ios`, then `npm run ios`.
+- [x] 🤖 **14.2** App Store Connect app ID in `eas.json` (after 14.3).
+- [x] 👤 **14.3** Give the workflow its secrets, and Claude the app ID (gate G13). Never paste a token into chat. Done 2026-10-19: `EXPO_TOKEN` and `SENTRY_AUTH_TOKEN` are `production` environment secrets, and the app ID is in `eas.json`.
+  1. **`EXPO_TOKEN`:** expo.dev → your avatar → **Account settings** → **Access tokens** → **Create token**, named `github-actions-kitchin`. Add it in GitHub → Settings → Environments → `production` → **Add environment secret**, or run `gh secret set EXPO_TOKEN --env production --repo dustinwalkup/kitchin-native`, which asks for the value with hidden input. It gives full access to your Expo account, hoador included, so keep it only there.
+  2. **`SENTRY_AUTH_TOKEN`:** Sentry → **Settings** → **Developer Settings** → **Organization Tokens** → **Create New Token**, named `github-actions-kitchin`. Organization tokens can only upload source maps and manage releases. Add it as the `production` environment secret `SENTRY_AUTH_TOKEN`. The EAS copy has secret visibility, so GitHub can't read that one.
+  3. **App ID:** App Store Connect → **Apps** → Kitchin Household → **App Information** → **General Information** → **Apple ID**, a 10-digit number. Send it to Claude for 14.2. It isn't a secret.
+- [ ] 👤 **14.4** Commit and push 14.1–14.2, then run the first build from the workflow: Actions → **EAS Deploy** → **Run workflow** on `main` → `build-and-submit`. This build is the first that can receive OTA updates; build 1 never can. Install it from TestFlight on both phones.
+  - If the submit fails because no App Store Connect API key is set up for EAS Submit, run `eas credentials --platform ios` → `production` → **App Store Connect: Manage your API Key**, choose the existing "[Expo] EAS Submit" key for EAS Submit, then run the workflow again.
+- [ ] ✅ **14.5** Acceptance: MT-14-01 to MT-14-05 in `specs/app-deploy/spec.md` §4. MT-14-01 and MT-14-02 work as soon as 14.3 is done, before 14.4.
+
+**Which one to run** (always from `main`; starting the run is your approval):
+
+| The change | Run |
+|---|---|
+| JS or TS only: screens, hooks, text, styles | `ota-update`. Phones pick it up on the next launch after it downloads |
+| A new native package, `app.config.ts`, an Expo SDK upgrade, or the ~80-day TestFlight refresh | `build-and-submit` |
+| It needs a new migration | "Deploy database" first, then one of the above |
+
+Not sure? Run `ota-update`. It refuses with "No finished production build has runtime …" when a build is needed.
 
 ---
 
@@ -355,18 +382,18 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 
 The spec is [`specs/meals/`](../specs/meals/). Its requirements and design were approved on 2026-10-19. The 🤖 lines mirror [`specs/meals/3-tasks.md`](../specs/meals/3-tasks.md) **under the same numbers**, so tick both together. Coding starts once you approve `3-tasks.md` and `4-test-plan.md`, whenever you're ready; this runbook suggests a couple of weeks of MVP use first.
 
-- [ ] 🤖 **9.1** Meal database tests (pgTAP)
-- [ ] 🤖 **9.2** Migration `meals_init`, seed and types
-- [ ] 🤖 **10.1** Calendar module and the local-`Date` lint rule
-- [ ] 🤖 **10.2** `useHouseholdToday`
-- [ ] 🤖 **11.1** Meal constants and domain rules
-- [ ] 🤖 **11.2** Meals API layer
-- [ ] 🤖 **11.3** Week query and save mutation
-- [ ] 🤖 **11.4** Meal live updates
-- [ ] 🤖 **12.1** Theme pairs and week components
-- [ ] 🤖 **12.2** Slot editor
-- [ ] 🤖 **12.3** Meals screen and tab
-- [ ] 🤖 **12.4** Add to groceries shortcut (needs MVP task 4.8 first)
+- [x] 🤖 **9.1** Meal database tests (pgTAP)
+- [x] 🤖 **9.2** Migration `meals_init`, seed and types
+- [x] 🤖 **10.1** Calendar module and the local-`Date` lint rule
+- [x] 🤖 **10.2** `useHouseholdToday`
+- [x] 🤖 **11.1** Meal constants and domain rules
+- [x] 🤖 **11.2** Meals API layer
+- [x] 🤖 **11.3** Week query and save mutation
+- [x] 🤖 **11.4** Meal live updates
+- [x] 🤖 **12.1** Theme pairs and week components
+- [x] 🤖 **12.2** Slot editor
+- [x] 🤖 **12.3** Meals screen and tab
+- [x] 🤖 **12.4** Add to groceries shortcut (needs MVP task 4.8 first)
 - [ ] 🤖 **13.1** Docs follow-through
 - [ ] ✅ **P2.1** Two-simulator check against the local stack. Run `npm run two-sims`, then sign in as **A** on one simulator and **B** on the other:
   - [ ] Save a meal on A → it appears on B within about 1 second. Clearing it propagates too
@@ -378,7 +405,7 @@ The spec is [`specs/meals/`](../specs/meals/). Its requirements and design were 
   - [ ] Sign in as **C** → sees none of Household One's meals
 - [ ] 👤 **P2.2** Review and commit the changes on `main`.
 - [ ] 👤 **P2.3** Deploy the migration. Actions → "Deploy database" → **Run workflow** on `main` (manual until 8.10). Check that the dry run lists only `meals_init`. Starting the run is your approval (R28.2).
-- [ ] 👤 **P2.4** Build and install. Run `eas build --platform ios --profile production --auto-submit`, then install the new build from TestFlight on **both** phones.
+- [ ] 👤 **P2.4** Ship it to both phones. Once 14.4's build is installed, Actions → **EAS Deploy** → `ota-update` is enough, unless it says a build is needed. Otherwise run `build-and-submit` (or `eas build --platform ios --profile production --auto-submit`), then install the new build from TestFlight on **both** phones.
 - [ ] 👤 **P2.5** Time-zone check on your phone (design OI-15). On the TestFlight build:
   1. Settings → General → Date & Time → turn off **Set Automatically**, and pick a time zone where today's date differs from home's. From Chicago, for example, Auckland is a day ahead from about 6 am Chicago time onwards.
   2. Open Meals. **Today** must still mark your household's date, not the phone's.
@@ -392,7 +419,7 @@ The spec is [`specs/meals/`](../specs/meals/). Its requirements and design were 
 
 ## Recurring maintenance
 
-- [ ] 👤 **Every ~80 days:** ship a new TestFlight build. Builds expire after 90 days, and an expired build stops opening. Run `eas build --platform ios --profile production --auto-submit`.
+- [ ] 👤 **Every ~80 days:** ship a new TestFlight build. Builds expire after 90 days, and an expired build stops opening. OTA updates don't reset that clock. Run Actions → **EAS Deploy** → `build-and-submit` (or `eas build --platform ios --profile production --auto-submit`).
   - At the same time, renew the Supabase access token `github-actions-kitchin` (created 2026-10-18 with a 90-day expiry): generate a new one, overwrite `SUPABASE_ACCESS_TOKEN` in GitHub → Settings → Environments → `production`, then delete the old token in Supabase. If it expires first, the next database deploy fails at sign-in before any migration runs.
 - [ ] 👤 **Monthly (on the Free plan, D11):** take a backup.
   1. Get the connection string from Dashboard → **Connect** (Session pooler).

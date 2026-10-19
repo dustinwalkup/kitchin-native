@@ -9,6 +9,8 @@ import {
 } from '@supabase/supabase-js';
 
 import type { GroceryItem, GroceryItemRow } from '@/features/groceries/domain';
+import type { MealEntry, MealEntryRow } from '@/features/meals/domain';
+import type { IsoDate } from '@/lib/calendar';
 
 import { makeJwt } from './jwt';
 
@@ -135,6 +137,33 @@ export function makeRow(overrides: Partial<GroceryItemRow> = {}): GroceryItemRow
     is_checked: false,
     checked_at: null,
     created_at: '2026-10-18T12:00:00+00:00',
+    ...overrides,
+  };
+}
+
+/** A planned dinner. `date` takes a plain 'YYYY-MM-DD' string, so tests needn't cast to `IsoDate`. */
+export function makeMealEntry(
+  overrides: Partial<Omit<MealEntry, 'date'>> & { date?: string } = {},
+): MealEntry {
+  const { date = '2026-10-19', ...rest } = overrides;
+  return {
+    id: 'entry-1',
+    date: date as IsoDate,
+    mealType: 'dinner',
+    body: 'Tacos',
+    updatedAt: '2026-10-19T12:00:00+00:00',
+    ...rest,
+  };
+}
+
+/** The `meal_entries` row that `makeMealEntry()` comes from, as `api.ts` selects it. */
+export function makeEntryRow(overrides: Partial<MealEntryRow> = {}): MealEntryRow {
+  return {
+    id: 'entry-1',
+    meal_date: '2026-10-19',
+    meal_type: 'dinner',
+    body: 'Tacos',
+    updated_at: '2026-10-19T12:00:00+00:00',
     ...overrides,
   };
 }

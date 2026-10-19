@@ -1,8 +1,9 @@
 import type { CategoryKey } from '@/features/groceries/constants';
+import { MEAL_TYPES } from '@/features/meals/constants';
 
-import { BOUNDARY_PAIRS, TEXT_PAIRS, TINTS, themes } from './theme';
+import { BOUNDARY_PAIRS, ICON_PAIRS, TEXT_PAIRS, TINTS, themes } from './theme';
 
-// specs/mvp/4-test-plan.md §3.3. Contrast follows WCAG 2.2: sRGB relative luminance, then
+// specs/mvp/4-test-plan.md §3.3, and specs/meals/4-test-plan.md §3.7 from U-THM-07. Contrast follows WCAG 2.2: sRGB relative luminance, then
 // (lighter + 0.05) / (darker + 0.05), never rounded up.
 
 function channels(hex: string): number[] {
@@ -113,5 +114,24 @@ describe('theme', () => {
 
   it('U-THM-06 the dark theme equals the light theme for the MVP', () => {
     expect(themes.dark).toEqual(themes.light);
+  });
+
+  it.each(ICON_PAIRS)('U-THM-07 icon $fg on $bg meets 3:1 (N13)', ({ fg, bg }) => {
+    expect(contrast(fg, bg)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('U-THM-08 terracotta may carry bold text on white and on the sand screen', () => {
+    expect(TEXT_PAIRS).toContainEqual({
+      fg: light.accent,
+      bg: light.background,
+      min: 3,
+      bold: true,
+    });
+    expect(TEXT_PAIRS).toContainEqual({ fg: light.accent, bg: light.screen, min: 3, bold: true });
+  });
+
+  // A token change to a meal type can't skip measurement.
+  it.each(MEAL_TYPES)('U-THM-09 the $key icon is an ICON_PAIRS entry', ({ glyph, tint }) => {
+    expect(ICON_PAIRS).toContainEqual({ fg: light[glyph], bg: light[tint] });
   });
 });

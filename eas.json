@@ -13,9 +13,10 @@
       "distribution": "store",
       "autoIncrement": true,
       "node": "22.19.0",
+      "channel": "production",
       "environment": "production",
       "env": { "APP_VARIANT": "production" }
     }
   },
-  "submit": { "production": {} }
+  "submit": { "production": { "ios": { "ascAppId": "6824353218" } } }
 }

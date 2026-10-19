@@ -44,6 +44,12 @@ jest.mock(
 jest.mock('@/features/groceries/api', () => ({
   fetchList: jest.fn(async () => ({ listId: 'list-1', rows: [] })),
 }));
+// Meals loads an empty week.
+jest.mock('@/features/meals/api', () => ({
+  fetchWeek: jest.fn(async () => []),
+  saveEntry: jest.fn(),
+  clearEntry: jest.fn(),
+}));
 // The root layout's auto-refresh hook would create the real Supabase client.
 jest.mock('@/lib/auto-refresh', () => ({ useForegroundAutoRefresh: () => {} }));
 // Debug builds log every report; nothing here asserts on them.
@@ -75,7 +81,7 @@ afterEach(() => {
 
 const { light } = themes;
 
-function tab(name: 'Groceries' | 'Settings') {
+function tab(name: 'Groceries' | 'Meals' | 'Settings') {
   return screen.getByRole('button', { name: new RegExp(`^${name}, tab`) });
 }
 
@@ -289,15 +295,19 @@ describe('guards (§2.4)', () => {
 });
 
 describe('main tabs', () => {
-  it('has exactly two tabs, Groceries and Settings (C-RTE-06, R1.5)', async () => {
-    await renderApp();
+  it('has exactly three tabs, Groceries, Meals and Settings (C-RTE-06, R1.5 amended)', async () => {
+    const app = await renderApp();
 
     // On iOS, React Navigation gives tab buttons the button role and labels them "…, tab, n of m".
     const tabs = screen.getAllByRole('button', { name: /, tab, \d+ of \d+$/ });
     expect(tabs.map((element) => element.props.accessibilityLabel)).toEqual([
-      'Groceries, tab, 1 of 2',
-      'Settings, tab, 2 of 2',
+      'Groceries, tab, 1 of 3',
+      'Meals, tab, 2 of 3',
+      'Settings, tab, 3 of 3',
     ]);
+    // Still opens on Groceries (C-RTE-04, K16).
+    expect(app.getPathname()).toBe('/groceries');
+    expect(tab('Groceries')).toBeSelected();
   });
 
   it('labels the tabs in bold, cactus when active and inkMuted when not (N13)', async () => {
@@ -307,10 +317,33 @@ describe('main tabs', () => {
       color: light.cactus,
       fontWeight: '700',
     });
-    expect(within(tab('Settings')).getByText('Settings')).toHaveStyle({
-      color: light.inkMuted,
+    for (const name of ['Meals', 'Settings'] as const) {
+      expect(within(tab(name)).getByText(name)).toHaveStyle({
+        color: light.inkMuted,
+        fontWeight: '700',
+      });
+    }
+  });
+
+  it('C-RTE-10 turns the active Meals tab terracotta, in bold (R36.1, DD36)', async () => {
+    const app = await renderApp();
+
+    await fireEvent.press(tab('Meals'));
+
+    expect(app.getPathname()).toBe('/meals');
+    expect(tab('Meals')).toBeSelected();
+    expect(within(tab('Meals')).getByText('Meals')).toHaveStyle({
+      color: light.accent,
       fontWeight: '700',
     });
+    expect(within(tab('Groceries')).getByText('Groceries')).toHaveStyle({
+      color: light.inkMuted,
+    });
+
+    await fireEvent.press(tab('Groceries'));
+
+    expect(within(tab('Groceries')).getByText('Groceries')).toHaveStyle({ color: light.cactus });
+    expect(within(tab('Meals')).getByText('Meals')).toHaveStyle({ color: light.inkMuted });
   });
 
   it('switches to Settings', async () => {

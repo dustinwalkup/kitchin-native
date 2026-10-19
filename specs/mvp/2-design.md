@@ -1072,7 +1072,8 @@ jobs:
 
 ### 3.14 Build and Distribution
 
-- **Production builds:** `eas build --platform ios --profile production --auto-submit` (29.1). Build numbers come from `autoIncrement` with `appVersionSource: remote` (29.2).
+- **Production builds:** the EAS Deploy workflow's `build-and-submit`, or `eas build --platform ios --profile production --auto-submit` from the laptop (29.1). Build numbers come from `autoIncrement` with `appVersionSource: remote` (29.2).
+- **Over-the-air updates:** the EAS Deploy workflow's `ota-update`, on channel `production`, with a fingerprint runtime version. See [`specs/app-deploy/spec.md`](../app-deploy/spec.md) §2. *(Amended for app deploys.)*
 - **Export compliance:** `ios.config.usesNonExemptEncryption: false` writes `ITSAppUsesNonExemptEncryption = NO` (29.3).
 - **Privacy manifest (29.4):** start with the reasons React Native and AsyncStorage commonly need:
   - `NSPrivacyAccessedAPICategoryUserDefaults`: `CA92.1`
@@ -1087,7 +1088,7 @@ jobs:
 
 **Dependencies.** Install Expo-managed packages with `npx expo install`, the rest with `npm i`:
 
-- Expo-managed: `expo-secure-store`, `expo-crypto`, `expo-application`, `expo-symbols`, `@react-native-async-storage/async-storage`, `@react-native-community/netinfo`, `react-native-gesture-handler`, `react-native-reanimated`, `@sentry/react-native`
+- Expo-managed: `expo-secure-store`, `expo-crypto`, `expo-application`, `expo-symbols`, `@react-native-async-storage/async-storage`, `@react-native-community/netinfo`, `react-native-gesture-handler`, `react-native-reanimated`, `@sentry/react-native`, `expo-updates` (app deploys)
 - npm: `@supabase/supabase-js`, `@tanstack/react-query`, `aes-js`, `@types/aes-js`
 - devDependencies: `supabase`, `jest-expo`, `@testing-library/react-native`, `prettier`
 
@@ -1534,7 +1535,7 @@ Member-facing text never includes codes or stack traces (14.9). Reports carry on
 | 26 Error reporting and privacy | §3.8, §3.9, §6 |
 | 27 Continuous integration | §3.12, §7 |
 | 28 Production database changes | §3.13, §5 |
-| 29 iOS build and distribution | §3.14 |
+| 29 iOS build and distribution | §3.14; `specs/app-deploy/spec.md` §2 |
 | N1–N3 Performance | §2.5, §3.5.3, §3.6 (150 ms coalesce + one refetch) |
 | N4–N7 Reliability | §1 (idea 2), §3.5.3, §4.5 |
 | N8–N9 Security and privacy | §2.1, §8 |

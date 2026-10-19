@@ -29,6 +29,7 @@ declare
   v_l1 uuid := tests.list_id('Household One');
   v_h2 uuid := tests.household_id('Household Two');
   v_l2 uuid := tests.list_id('Household Two');
+  v_week date := date_trunc('week', current_date)::date;   -- this week's (ISO) Monday
 begin
   perform set_config('request.jwt.claims', json_build_object('sub', tests.user_id('member-a@example.com'))::text, true);
   insert into public.grocery_items (household_id, list_id, name, category, quantity) values
@@ -47,6 +48,19 @@ begin
     (v_h2, v_l2, 'Rice',     'pantry',  '2 kg', false),
     (v_h2, v_l2, 'Tomatoes', 'produce', null,   false),
     (v_h2, v_l2, 'Yogurt',   'dairy',   null,   true);
+
+  -- Meals (meals design §4.5), relative to the reset date so local development opens on a week with
+  -- data. Household One's are A's: Monday dinner, Wednesday lunch and Thursday dinner, and last Friday.
+  perform set_config('request.jwt.claims', json_build_object('sub', tests.user_id('member-a@example.com'))::text, true);
+  insert into public.meal_entries (household_id, meal_date, meal_type, body) values
+    (v_h1, v_week,     'dinner', 'Chicken tacos'),
+    (v_h1, v_week + 2, 'lunch',  'Leftover chili'),
+    (v_h1, v_week + 3, 'dinner', 'Sheet-pan salmon'),
+    (v_h1, v_week - 3, 'dinner', 'Spaghetti');
+
+  perform set_config('request.jwt.claims', json_build_object('sub', tests.user_id('member-c@example.com'))::text, true);
+  insert into public.meal_entries (household_id, meal_date, meal_type, body) values
+    (v_h2, v_week + 1, 'dinner', 'Fish and chips');
 
   -- In case the seed runs in one transaction: anything after this runs as plain postgres again.
   perform set_config('request.jwt.claims', '', true);

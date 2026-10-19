@@ -6,13 +6,14 @@ import {
   type TableHandlers,
   useHouseholdRealtime,
 } from '@/features/household/use-household-realtime';
+import { mealTableHandlers } from '@/features/meals/realtime';
 import { env } from '@/lib/env';
 
 // A screen that fails to render is replaced by the crash screen, and the root stays mounted (R14.6).
 export { ErrorBoundary } from '@/ui/crash-screen';
 
 // Which feature updates the cache for each table's live events (§3.6).
-const TABLE_HANDLERS: TableHandlers = { ...groceryTableHandlers };
+const TABLE_HANDLERS: TableHandlers = { ...groceryTableHandlers, ...mealTableHandlers };
 
 export default function AppLayout() {
   // Every household screen sits under this layout, so the channel runs while the household is open.

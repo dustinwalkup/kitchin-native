@@ -1,6 +1,7 @@
 -- Structural checks (4-test-plan §2.1, design §4.4 and §7). Task 4.1 added the grocery grants below;
 -- task 5.1 added the broadcast-trigger check and DB-S-16, which fail until migration
--- realtime_household_broadcast (task 5.2) lands.
+-- realtime_household_broadcast (task 5.2) lands. Meals task 9.1 added the meal_entries grants, which
+-- fail until migration meals_init (task 9.2) lands.
 -- Every query names its schema, so the local-only `tests` schema (§8.1) never counts.
 begin;
 select plan(21);
@@ -12,7 +13,9 @@ insert into expected_authenticated_grants values
   ('household_members', 'SELECT'),
   ('grocery_lists', 'SELECT'),                                    -- DD21: the app never writes lists
   ('grocery_items', 'SELECT'), ('grocery_items', 'INSERT'), ('grocery_items', 'UPDATE'),
-  ('grocery_items', 'DELETE');
+  ('grocery_items', 'DELETE'),
+  ('meal_entries', 'SELECT'), ('meal_entries', 'INSERT'), ('meal_entries', 'UPDATE'),   -- meals §4.3
+  ('meal_entries', 'DELETE');
 
 -- Every privilege a role holds on a public relation, granted on the table, on any of its columns,
 -- or to PUBLIC. MAINTAIN is new in Postgres 17.

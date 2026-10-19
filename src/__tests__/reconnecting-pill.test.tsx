@@ -71,7 +71,7 @@ describe('the reconnecting pill', () => {
     expect(screen.queryByText(RECONNECTING)).toBeNull();
   });
 
-  it('shows on Groceries only', async () => {
+  it("isn't in the Settings header", async () => {
     await renderGroceries();
     await act(() => mockRealtime.latest().emitStatus('CHANNEL_ERROR'));
     await act(() => jest.advanceTimersByTimeAsync(RECONNECTING_AFTER_MS));

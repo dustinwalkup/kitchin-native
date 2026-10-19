@@ -41,7 +41,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
 
 ## 9. Meal database (M9)
 
-- [ ] **9.1 Write the meal database tests first** · M
+- [x] **9.1 Write the meal database tests first** · M
   - Add the `meal_entries` grants to the expected-grants table in `00_structure.test.sql`: select, insert, update and delete. The existing structural checks then cover the new table and its slot function without new cases: RLS, `household_id`, the audit and broadcast triggers, no `public` functions, and the definer `search_path` rule.
   - `50_meal_entries.test.sql`:
     - **Isolation:**
@@ -66,7 +66,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
   - The new cases fail until 9.2 lands.
   - _Requirements: R19 and R22 through R38.1, R32.8, R33.3, R35.4, R38.2–R38.6_ — _Design: §4.1–§4.4, §7, §8, finding 1_
 
-- [ ] **9.2 Write the migration `meals_init`** · S
+- [x] **9.2 Write the migration `meals_init`** · S
   - Create it with `npx supabase migration new meals_init`. Per §4.1–§4.3, it holds:
     - the table and `meal_entries_one_per_slot`
     - `private.handle_meal_entry_slot()`, with execute revoked
@@ -79,7 +79,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
 
 ## 10. Calendar (M10)
 
-- [ ] **10.1 Write the calendar module (TDD)** · M
+- [x] **10.1 Write the calendar module (TDD)** · M
   - Write the tests first in `src/lib/calendar.test.ts`:
     - `todayIn` at fixed instants either side of midnight in `America/Chicago`, `Pacific/Auckland`, `Asia/Kolkata` and `Pacific/Chatham`
     - the US DST weeks of 2026-03-08 and 2026-11-01, and a Southern Hemisphere DST change
@@ -102,7 +102,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
   - In `jest.config.js`, put `src/lib/calendar.ts` in the 95/90 coverage group.
   - _Requirements: R30.1, R30.7, R30.12, R34.1, R34.2, R34.4, N23_ — _Design: §3.1, DD30, DD31, finding 2_
 
-- [ ] **10.2 Write `useHouseholdToday` (TDD)** · S
+- [x] **10.2 Write `useHouseholdToday` (TDD)** · S
   - Write the tests first, with fake timers:
     - today follows the household's zone, not the device's
     - the value changes once at midnight in that zone, and not on the other 60-second ticks
@@ -114,7 +114,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
 
 ## 11. Meals data layer (M11)
 
-- [ ] **11.1 Write the meal constants and domain rules (TDD)** · M
+- [x] **11.1 Write the meal constants and domain rules (TDD)** · M
   - Write `src/features/meals/constants.ts` per §3.3.1, taking the labels, order and day accents from the legacy `MEAL_TYPES` and `DAYS`.
   - Write the tests first, then `domain.ts` per §3.3.2:
     - `buildWeek`: seven days, Monday first, slots in meal-type order, planned counts, and entries outside the week ignored
@@ -125,7 +125,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
   - Add `makeEntryRow` and `makeMealEntry` to `src/test/factories.ts` for the hook and component tests.
   - _Requirements: R30.1–R30.5, R32.4, R32.5, R32.7, R33.1, R35.7, R36.2, R36.3, N23_ — _Design: §3.3.1, §3.3.2, DD27_
 
-- [ ] **11.2 Write the meals API layer** · S
+- [x] **11.2 Write the meals API layer** · S
   - Needs 9.2's generated types.
   - Write `src/features/meals/api.ts` per §3.3.3, with every failure wrapped by `toApiError`.
   - Tests with a stub client:
@@ -135,7 +135,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
     - raw PostgREST text never appears on a thrown error
   - _Requirements: R32.3, R33.1, R33.3, R38.5, R26.4_ — _Design: §3.3.3, DD24, finding 1_
 
-- [ ] **11.3 Write the week query and the save mutation (TDD)** · L
+- [x] **11.3 Write the week query and the save mutation (TDD)** · L
   - Write the tests first, with a real `QueryClient` and a mocked `api.ts`:
     - a save or clear shows immediately, including the placeholder row for an empty slot
     - a failure undoes the slot only if it still shows that save; a later save to the same slot survives
@@ -151,7 +151,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
   - In `jest.config.js`, put `src/features/meals/hooks.ts` in the 90/85 coverage group.
   - _Requirements: R30.9–R30.11, R31.5, R32.6, R33.1, R35.1, R35.3, R35.5, R35.7, N5_ — _Design: §3.3.4, DD29, DD34_
 
-- [ ] **11.4 Handle meal events** · S
+- [x] **11.4 Handle meal events** · S
   - Write `src/features/meals/realtime.ts` per §3.3.5, and merge `mealTableHandlers` into `TABLE_HANDLERS` in `src/app/(app)/_layout.tsx`.
   - Tests:
     - an event during a pending meal mutation doesn't invalidate
@@ -161,7 +161,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
 
 ## 12. Meals screen (M12)
 
-- [ ] **12.1 Add the theme pairs and the week components** · M
+- [x] **12.1 Add the theme pairs and the week components** · M
   - In `src/ui/theme.ts`, add `ICON_PAIRS` and the two `TEXT_PAIRS` rows per §3.7. Extend `theme.test.ts` to measure them.
   - Build these components per §3.3.6 and §3.4: `MealTypeIcon`, `DayCard`, `SlotRow`, `WeekHeader`, `SkeletonWeek` and `WeekStates`.
   - Component tests:
@@ -175,9 +175,10 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
     - the `WeekHeader` buttons and labels, with This week shown only away from the current week
     - `testID`s are static
   - All five SF Symbols date from SF Symbols 1 (iOS 13). Check each name in the SF Symbols app or the Simulator to close OI-19.
+    - *Checked 2026-10-19 against the iOS 26.1 Simulator's `name_availability.plist`. All five names exist. `sun.max.fill`, `moon.fill` and `cart.badge.plus` date from iOS 13, but `cup.and.saucer.fill` and `fork.knife` date from iOS 15 (SF Symbols 3). Both are still below the iOS 16.4 deployment target, so no fallback is needed. The week arrows, `chevron.left` and `chevron.right`, date from iOS 13. MT-12-17 still checks that they render.*
   - _Requirements: R30.2–R30.7, R33.2, R36.1–R36.5, N10, N11, N13_ — _Design: §3.3.6, §3.4, §3.7, DD32, OI-19_
 
-- [ ] **12.2 Build the slot editor** · M
+- [x] **12.2 Build the slot editor** · M
   - Build `SlotEditor` per §3.5.
   - Component tests, one or more for each row of the §3.5 table:
     - Return, blur and unmount each call `setMeal` with the right variables
@@ -191,7 +192,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
   - In the Simulator, type and paste at the limit, and check that clamping doesn't flicker or move the cursor (OI-16).
   - _Requirements: R32.1–R32.5, R32.7, R33.2, R35.2, N21_ — _Design: §3.5, DD25–DD27, OI-16_
 
-- [ ] **12.3 Build the Meals screen and tab** · M
+- [x] **12.3 Build the Meals screen and tab** · M
   - Write `src/app/(app)/(tabs)/meals.tsx` per §3.4:
     - its own `ToastProvider placement="top"` (DD35)
     - `weekStart` and `editing` state
@@ -215,7 +216,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
     - a week whose 21 slots each hold 500 characters scrolls smoothly (N22)
   - _Requirements: R1.5 (amended), R30, R31, R34.3, R35.2, R35.5, R35.6, R36.1, N12, N14, N22_ — _Design: §3.4, §3.6, DD29, DD35, DD36, OI-17_
 
-- [ ] **12.4 Add the Add to groceries shortcut** · S
+- [x] **12.4 Add the Add to groceries shortcut** · S
   - Needs gate G10.
   - Add `AddToGroceriesButton` to the Meals `headerRight`, calling `router.push('/add-item')`.
   - Route tests:

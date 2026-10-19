@@ -1,0 +1,175 @@
+name: EAS Deploy
+
+# Manual-only, like deploy-db.yml. Commits land on main directly in this repo, so
+# shipping on every push would put half-finished work on both phones. Starting
+# the run yourself is the approval (specs/app-deploy/spec.md, 39.1).
+#
+#   Actions → EAS Deploy → Run workflow → main → choose what to ship:
+#
+#   ota-update        JS-only change → eas update; phones run it from the next launch
+#   build             native build on EAS; the build stays there
+#   build-and-submit  native build, then submitted to TestFlight
+#
+# If the change needs a new migration, run "Deploy database" first (39.9).
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: What to ship
+        type: choice
+        options:
+          - ota-update
+          - build
+          - build-and-submit
+        default: ota-update
+
+permissions:
+  contents: read
+
+# Serialise deploys; never cancel one mid-flight (an aborted `eas update` or
+# submit is worse than a queued one).
+concurrency:
+  group: eas-deploy
+  cancel-in-progress: false
+
+env:
+  # app.config.ts takes the variant from this (DD22), and every EAS call needs the
+  # production one: the build's name and bundle ID, the update manifest's
+  # `extra.appVariant`, and the fingerprint that pairs an update with a build (39.7).
+  APP_VARIANT: production
+  # Bump together with `cli.version` in eas.json.
+  EAS_CLI: eas-cli@25.2.0
+
+jobs:
+  # Fails fast, before the checks spend ten minutes on a run that can't ship (39.2).
+  guard:
+    name: Validate request
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: App deploys run from main only
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::App deploys must run from main (got $GITHUB_REF)."
+          exit 1
+
+  # Same app · database jobs that gate merges — see ci.yml (39.3).
+  checks:
+    needs: guard
+    uses: ./.github/workflows/ci.yml
+
+  ota-update:
+    name: OTA update · production
+    needs: [guard, checks]
+    if: inputs.action == 'ota-update' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    # The secrets go only on the steps that need them, never on `npm ci`, where
+    # dependency install scripts run.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Checked before publishing: once the update is live, a failed upload can't
+      # be undone, only left unreadable (39.8).
+      - name: Sentry token present
+        env:
+          HAS_SENTRY_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
+        run: |
+          if [ "$HAS_SENTRY_TOKEN" != true ]; then
+            echo "::error::Add SENTRY_AUTH_TOKEN to the production environment's secrets, so this update's stack traces are readable."
+            exit 1
+          fi
+
+      # Refuses an update that no build can run (39.6, DD41). The fingerprint is
+      # computed the way EAS Build computes it, so a mismatch fails here instead of
+      # the phones silently ignoring the update.
+      - name: A production build has this runtime
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          runtime=$(npx --yes "$EAS_CLI" fingerprint:generate --platform ios --build-profile production --json --non-interactive | jq -er .hash)
+          builds=$(npx --yes "$EAS_CLI" build:list --platform ios --channel production --runtime-version "$runtime" --status finished --limit 1 --json --non-interactive)
+          if [ "$(jq length <<<"$builds")" -eq 0 ]; then
+            echo "::error::No finished production build has runtime $runtime. This change touches native code or config, so ship it with build-and-submit instead."
+            exit 1
+          fi
+          echo "Runtime $runtime matches build $(jq -r '.[0].appBuildVersion // .[0].id' <<<"$builds")."
+
+      # Exports into dist/ with source maps, using the production EAS environment's
+      # public values, the same ones the build was compiled with (39.7).
+      - name: Publish update
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          npx --yes "$EAS_CLI" update \
+            --channel production \
+            --environment production \
+            --platform ios \
+            --message "${GITHUB_SHA::7} by $GITHUB_ACTOR" \
+            --non-interactive
+
+      # Metro's Sentry wrapper (metro.config.js) gave the bundle and its source
+      # maps matching debug IDs (R26.9, 39.8).
+      - name: Upload source maps to Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: npx sentry-expo-upload-sourcemaps dist
+
+  build:
+    name: ${{ inputs.action == 'build-and-submit' && 'Build and submit' || 'Build' }} · production
+    needs: [guard, checks]
+    if: (inputs.action == 'build' || inputs.action == 'build-and-submit') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Waits for the EAS queue and the build, so a failed build fails this job. The
+    # free tier's queue can be slow. If this times out, the build carries on at EAS,
+    # and so does the TestFlight submission, which EAS queues when the build starts.
+    timeout-minutes: 120
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # eas-cli won't submit non-interactively without it (DD42). Checked before
+      # spending a build.
+      - name: Submit profile has the App Store Connect app ID
+        if: inputs.action == 'build-and-submit'
+        run: |
+          jq -e '.submit.production.ios.ascAppId' eas.json > /dev/null || {
+            echo "::error file=eas.json::Set submit.production.ios.ascAppId: App Store Connect → Kitchin Household → App Information → Apple ID."
+            exit 1
+          }
+
+      # The production profile carries its EAS environment and APP_VARIANT, so EAS
+      # injects the EXPO_PUBLIC_* values and the Sentry token on the builder.
+      - name: Build on EAS
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          AUTO_SUBMIT: ${{ inputs.action == 'build-and-submit' }}
+        run: |
+          args=(--platform ios --profile production --non-interactive)
+          if [ "$AUTO_SUBMIT" = true ]; then args+=(--auto-submit); fi
+          npx --yes "$EAS_CLI" build "${args[@]}"

@@ -4,12 +4,36 @@ const expoConfig = require('eslint-config-expo/flat');
 const prettierConfig = require('eslint-config-prettier/flat');
 const globals = require('globals');
 
-// Layer rules from specs/mvp/2-design.md §2.2. eslint-rules.test.ts checks that each one fires.
+// Layer rules from specs/mvp/2-design.md §2.2, plus the date rules from specs/meals/2-design.md
+// §3.1. eslint-rules.test.ts checks that each one fires.
 
 // Gitignore-style patterns, so relative paths (`../../lib/supabase`) can't get around the rule.
 const SUPABASE_CLIENT = ['@/lib/supabase', '**/lib/supabase'];
 
 const COLOUR_MESSAGE = 'Use a token from src/ui/theme.ts instead of a colour literal (R16.7).';
+
+// Local-time Date methods follow the phone's zone, and Hermes gets them wrong around DST
+// (specs/meals/2-design.md DD30, finding 2). The getUTC* methods and Date.now() stay allowed.
+const LOCAL_DATE_METHODS = [
+  'getDate',
+  'getDay',
+  'getMonth',
+  'getFullYear',
+  'getHours',
+  'getMinutes',
+  'getSeconds',
+  'getMilliseconds',
+  'getTimezoneOffset',
+  'setDate',
+  'setMonth',
+  'setFullYear',
+  'setHours',
+  'setMinutes',
+  'setSeconds',
+  'setMilliseconds',
+];
+const LOCAL_DATE_MESSAGE =
+  "Local Date methods depend on the phone's time zone (DD30). Use src/lib/calendar.ts, or a getUTC* method.";
 
 module.exports = defineConfig([
   expoConfig,
@@ -52,6 +76,16 @@ module.exports = defineConfig([
     },
   },
   {
+    // Calendar dates come from src/lib/calendar.ts, never from the phone's local time (DD30, N23).
+    files: ['src/**/*.{js,jsx,ts,tsx}'],
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        ...LOCAL_DATE_METHODS.map((property) => ({ property, message: LOCAL_DATE_MESSAGE })),
+      ],
+    },
+  },
+  {
     // Screens and components reach Supabase only through a feature's hooks.ts → api.ts.
     files: ['src/app/**', '**/components/**'],
     rules: {
@@ -70,8 +104,8 @@ module.exports = defineConfig([
     },
   },
   {
-    // domain.ts is pure logic (N17).
-    files: ['**/domain.ts'],
+    // domain.ts (N17) and the calendar (N23) are pure logic.
+    files: ['**/domain.ts', 'src/lib/calendar.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -88,7 +122,7 @@ module.exports = defineConfig([
                 ...SUPABASE_CLIENT,
               ],
               message:
-                'domain.ts holds pure logic: no React, React Native, Supabase or TanStack imports.',
+                'domain.ts and calendar.ts hold pure logic: no React, React Native, Supabase or TanStack imports.',
             },
           ],
         },
