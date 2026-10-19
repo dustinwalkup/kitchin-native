@@ -1,39 +1,108 @@
 name: CI
-on: { pull_request: {}, push: { branches: [main] } }
-permissions: { contents: read }
+
+# Runs on every PR and on pushes to main (this repo's workflow — commits land on
+# main directly).
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # deploy-db.yml gates the production push on these same jobs.
+  workflow_call:
+
+permissions:
+  contents: read
+
+# Cancel a superseded run on the same ref (prevents duplicate push+PR runs).
+# `github.workflow` is the CALLER's name when invoked via workflow_call, which
+# keeps the deploy's gating run in its own group instead of cancelling ordinary
+# CI on main — and that run never cancels, so a queued deploy still gets its
+# checks.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
+
+# The job IDs are the required status checks on main (gate G5, CI-12). Don't
+# rename them or give them a `name:`, or branch protection waits forever.
 jobs:
   app: # 27.1, design §3.12
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: { persist-credentials: false }
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with: { node-version-file: .nvmrc, cache: npm }
-      - run: npm ci
-      - run: npm run lint # includes the import-boundary and colour-literal rules
-      - run: npm run format:check
-      - run: npm run typecheck
-      - run: npm test -- --ci --coverage # fails below the 4-test-plan §9 thresholds
-      - run: npm run check:secrets # 25.3
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint # includes the import-boundary and colour-literal rules
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Test (with coverage)
+        run: npm test -- --ci --coverage # fails below the 4-test-plan §9 thresholds
+
+      - name: Secrets scan
+        run: npm run check:secrets # 25.3
+
+      # Pinned release, checksum-verified; bump the version and its linux_amd64
+      # sum together. Extracted to RUNNER_TEMP so the binary never sits in the
+      # workspace. Runs shellcheck on the `run:` scripts too.
+      - name: Lint workflows (actionlint) # CI-11, R28
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/actionlint.tar.gz" \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
 
   database: # 27.2–27.6, design §3.12
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: { persist-credentials: false }
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with: { node-version-file: .nvmrc, cache: npm }
-      - run: npm ci # Supabase CLI pinned as a devDependency
-      - run: npx supabase start -x studio,imgproxy,mailpit,storage-api,edge-runtime,logflare,vector,supavisor
-        # Runs Postgres, Auth (auth schema), Realtime (realtime.messages), PostgREST and postgres-meta (type generation).
-        # Applies every migration from scratch, then the seed files (§4.9).
-      - run: npx supabase db advisors --local --type security --fail-on warn
-      - run: npx supabase db lint --local --schema public,private --fail-on error
-        # Only the schemas that ship; the seed-only `tests` schema is never deployed (§4.9).
-      - run: npx supabase test db
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci # Supabase CLI pinned as a devDependency
+
+      # Runs Postgres, Auth (auth schema), Realtime (realtime.messages), PostgREST
+      # and postgres-meta (type generation). Applies every migration from
+      # scratch, then the seed files (§4.9).
+      - name: Start local Supabase
+        run: npx supabase start -x studio,imgproxy,mailpit,storage-api,edge-runtime,logflare,vector,supavisor
+
+      - name: Security advisor
+        run: npx supabase db advisors --local --type security --fail-on warn
+
+      # Only the schemas that ship; the seed-only `tests` schema is never
+      # deployed (§4.9).
+      - name: Database lint
+        run: npx supabase db lint --local --schema public,private --fail-on error
+
+      - name: pgTAP tests
+        run: npx supabase test db
+
       - name: Generated types match the migrations
         run: |
           git ls-files --error-unmatch src/types/database.ts > /dev/null

@@ -168,6 +168,7 @@ The structural queries skip the `tests` schema, which exists only in local and C
 |---|---|---|---|---|
 | DB-G-11 | A | Insert with `created_by = B`, `created_at = '2000-01-01'` | Stored with `created_by = A` and `created_at ≈ now()` | R5.8, R19.7, R19.8 |
 | DB-G-12 | A | Update an item, setting `created_by = B` | `42501` | R19.5 |
+| DB-G-30 | A | Update an item, setting `created_by = null` | `42501`; only `ON DELETE SET NULL`, with no signed-in user, may clear it (owner review of 2.9, 2026-10-18) | R19.5 |
 | DB-G-13 | A | Update `quantity` | `updated_by = A`; `updated_at` advances | R19.7, R19.8 |
 | DB-G-14 | A | Insert with `is_checked = true`, `checked_by = B` | `checked_by = A`; `checked_at` set | R19.7, R21.4 |
 
@@ -203,7 +204,7 @@ The structural queries skip the `tests` schema, which exists only in local and C
 
 ### 2.5 Realtime — `30_realtime.test.sql` (task 5.1)
 
-Setup (as postgres): create today's `realtime.messages` partition if it's missing (OI-7), then insert one `broadcast` message on topic `household:<H1>` and one on `household:<H2>`.
+Setup (as postgres): insert one `broadcast` message on topic `household:<H1>` and one on `household:<H2>`, plus a `presence` message on `household:<H1>` for DB-R-07. They go into today's partition. The test can't create a partition, so it relies on the ones Realtime creates (OI-7).
 
 | ID | Acting as | Action | Expected | Req |
 |---|---|---|---|---|
@@ -216,7 +217,7 @@ Setup (as postgres): create today's `realtime.messages` partition if it's missin
 | DB-R-07 | A, topic `household:<H1>` | `select` a `presence` message on the H1 topic | Not visible through this policy | R22.1 |
 | DB-R-08 | A | Insert, update and delete an H1 item, then read `realtime.messages` as postgres | Three broadcast messages on `household:<H1>` with events `INSERT`, `UPDATE`, `DELETE`; the delete is included | R11.1, R11.2, R22.1 |
 | DB-R-09 | A | Update H1's grocery list as postgres, then read messages | A broadcast on `household:<H1>` | R11.2 |
-| DB-R-10 | A | With `realtime.broadcast_changes` renamed inside the test transaction, insert an item | The insert succeeds | R22.5, N7 |
+| DB-R-10 | A | With `private.broadcast_household_change` owned by a role that has no `USAGE` on schema `realtime` (set inside the test transaction, OI-7), insert an item | The insert succeeds; the item is stored and no broadcast is sent | R22.5, N7 |
 
 ---
 
@@ -846,7 +847,7 @@ Excluded: `src/types/database.ts` (generated), `src/app/**/_layout.tsx` (covered
 | R16 Visual identity | U-THM-01–06, U-LNT-01, U-CFG-05, C-UI-08, C-SIGN-08 | MT-1-02, MT-1-03 |
 | R17 View preference | Not built (DD18) | — |
 | R18 Account policy | DB-H-18 (metadata ignored) | MT-3-09, MT-7-03, MT-7-05 |
-| R19 Household data isolation | DB-S-01–03, DB-S-05, DB-S-08–09, DB-S-11–13, DB-H-01–05, DB-H-13–14, DB-H-18, DB-G-01–09, DB-G-11–13 | MT-5-10, MT-7-04 |
+| R19 Household data isolation | DB-S-01–03, DB-S-05, DB-S-08–09, DB-S-11–13, DB-H-01–05, DB-H-13–14, DB-H-18, DB-G-01–09, DB-G-11–13, DB-G-30 | MT-5-10, MT-7-04 |
 | R20 Households and memberships | DB-S-06, DB-H-01–03, DB-H-06–17 | — |
 | R21 Grocery data integrity | DB-S-06, DB-G-09–10, DB-G-14, DB-G-18, DB-G-20–27, U-MUT-07 | MT-4-06, MT-7-06 |
 | R22 Realtime authorization | DB-S-16, DB-R-01–10, U-CH-01 | MT-5-10, MT-7-05 |

@@ -282,7 +282,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
     - side effects deferred out of the auth callback
   - _Requirements: R2.5, R2.6, R3.5, R3.6, R3.7, R3.8, R3.9, R26.11_ — _Design: §3.3, DD13, OI-9_
 
-- [ ] **3.6 Write the household provider (TDD)** · M
+- [x] **3.6 Write the household provider (TDD)** · M
   - Write the tests first, with the membership API mocked:
     - 0 rows → `none`; 1 row → `ready`
     - 2 rows → `ready` using the oldest, and one `membership_multiple` report
@@ -309,7 +309,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - Done when, against the local stack, A lands on Groceries, D sees "No household access", and A stays signed in after a relaunch.
   - _Requirements: R1.1–R1.5, R1.7, R2.1–R2.4, R2.7, R2.8, R3.6, R16.5_ — _Design: §2.4, §3.3, §3.4_
 
-- [ ] **3.8 Build the Settings screen** · S
+- [x] **3.8 Build the Settings screen** · S
   - Rows:
     - email, version and build (from `expo-application`), and environment
     - Sign out, confirmed with an `Alert`, and the offline message
@@ -323,7 +323,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
 
 ## 4. Grocery list (M4)
 
-- [ ] **4.1 Write the grocery database tests first** · M
+- [x] **4.1 Write the grocery database tests first** · M
   - Extend the expected-grants table in `00_structure.test.sql`: `grocery_lists` gets select only; `grocery_items` gets select, insert, update and delete.
   - `20_grocery_items.test.sql`:
     - Isolation:
@@ -440,7 +440,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
 
 ## 5. Live updates (M5)
 
-- [ ] **5.1 Write the realtime database tests first** · M
+- [x] **5.1 Write the realtime database tests first** · M
   - `30_realtime.test.sql`:
     - Create today's `realtime.messages` partition inside the test if it's missing (OI-7). Then, as `postgres`, insert one broadcast message per household topic.
     - With topic `household:H1`, A sees the H1 message; with `household:H2`, A sees nothing.
@@ -522,7 +522,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
 
 ## 7. Database deploy pipeline (M7)
 
-- [ ] **7.1 Write the production deploy workflow** · S
+- [x] **7.1 Write the production deploy workflow** · S
   - `.github/workflows/deploy-db.yml` per §3.13:
     - the triggers and the `main` guard
     - the `production` environment

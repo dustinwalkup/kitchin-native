@@ -73,6 +73,12 @@ export function reportCrash(error: Error): void {
   Sentry.captureException(error, { tags: { category: 'crash' } });
 }
 
+/** Sends a fixed error from Settings, so the owner can check what a report contains (R15.3). */
+export function reportTestError(): void {
+  log('test', {});
+  Sentry.captureException(new Error('Kitchin test error'), { tags: { category: 'test' } });
+}
+
 /** Identifies the member by account ID only, or clears the identity on sign-out (R26.11). */
 export function setReportingUser(id: string | null): void {
   const user = id === null ? null : { id };

@@ -192,8 +192,9 @@ describe('HouseholdProvider', () => {
     fetchMock.mockRejectedValue(new ApiError('server', {}));
     await act(() => queryClient.refetchQueries({ queryKey: ['membership'] }));
 
+    // TanStack notifies observers on a zero-delay timer, after act has returned.
+    await waitFor(() => expect(report).toHaveBeenCalledTimes(1));
     expect(result.current.status).toBe('ready');
-    expect(report).toHaveBeenCalledTimes(1);
   });
 
   it('useHousehold needs the provider', async () => {

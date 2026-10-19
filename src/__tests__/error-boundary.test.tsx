@@ -3,12 +3,23 @@ import { fireEvent, screen } from '@testing-library/react-native';
 import { renderRouter } from 'expo-router/testing-library';
 import { Text } from 'react-native';
 
+import { queryClient } from '@/lib/query-client';
+import { resetBackend } from '@/test/mock-backend';
+
 // Route tests C-ERR-01–03 (4-test-plan §4.8): the real app, with one screen swapped for one that
 // throws while `mockThrowing` is set. Sentry is the global mock from jest-setup.ts.
 
 jest.mock('@/lib/env', () => ({ env: { variant: 'development', sentryDsn: null } }));
 // The root layout's auto-refresh hook would create the real Supabase client.
 jest.mock('@/lib/auto-refresh', () => ({ useForegroundAutoRefresh: () => {} }));
+// A signed-in member with a household, so the guards open the (app) screens.
+jest.mock('@/lib/supabase', () => ({
+  supabase: { auth: jest.requireActual('@/test/mock-backend').mockAuth },
+}));
+jest.mock(
+  '@/features/household/api',
+  () => jest.requireActual('@/test/mock-backend').mockHouseholdApi,
+);
 
 const MESSAGE = 'Could not render Milk';
 let mockThrowing = true;
@@ -21,14 +32,21 @@ function Flaky() {
 beforeEach(() => {
   mockThrowing = true;
   jest.clearAllMocks();
+  resetBackend();
   // React logs every error a boundary catches.
   jest.spyOn(console, 'error').mockImplementation(() => {});
 });
 
-afterEach(() => jest.restoreAllMocks());
+afterEach(() => {
+  jest.restoreAllMocks();
+  queryClient.clear();
+});
 
-const renderWithFlaky = (route: string, initialUrl: string) =>
-  renderRouter({ appDir: './src/app', overrides: { [route]: Flaky } }, { initialUrl });
+async function renderWithFlaky(route: string, initialUrl: string) {
+  await renderRouter({ appDir: './src/app', overrides: { [route]: Flaky } }, { initialUrl });
+  // The guards open a screen once the session and membership have loaded.
+  await screen.findByText(/Something went wrong|Rendered again/);
+}
 
 describe('the (app) error boundary', () => {
   it('C-ERR-01 shows the crash screen in place of a tab while the root stays mounted', async () => {
@@ -64,6 +82,7 @@ describe('the (app) error boundary', () => {
 
 describe('the root error boundary', () => {
   it('catches a screen outside the (app) group', async () => {
+    resetBackend({ session: null });
     await renderWithFlaky('sign-in', '/sign-in');
 
     expect(screen.getByRole('header', { name: 'Something went wrong' })).toBeOnTheScreen();

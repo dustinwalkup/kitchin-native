@@ -1,14 +1,18 @@
--- Structural checks (4-test-plan §2.1, design §4.4 and §7). Task 4.1 adds the grocery grants below;
--- task 5.1 adds the broadcast trigger and DB-S-16.
+-- Structural checks (4-test-plan §2.1, design §4.4 and §7). Task 4.1 added the grocery grants below;
+-- task 5.1 added the broadcast-trigger check and DB-S-16, which fail until migration
+-- realtime_household_broadcast (task 5.2) lands.
 -- Every query names its schema, so the local-only `tests` schema (§8.1) never counts.
 begin;
-select plan(16);
+select plan(21);
 
 -- Everything `authenticated` may hold in public (design §4.4). Add rows when a migration adds a table.
 create temporary table expected_authenticated_grants (table_name text, privilege text) on commit drop;
 insert into expected_authenticated_grants values
   ('households', 'SELECT'), ('households', 'UPDATE'),
-  ('household_members', 'SELECT');
+  ('household_members', 'SELECT'),
+  ('grocery_lists', 'SELECT'),                                    -- DD21: the app never writes lists
+  ('grocery_items', 'SELECT'), ('grocery_items', 'INSERT'), ('grocery_items', 'UPDATE'),
+  ('grocery_items', 'DELETE');
 
 -- Every privilege a role holds on a public relation, granted on the table, on any of its columns,
 -- or to PUBLIC. MAINTAIN is new in Postgres 17.
@@ -43,7 +47,7 @@ select is_empty(
   'DB-S-02 every public table except households and household_members has household_id uuid not null');
 
 -- Audit columns live on household-data tables; household_members has none (design §4.3).
--- tgtype bits: 1 row, 2 before, 4 insert, 16 update.
+-- tgtype bits: 1 row, 2 before, 4 insert, 8 delete, 16 update.
 select is_empty(
   $$ select c.relname from pg_catalog.pg_class c
       where c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'p')
@@ -55,6 +59,19 @@ select is_empty(
                            and fn.nspname = 'private' and f.proname = 'handle_audit_fields'
                            and t.tgtype::int & 23 = 23) $$,
   'DB-S-14 every household-data table has the before insert-or-update audit trigger');
+
+-- 29 = row, after (bit 2 clear), insert, delete and update (design §4.5, R11.1).
+select is_empty(
+  $$ select c.relname from pg_catalog.pg_class c
+      where c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'p')
+        and c.relname not in ('households', 'household_members')
+        and not exists (select 1 from pg_catalog.pg_trigger t
+                          join pg_catalog.pg_proc f on f.oid = t.tgfoid
+                          join pg_catalog.pg_namespace fn on fn.oid = f.pronamespace
+                         where t.tgrelid = c.oid and not t.tgisinternal and t.tgenabled <> 'D'
+                           and fn.nspname = 'private' and f.proname = 'broadcast_household_change'
+                           and t.tgtype::int & 31 = 29) $$,
+  'DB-S-14 every household-data table has the after insert-update-or-delete broadcast trigger');
 
 select is_empty(
   $$ select c.relname from pg_catalog.pg_class c
@@ -131,6 +148,19 @@ select set_eq(
 select function_privs_are('private', 'provision_household', array['text', 'text', 'text[]', 'text[]'],
   'authenticated', array[]::text[],
   'DB-S-10 authenticated cannot execute private.provision_household');
+
+-- DB-S-07 to DB-S-09 pass when the function is missing, so DB-S-16 names it. It's a definer because
+-- realtime.messages has no INSERT policy for members (design §4.5).
+select is_definer('private', 'broadcast_household_change', array[]::name[],
+  'DB-S-16 private.broadcast_household_change is security definer');
+select ok(
+  coalesce((select p.proconfig @> array['search_path=""'] from pg_catalog.pg_proc p
+             where p.oid = pg_catalog.to_regprocedure('private.broadcast_household_change()')), false),
+  'DB-S-16 private.broadcast_household_change has search_path set to empty');
+select function_privs_are('private', 'broadcast_household_change', array[]::text[], 'anon', array[]::text[],
+  'DB-S-16 anon cannot execute private.broadcast_household_change');
+select function_privs_are('private', 'broadcast_household_change', array[]::text[], 'authenticated',
+  array[]::text[], 'DB-S-16 authenticated cannot execute private.broadcast_household_change');
 
 -- Schemas
 

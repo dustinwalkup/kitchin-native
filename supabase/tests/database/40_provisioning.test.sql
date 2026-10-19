@@ -1,7 +1,7 @@
 -- private.provision_household, as postgres unless stated (4-test-plan §2.3, task 2.6).
--- Task 4.2 extends DB-P-01 and the "nothing created" checks with the household's grocery list.
+-- From task 4.2, DB-P-01 and the "nothing created" checks include the household's grocery list.
 begin;
-select plan(13);
+select plan(14);
 
 select tests.create_user('provision-x@example.com', 'provision-x-password');
 select tests.create_user('provision-y@example.com', 'provision-y-password');
@@ -22,6 +22,10 @@ select set_eq(
   $$ values (tests.user_id('provision-x@example.com'), 'Member X'),
             (tests.user_id('provision-y@example.com'), 'Member Y') $$,
   'DB-P-01 creates the two memberships');
+select is(
+  (select count(*)::int from public.grocery_lists l
+     join public.households h on h.id = l.household_id where h.name = 'Household Three'),
+  1, 'DB-P-01 creates the household''s one grocery list');
 
 select lives_ok(
   $$ select private.provision_household('Household Four', 'UTC', array['Provision-Z@EXAMPLE.com'], array['Member Z']) $$,
@@ -36,7 +40,8 @@ select set_eq(
 
 create temporary table counts_before on commit drop as
   select (select count(*) from public.households) as households,
-         (select count(*) from public.household_members) as memberships;
+         (select count(*) from public.household_members) as memberships,
+         (select count(*) from public.grocery_lists) as lists;
 
 -- The first member exists, so the household and one membership are inserted before the exception.
 select throws_ok(
@@ -44,8 +49,9 @@ select throws_ok(
        array['provision-x@example.com', 'nobody@example.com'], array['Member X', 'Nobody']) $$,
   'P0001', 'no auth user for member 2', 'DB-P-02 an unknown second email raises');
 select results_eq(
-  $$ select (select count(*) from public.households), (select count(*) from public.household_members) $$,
-  $$ select households, memberships from counts_before $$,
+  $$ select (select count(*) from public.households), (select count(*) from public.household_members),
+            (select count(*) from public.grocery_lists) $$,
+  $$ select households, memberships, lists from counts_before $$,
   'DB-P-02 nothing is created');
 
 select throws_ok(
@@ -54,8 +60,9 @@ select throws_ok(
   'P0001', 'emails and display names must be non-empty and the same length',
   'DB-P-03 arrays of different lengths raise');
 select results_eq(
-  $$ select (select count(*) from public.households), (select count(*) from public.household_members) $$,
-  $$ select households, memberships from counts_before $$,
+  $$ select (select count(*) from public.households), (select count(*) from public.household_members),
+            (select count(*) from public.grocery_lists) $$,
+  $$ select households, memberships, lists from counts_before $$,
   'DB-P-03 nothing is created');
 
 select throws_ok(
@@ -63,8 +70,9 @@ select throws_ok(
   'P0001', 'emails and display names must be non-empty and the same length',
   'DB-P-04 empty arrays raise');
 select results_eq(
-  $$ select (select count(*) from public.households), (select count(*) from public.household_members) $$,
-  $$ select households, memberships from counts_before $$,
+  $$ select (select count(*) from public.households), (select count(*) from public.household_members),
+            (select count(*) from public.grocery_lists) $$,
+  $$ select households, memberships, lists from counts_before $$,
   'DB-P-04 nothing is created');
 
 -- Only postgres can run it (R23.5). The messages matter: if the function were executable, its insert

@@ -139,14 +139,14 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   - secure session storage adapter (Keychain via `expo-secure-store`, per SPEC §3/§6.3)
   - Supabase client auth options: `detectSessionInUrl: false`, persist, auto-refresh
   - AppState start/stop of auto-refresh
-- [ ] 🤖 **3.2** Auth state and routing:
+- [x] 🤖 **3.2** Auth state and routing:
   - `AuthProvider` (session + `onAuthStateChange`) and `HouseholdProvider` (membership lookup)
   - Root `Stack.Protected` guards for: loading → splash, signed out → `sign-in`, no household → `no-household`, otherwise → `(app)`
-- [ ] 🤖 **3.3** Screens:
+- [x] 🤖 **3.3** Screens:
   - Sign-in screen: email + password, iOS autofill (`textContentType`/`autoComplete`), submit disabled while pending, and friendly errors that don't reveal whether an email exists.
   - `no-household` screen with a sign-out button.
   - Settings screen showing the signed-in email, the app version and environment, and a sign-out button that clears the query cache and channels.
-- [ ] 🤖 **3.4** Unit tests for the auth/household state transitions and sign-in form validation.
+- [x] 🤖 **3.4** Unit tests for the auth/household state transitions and sign-in form validation.
 - [ ] 👤 **3.5** Try it on the Simulator with the local stack running, once coding tasks 3.6 and 3.7 are done (3.8 adds Sign out). Use the seed credentials, which are documented in `supabase/seed/10_seed_data.sql`:
   - [ ] sign in as **A**: lands on Groceries (still a placeholder)
   - [ ] sign out, then sign in as **D**: sees "No household access"
@@ -217,7 +217,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 - [x] 👤 **6.2** Store the Sentry token as an EAS secret (done 2026-10-18; production only, visibility Secret). **Enter it yourself on the website**, so it never lands in shell history:
   1. Go to <https://expo.dev> → your `kitchin` project → **Environment variables** → **Add variable**.
   2. Name: `SENTRY_AUTH_TOKEN`. Environment: **production**. Visibility: **Secret**. Paste the token and save.
-- [ ] 🤖 **6.3** Install and configure Sentry **by hand. Don't use `@sentry/wizard`**, because it can write the auth token into files:
+- [x] 🤖 **6.3** Install and configure Sentry **by hand. Don't use `@sentry/wizard`**, because it can write the auth token into files:
   - install `@sentry/react-native` (`npx expo install`), the `@sentry/react-native/expo` config plugin (org/project slugs) and `getSentryExpoConfig` in the Metro config
   - `Sentry.expoRouterIntegration()`; `sendDefaultPii: false` set explicitly
   - `Sentry.init` with the SPEC §9.2 settings; `beforeSend`/`beforeBreadcrumb` scrubbers
@@ -260,7 +260,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
     - Add the same two values as **repository** secrets: Settings → Secrets and variables → Actions.
     - Add `SUPABASE_PROJECT_ID` as a repository variable.
     - Tell Claude, and the workflow will be **manual-trigger only** (SPEC §10.3).
-- [ ] 🤖 **7.5** Add `.github/workflows/deploy-db.yml` (SPEC §10.3).
+- [x] 🤖 **7.5** Add `.github/workflows/deploy-db.yml` (SPEC §10.3).
 - [ ] 👤 **7.6** Merge, then start the deploy:
   - **Until 8.10:** the workflow is manual-trigger only, so go to Actions → "Deploy database" → **Run workflow** on `main`. Starting it yourself is the approval (R28.2).
   - **After 8.10:** go to Actions → "Deploy database" → **Review deployments** → approve.

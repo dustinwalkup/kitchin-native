@@ -23,7 +23,53 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "household_members": {
+            "grocery_items": {
+                  Row: {
+                    "category": string,"checked_at": string | null,"checked_by": string | null,"created_at": string,"created_by": string | null,"household_id": string,"id": string,"is_checked": boolean,"list_id": string,"name": string,"notes": string | null,"quantity": string | null,"updated_at": string,"updated_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "category"?: string,"checked_at"?: string | null,"checked_by"?: string | null,"created_at"?: string,"created_by"?: string | null,"household_id": string,"id"?: string,"is_checked"?: boolean,"list_id": string,"name": string,"notes"?: string | null,"quantity"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "category"?: string,"checked_at"?: string | null,"checked_by"?: string | null,"created_at"?: string,"created_by"?: string | null,"household_id"?: string,"id"?: string,"is_checked"?: boolean,"list_id"?: string,"name"?: string,"notes"?: string | null,"quantity"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "grocery_items_household_id_fkey"
+      columns: ["household_id"]
+isOneToOne: false
+      referencedRelation: "households"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "grocery_items_list_id_household_id_fkey"
+      columns: ["list_id","household_id"]
+isOneToOne: false
+      referencedRelation: "grocery_lists"
+      referencedColumns: ["id","household_id"]
+    }
+                  ]
+                },"grocery_lists": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"household_id": string,"id": string,"name": string,"updated_at": string,"updated_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"household_id": string,"id"?: string,"name"?: string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"household_id"?: string,"id"?: string,"name"?: string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "grocery_lists_household_id_fkey"
+      columns: ["household_id"]
+isOneToOne: false
+      referencedRelation: "households"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"household_members": {
                   Row: {
                     "created_at": string,"display_name": string,"household_id": string,"user_id": string
                   }

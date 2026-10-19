@@ -6,9 +6,16 @@ import { fetchMemberships } from './api';
 
 jest.mock('@/lib/supabase', () => ({ supabase: { from: jest.fn() } }));
 
+interface Builder {
+  select: jest.Mock<Builder>;
+  eq: jest.Mock<Builder>;
+  order: jest.Mock<Builder>;
+  limit: jest.Mock<Promise<unknown>>;
+}
+
 // A small chainable stub of the query builder (4-test-plan §8.4). The chain ends at `limit`.
 function stubQuery(response: { data: unknown; error: unknown; status: number }) {
-  const builder = {
+  const builder: Builder = {
     select: jest.fn(() => builder),
     eq: jest.fn(() => builder),
     order: jest.fn(() => builder),

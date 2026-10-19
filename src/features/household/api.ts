@@ -25,7 +25,11 @@ export async function fetchMemberships(userId: string): Promise<Membership[]> {
   }
 
   return data.map((row) => ({
-    household: { id: row.household.id, name: row.household.name, timeZone: row.household.time_zone },
+    household: {
+      id: row.household.id,
+      name: row.household.name,
+      timeZone: row.household.time_zone,
+    },
     displayName: row.display_name,
   }));
 }

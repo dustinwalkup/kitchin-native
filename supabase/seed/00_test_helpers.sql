@@ -32,7 +32,7 @@ begin
   return v_id;
 end $$;
 
--- public.grocery_lists arrives with migration groceries_init (task 4.1). One list per household (DD17).
+-- public.grocery_lists arrives with migration groceries_init (task 4.2). One list per household (DD17).
 create or replace function tests.list_id(p_household_name text)
 returns uuid language plpgsql stable security definer set search_path = '' as $$
 declare v_id uuid;

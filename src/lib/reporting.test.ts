@@ -3,7 +3,14 @@ import * as Sentry from '@sentry/react-native';
 import { HOUSEHOLD_TEXT } from '@/test/factories';
 
 import { ApiError, type ErrorCategory } from './errors';
-import { report, reportCrash, reportOnce, setReportingUser, type SafeExtras } from './reporting';
+import {
+  report,
+  reportCrash,
+  reportOnce,
+  reportTestError,
+  setReportingUser,
+  type SafeExtras,
+} from './reporting';
 
 // reportOnce remembers keys for the whole app session, so each test uses its own key. Sentry is
 // the global mock from jest-setup.ts.
@@ -190,6 +197,14 @@ describe('U-REP-04 forwarding to Sentry', () => {
     reportCrash(error);
 
     expect(Sentry.captureException).toHaveBeenCalledWith(error, { tags: { category: 'crash' } });
+  });
+
+  it('R15.3 sends the fixed test error, tagged as a test', () => {
+    reportTestError();
+
+    const [sent, context] = jest.mocked(Sentry.captureException).mock.calls[0];
+    expect(sent).toEqual(new Error('Kitchin test error'));
+    expect(context).toEqual({ tags: { category: 'test' } });
   });
 });
 

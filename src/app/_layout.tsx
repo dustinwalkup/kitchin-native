@@ -1,17 +1,28 @@
 import * as Sentry from '@sentry/react-native';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { DefaultTheme, Stack, type Theme as NavigationTheme, ThemeProvider } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { type ReactNode, useEffect, useState } from 'react';
 
+import { AuthProvider, type AuthState, useAuth } from '@/features/auth/auth-provider';
+import {
+  HouseholdProvider,
+  type HouseholdState,
+  useHousehold,
+} from '@/features/household/household-provider';
 import { useForegroundAutoRefresh } from '@/lib/auto-refresh';
 import { env } from '@/lib/env';
+import { queryClient } from '@/lib/query-client';
 import { initSentry } from '@/lib/sentry';
+import { ToastProvider } from '@/lib/toast';
 import { DevBadge } from '@/ui/dev-badge';
 import { useTheme } from '@/ui/use-theme';
 
-// Section 3 adds the query client, toast, auth and household providers, the Stack.Protected
-// guards (§3.3) and the SplashController here.
-
 // Before anything renders, so startup errors are reported too (§3.9).
 initSentry();
+
+// The splash stays up until the app knows which screen to show (R1.1). SplashController hides it.
+void SplashScreen.preventAutoHideAsync();
 
 // Catches what the (app) layout's boundary can't: the root itself and screens outside (app).
 export { ErrorBoundary } from '@/ui/crash-screen';
@@ -23,17 +34,85 @@ function RootLayout() {
 
   return (
     <Providers>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(app)" />
-        <Stack.Screen name="sign-in" />
-      </Stack>
+      <RootNavigator />
       {env.variant === 'development' && <DevBadge />}
     </Providers>
   );
 }
 
-function Providers({ children }: { children: React.ReactNode }) {
-  return <ThemeProvider value={useNavigationTheme()}>{children}</ThemeProvider>;
+function Providers({ children }: { children: ReactNode }) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider value={useNavigationTheme()}>
+        <ToastProvider>
+          <AuthProvider>
+            <HouseholdProvider>{children}</HouseholdProvider>
+          </AuthProvider>
+        </ToastProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+}
+
+/** The app states of §2.4, from the auth and household states. */
+type AppState = 'restoring' | 'signedOut' | 'loading' | 'noHousehold' | 'unreachable' | 'ready';
+type ShownState = Exclude<AppState, 'loading'>;
+
+function appState(auth: AuthState, household: HouseholdState): AppState {
+  if (auth.status !== 'signedIn') return auth.status;
+  switch (household.status) {
+    case 'none':
+      return 'noHousehold';
+    case 'unreachable':
+    case 'ready':
+      return household.status;
+    default:
+      return 'loading';
+  }
+}
+
+/**
+ * While the membership loads, the screen that was showing stays: the splash at launch, sign-in
+ * (with its spinner) after signing in, or "Can't reach Kitchin" while it retries.
+ */
+function useShownState(): ShownState {
+  const app = appState(useAuth().state, useHousehold());
+  const [shown, setShown] = useState<ShownState>('restoring');
+  if (app !== 'loading' && app !== shown) setShown(app);
+  return app === 'loading' ? shown : app;
+}
+
+function RootNavigator() {
+  const shown = useShownState();
+
+  // No screen at all until the app knows which one to show, so sign-in never flashes (R1.1).
+  if (shown === 'restoring') return null;
+
+  return (
+    <>
+      <SplashController />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Protected guard={shown === 'signedOut'}>
+          <Stack.Screen name="sign-in" />
+        </Stack.Protected>
+        <Stack.Protected guard={shown === 'noHousehold'}>
+          <Stack.Screen name="no-household" />
+        </Stack.Protected>
+        <Stack.Protected guard={shown === 'unreachable'}>
+          <Stack.Screen name="unreachable" />
+        </Stack.Protected>
+        <Stack.Protected guard={shown === 'ready'}>
+          <Stack.Screen name="(app)" />
+        </Stack.Protected>
+      </Stack>
+    </>
+  );
+}
+
+/** Hides the splash once the first screen has rendered. */
+function SplashController() {
+  useEffect(() => SplashScreen.hide(), []);
+  return null;
 }
 
 /** Headers, tab bars and screen backgrounds take their colours from the desert theme (R16.7). */
