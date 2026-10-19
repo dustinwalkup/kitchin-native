@@ -1,24 +1,30 @@
 import { useRouter } from 'expo-router';
-import { AccessibilityInfo, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Pressable, StyleSheet, View } from 'react-native';
 
 import { AddItemForm, type NewItem } from '@/features/groceries/components/add-item-form';
 import { QuickAddChips } from '@/features/groceries/components/quick-add-chips';
 import { quickAddGroups } from '@/features/groceries/domain';
 import { useAddItem, useGroceryList } from '@/features/groceries/hooks';
 import { ToastProvider } from '@/lib/toast';
+import { FormScrollView } from '@/ui/form-scroll-view';
+import { KeyboardToolbar } from '@/ui/keyboard-toolbar';
 import { Screen } from '@/ui/screen';
 import { Text } from '@/ui/text';
 
 /**
  * The add-item form sheet (§3.4, DD10). It stays open, so several items can go in one after
  * another. The sheet covers the root's toasts, so it shows its own, such as a failed add, at the
- * top where the keyboard can't hide them.
+ * top where the keyboard can't hide them. It covers the root's keyboard toolbar too, so it mounts
+ * its own, last so it paints on top, outside the Screen's bottom safe-area padding.
  */
 export default function AddItem() {
   return (
-    <ToastProvider placement="top">
-      <AddItemSheet />
-    </ToastProvider>
+    <>
+      <ToastProvider placement="top">
+        <AddItemSheet />
+      </ToastProvider>
+      <KeyboardToolbar />
+    </>
   );
 }
 
@@ -49,11 +55,10 @@ function AddItemSheet() {
           <Text variant="headline">Done</Text>
         </Pressable>
       </View>
-      <ScrollView
+      <FormScrollView
         contentContainerStyle={styles.content}
         // Chips and Add take the first tap while the keyboard is up.
         keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets
       >
         <AddItemForm items={items} onAdd={add} disabled={!ready} />
         {/* Until the list loads, no chip can say whether its item is on the list (R6.2). */}
@@ -63,7 +68,7 @@ function AddItemSheet() {
             onAdd={({ name, category }) => add({ name, category, quantity: null })}
           />
         ) : null}
-      </ScrollView>
+      </FormScrollView>
     </Screen>
   );
 }

@@ -1,8 +1,9 @@
 import { type ComponentRef, useRef, useState } from 'react';
-import { AccessibilityInfo, ScrollView, StyleSheet, type TextInput, View } from 'react-native';
+import { AccessibilityInfo, StyleSheet, type TextInput, View } from 'react-native';
 
 import { type SignInResult, useAuth } from '@/features/auth/auth-provider';
 import { Button } from '@/ui/button';
+import { FormScrollView } from '@/ui/form-scroll-view';
 import { LogoTile } from '@/ui/logo-tile';
 import { Screen } from '@/ui/screen';
 import { Text } from '@/ui/text';
@@ -50,11 +51,7 @@ export default function SignIn() {
 
   return (
     <Screen>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets
-      >
+      <FormScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.brand}>
           <LogoTile />
           <Text variant="largeTitle" accessibilityRole="header">
@@ -108,7 +105,7 @@ export default function SignIn() {
           disabled={!canSubmit}
           loading={pending}
         />
-      </ScrollView>
+      </FormScrollView>
     </Screen>
   );
 }

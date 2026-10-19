@@ -1,6 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import { type ComponentRef, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
-import { type LayoutChangeEvent, RefreshControl, ScrollView, StyleSheet } from 'react-native';
+import { type LayoutChangeEvent, RefreshControl, StyleSheet } from 'react-native';
 
 import { useHouseholdToday } from '@/features/household/use-household-today';
 import { DayCard } from '@/features/meals/components/day-card';
@@ -14,6 +14,7 @@ import { type MealWeek, useMealWeek, useSetMeal } from '@/features/meals/hooks';
 import { addDays, type IsoDate, weekStartOf } from '@/lib/calendar';
 import { useIsOnline } from '@/lib/query-client';
 import { ToastProvider, useToast } from '@/lib/toast';
+import { FormScrollView } from '@/ui/form-scroll-view';
 import { Screen } from '@/ui/screen';
 import { useTheme } from '@/ui/use-theme';
 
@@ -47,7 +48,7 @@ function MealsWeek() {
   const { refreshing, onRefresh } = usePullToRefresh(week.refetch);
   useRefreshFailedToast(week);
 
-  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const scrollRef = useRef<ComponentRef<typeof FormScrollView>>(null);
   // Set on first show and by This week. Today's card scrolls into view once it's laid out, and
   // only then, so later layout changes such as new week data never move the list (R35.6).
   const scrollToToday = useRef(true);
@@ -100,14 +101,13 @@ function MealsWeek() {
         onThisWeek={() => showWeek(weekStartOf(today), true)}
       />
       {/* Not virtualised: seven cards stay cheap with 21 long meals, and each can be measured (N22). */}
-      <ScrollView
+      <FormScrollView
         ref={scrollRef}
         testID="meals-week"
         contentContainerStyle={week.status === 'ready' ? styles.days : styles.fill}
         // The first tap on another slot opens it, rather than only closing the keyboard (DD25).
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
-        automaticallyAdjustKeyboardInsets
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -134,7 +134,7 @@ function MealsWeek() {
         ) : (
           <WeekState status={week.status} onRetry={week.refetch} />
         )}
-      </ScrollView>
+      </FormScrollView>
     </Screen>
   );
 }

@@ -28,6 +28,7 @@ const light = {
   destructive: '#e7000b',
   inkMuted: '#606b71', // secondary text, checked items, empty states (DD19)
   controlBorder: '#80898e', // input and checkbox outlines
+  inkDisabled: '#bfc4c6', // the keyboard toolbar's disabled arrows
   onBrand: '#ffffff', // only with fontWeight '700' (DD19)
   primarySoft: '#ecf3f3',
   secondarySoft: '#fcedf0',
@@ -63,6 +64,7 @@ export const TINTS = {
   screen: { source: 'sand', alpha: 0.3 },
   inkMuted: { source: 'ink', alpha: 0.75 },
   controlBorder: { source: 'ink', alpha: 0.6 },
+  inkDisabled: { source: 'ink', alpha: 0.3 },
   primarySoft: { source: 'primary', alpha: 0.1 },
   secondarySoft: { source: 'secondary', alpha: 0.2 },
   accentSoft: { source: 'accent', alpha: 0.1 },

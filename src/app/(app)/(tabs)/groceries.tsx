@@ -26,6 +26,7 @@ import {
 } from '@/features/groceries/hooks';
 import { useIsOnline } from '@/lib/query-client';
 import { useToast } from '@/lib/toast';
+import { FormScrollView } from '@/ui/form-scroll-view';
 import { Screen } from '@/ui/screen';
 import { useTheme } from '@/ui/use-theme';
 
@@ -80,7 +81,8 @@ export default function Groceries() {
         initialNumToRender={20}
         // Scrolling, or a tap elsewhere, closes the quantity editor, which saves it (R8.3).
         keyboardDismissMode="on-drag"
-        automaticallyAdjustKeyboardInsets
+        // Keeps a row's quantity editor clear of the keyboard toolbar.
+        renderScrollComponent={(props) => <FormScrollView {...props} />}
         contentContainerStyle={sections.length === 0 ? styles.fill : styles.content}
         refreshControl={
           <RefreshControl

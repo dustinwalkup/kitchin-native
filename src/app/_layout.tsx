@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { type ReactNode, useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import { AuthProvider, type AuthState, useAuth } from '@/features/auth/auth-provider';
 import {
@@ -18,6 +19,7 @@ import { queryClient } from '@/lib/query-client';
 import { initSentry } from '@/lib/sentry';
 import { ToastProvider } from '@/lib/toast';
 import { DevBadge } from '@/ui/dev-badge';
+import { KeyboardToolbar } from '@/ui/keyboard-toolbar';
 import { useTheme } from '@/ui/use-theme';
 
 // Before anything renders, so startup errors are reported too (§3.9).
@@ -37,10 +39,15 @@ function RootLayout() {
   return (
     // Gestures, such as swiping a grocery row to delete it, work only inside this view.
     <GestureHandlerRootView style={styles.root}>
-      <Providers>
-        <RootNavigator />
-        {env.variant === 'development' && <DevBadge />}
-      </Providers>
+      {/* Tracks the keyboard for the toolbar and the screens' FormScrollViews. */}
+      <KeyboardProvider>
+        <Providers>
+          <RootNavigator />
+          {env.variant === 'development' && <DevBadge />}
+        </Providers>
+        {/* Beside the navigator, not inside a screen, so every screen gets it and none clips it. */}
+        <KeyboardToolbar />
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }

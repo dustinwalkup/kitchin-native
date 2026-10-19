@@ -29,6 +29,12 @@ jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   };
 });
 
+// The library's mock: KeyboardProvider and the toolbar render as plain views, KeyboardAwareScrollView
+// as a ScrollView, and the keyboard stays closed.
+jest.mock('react-native-keyboard-controller', () =>
+  jest.requireActual('react-native-keyboard-controller/jest'),
+);
+
 // Zero insets, and a SafeAreaProvider that needs no native measurement.
 jest.mock(
   'react-native-safe-area-context',
