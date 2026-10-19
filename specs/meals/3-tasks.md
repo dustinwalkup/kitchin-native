@@ -228,10 +228,11 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
 
 ## 13. Phase 2 sign-off (M13)
 
-- [ ] **13.1 Bring the docs up to date** · S
+- [x] **13.1 Bring the docs up to date** · S
   - In `CLAUDE.md`, name `specs/meals/` alongside `specs/mvp/` as authoritative for its feature. Leave the owner's Status line alone unless the owner asks.
   - Record how OI-15–OI-19 were resolved in `specs/meals/2-design.md` §10, the way the MVP design records its open items.
   - Check that every task here and its 🤖 line in `docs/TASKS.md` are ticked, and list any that weren't done.
+    - *Checked 2026-10-19. Tasks 9.1–12.4 are ticked in both files, and every file, rule and test they list exists. The CI `app` and `database` checks pass locally. Two parts had not been done: the Simulator check in 12.2 (OI-16) and the Simulator checks in 12.3 (OI-17 and N22). Both were run the same day. 12.3's checks passed (MT-12-12, MT-12-13), so OI-17 is resolved. 12.2's check failed (MT-12-08): typing in a full slot flickers and moves the cursor. OI-16's fallback becomes a new task once the owner settles its emoji trade-off with R32.5. OI-15 waits for gate G11, and OI-18 and OI-19 are resolved. The §8.2 long-text data in the test plan now fills 500 characters, as N22 specifies, instead of 498.*
   - _Requirements: none directly; it keeps the spec and the code in step_ — _Design: §10_
 
 ---

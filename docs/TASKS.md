@@ -394,7 +394,7 @@ The spec is [`specs/meals/`](../specs/meals/). Its requirements and design were 
 - [x] 🤖 **12.2** Slot editor
 - [x] 🤖 **12.3** Meals screen and tab
 - [x] 🤖 **12.4** Add to groceries shortcut (needs MVP task 4.8 first)
-- [ ] 🤖 **13.1** Docs follow-through
+- [x] 🤖 **13.1** Docs follow-through
 - [ ] ✅ **P2.1** Two-simulator check against the local stack. Run `npm run two-sims`, then sign in as **A** on one simulator and **B** on the other:
   - [ ] Save a meal on A → it appears on B within about 1 second. Clearing it propagates too
   - [ ] Both open the same slot. B types and taps Done; A's typing isn't disturbed. A taps Done → both show A's text
@@ -404,7 +404,7 @@ The spec is [`specs/meals/`](../specs/meals/). Its requirements and design were 
   - [ ] **Add to groceries** on Meals opens the add-item sheet; the item appears on Groceries on both simulators
   - [ ] Sign in as **C** → sees none of Household One's meals
 - [ ] 👤 **P2.2** Review and commit the changes on `main`.
-- [ ] 👤 **P2.3** Deploy the migration. Actions → "Deploy database" → **Run workflow** on `main` (manual until 8.10). Check that the dry run lists only `meals_init`. Starting the run is your approval (R28.2).
+- [x] 👤 **P2.3** Deploy the migration. Actions → "Deploy database" → **Run workflow** on `main` (manual until 8.10). Check that the dry run lists only `meals_init`. Starting the run is your approval (R28.2). Done 2026-10-19: run 39288071346 applied only `meals_init`, ahead of P2.1, because build 2 (14.4, commit `f797ce2`) already contains the Meals tab. The advisor shows only the accepted leaked-password warning.
 - [ ] 👤 **P2.4** Ship it to both phones. Once 14.4's build is installed, Actions → **EAS Deploy** → `ota-update` is enough, unless it says a build is needed. Otherwise run `build-and-submit` (or `eas build --platform ios --profile production --auto-submit`), then install the new build from TestFlight on **both** phones.
 - [ ] 👤 **P2.5** Time-zone check on your phone (design OI-15). On the TestFlight build:
   1. Settings → General → Date & Time → turn off **Set Automatically**, and pick a time zone where today's date differs from home's. From Chicago, for example, Auckland is a day ahead from about 6 am Chicago time onwards.

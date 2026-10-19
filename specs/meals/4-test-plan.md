@@ -361,15 +361,19 @@ As in the MVP plan, tick each box when it passes. If one fails, record it agains
 - [ ] **MT-12-06** Type in a slot and go to the home screen. In Studio, the entry holds the text. Reopen the app: the editor is still open. (R32.3)
 - [ ] **MT-12-07** Clear a slot by deleting its text and pressing Return, and another with the Clear button. Both show their placeholders. (R33.1, R33.2)
 - [ ] **MT-12-08** Paste 600 characters. The slot keeps 500 and shows "No characters left". Type and delete around the limit: the text doesn't flicker and the cursor doesn't jump (OI-16). (R32.5)
+  - *Failed 2026-10-19 (iPhone 17 Simulator, iOS 26.5, Debug build, keys sent by AXe). The paste keeps the first 500 and shows "No characters left", and deleting below the limit works. Two failures in a full slot. **Flicker:** a character typed at the end shows for 140–690 ms before the clamp removes it. **Cursor:** after a character typed mid-text, the cursor lands before it, so the next one goes in front ("MN" comes out as "NM"). Below the limit, typing mid-text is normal. Design §10 OI-16 has the details.*
 - [ ] **MT-12-09** Go back to a past week and forward to a week next year. This week returns and scrolls to today. Relaunch the app: the past week still shows its entry. (R31.1–R31.4)
 - [ ] **MT-12-10** On Meals, tap Add to groceries and add "Tortillas". Done returns to the same week, and Groceries lists Tortillas. (R37)
 - [ ] **MT-12-11** Turn the Mac's Wi-Fi off. The offline banner shows. Save two slots; both show. Turn Wi-Fi on: both are saved, in order. (R35.1, R13.1–R13.3)
-- [ ] **MT-12-12** Load the long-text week from §8.2. Scroll the whole week: it's smooth (N22). Type in a slot: nothing lags or drops (N21).
-- [ ] **MT-12-13** Use the largest standard text size. Nothing is clipped, text wraps, and today still scrolls into view (OI-17). (N12)
+- [x] **MT-12-12** Load the long-text week from §8.2. Scroll the whole week: it's smooth (N22). Type in a slot: nothing lags or drops (N21).
+  - *Passed 2026-10-19 on the same Simulator and Debug build. The week arrived live. Flick-scrolling it ran at about 60 fps: median frame gap 16.7 ms, 95th percentile 20 ms, and five isolated gaps of about 50 ms. Text typed by machine, 45 and 500 characters, all arrived in order.*
+- [x] **MT-12-13** Use the largest standard text size. Nothing is clipped, text wraps, and today still scrolls into view (OI-17). (N12)
+  - *Passed 2026-10-19 at Extra Extra Extra Large, with the long-text week loaded and the household zone set to `Pacific/Kiritimati` so that today was Tuesday, below a Monday card about 2,000 points tall. Tuesday's card opened right under the week header, on first show and after This week. The day headers, an open editor, its counter and Clear all fit without clipping.*
 - [ ] **MT-12-14** VoiceOver, through the Accessibility Inspector or a device. Day headers read like "Thursday 22 October, today, 2 of 3 meals planned". Slots read like "Thursday dinner: Tacos". The Clear action works, and the counter is announced. (N10)
 - [ ] **MT-12-15** Run the Accessibility Inspector's contrast audit on Meals. It finds no failures. (N13, R36.4)
 - [ ] **MT-12-16** Turn on Reduce Motion. Scrolling to today isn't animated, and the skeleton doesn't shimmer. (N14)
 - [ ] **MT-12-17** The cup, sun, moon, fork-and-knife and cart-plus symbols all render (OI-19). (R36.2)
+  - *In the development build, the DEV badge covers the Add to groceries button, so the cart-plus symbol can't be seen there. The button still works, because the badge passes taps through. Check this one on a production build. The other four symbols and the week arrows rendered on 2026-10-19.*
 - [ ] **MT-12-18** **Midnight rollover.**
   1. In Studio, set Household One's `time_zone` to a zone where midnight is 2–3 minutes away.
   2. Send the app to the background and reopen it, so the household reloads.
@@ -484,11 +488,11 @@ The MVP fixtures (`00_test_helpers.sql`, `10_seed_data.sql`) apply. Task 9.2 add
 
 ### 8.2 Manual-test Data
 
-For MT-12-12, run this in the local Studio SQL editor (local only). It fills all 21 slots of the current week with 498 characters each:
+For MT-12-12, run this in the local Studio SQL editor (local only). It fills all 21 slots of the current week with 500 characters each, the limit (N22):
 
 ```sql
 insert into public.meal_entries (household_id, meal_date, meal_type, body)
-select h.id, d::date, t, repeat('Long meal text ', 33) || 'end'
+select h.id, d::date, t, repeat('Long meal text ', 33) || 'Ended'
 from public.households h
 cross join generate_series(date_trunc('week', current_date), date_trunc('week', current_date) + interval '6 days', interval '1 day') d
 cross join unnest(array['breakfast', 'lunch', 'dinner']) t

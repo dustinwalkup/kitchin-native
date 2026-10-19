@@ -3,10 +3,10 @@
 A private iOS app shared by two household members: groceries first, then meals, chores and notes.
 Stack: Expo + React Native + TypeScript (strict) + Expo Router, with Supabase (Postgres, Auth, Realtime, RLS), TanStack Query, Sentry, GitHub Actions, and EAS → TestFlight.
 
-- `specs/mvp/` is the authoritative spec, written with the EARS spec-driven process: `1-requirements.md` → `2-design.md` → `3-tasks.md` → `4-test-plan.md`. Read the relevant requirement and design section before changing anything they cover, and cite requirement numbers (for example R7.3) in commits and PRs.
+- `specs/mvp/` is the authoritative spec for the MVP, and `specs/meals/` for meal planning. Both are written with the EARS spec-driven process: `1-requirements.md` → `2-design.md` → `3-tasks.md` → `4-test-plan.md`. Meals numbering continues from the MVP's (R30, N21, DD23, OI-15 and task 9 onwards), so a number means one thing across both. Read the relevant requirement and design section before changing anything they cover, and cite requirement numbers (for example R7.3 or R32.3) in commits and PRs.
 - New features (meals, chores, notes) get their own `specs/<feature>/` folder and go through the same four phases, with explicit owner approval between each phase.
 - `docs/SPEC.md` is the research record: legacy assessment, risks, costs and documentation links. Its §3–§11 are superseded by `specs/mvp/2-design.md`.
-- `docs/TASKS.md` is the owner runbook. 👤 = an owner-only manual step (stop and give exact instructions). Its 🤖 steps are superseded by `specs/mvp/3-tasks.md`.
+- `docs/TASKS.md` is the owner runbook. 👤 = an owner-only manual step (stop and give exact instructions). Its M1–M8 🤖 steps are superseded by `specs/mvp/3-tasks.md`. Its Phase 2 🤖 lines mirror `specs/meals/3-tasks.md` under the same numbers, so tick both together.
 
 ## Status
 
