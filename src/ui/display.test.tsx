@@ -1,4 +1,5 @@
-import { render, screen, within } from '@testing-library/react-native';
+import { onlineManager } from '@tanstack/react-query';
+import { act, render, screen, within } from '@testing-library/react-native';
 
 import { Banner } from './banner';
 import { Card } from './card';
@@ -69,29 +70,38 @@ describe('DevBadge', () => {
 });
 
 describe('Screen', () => {
-  it('renders the banner slot above its content on the screen background', async () => {
-    await render(
-      <Screen banner={<Banner message="Offline" />}>
-        <Text>Groceries</Text>
-      </Screen>,
-    );
+  const OFFLINE = "Offline — changes will send when you're back online";
 
-    const [bannerSlot, content] = screen.root!.children.filter(
-      (child) => typeof child !== 'string',
-    );
-
-    expect(screen.root).toHaveStyle({ backgroundColor: light.screen });
-    expect(within(bannerSlot).getByText('Offline')).toBeOnTheScreen();
-    expect(within(content).getByText('Groceries')).toBeOnTheScreen();
+  afterEach(() => {
+    onlineManager.setOnline(true);
   });
 
-  it('renders without a banner', async () => {
+  it('renders its content on the screen background, with no banner while online', async () => {
     await render(
       <Screen edges={['top']}>
         <Text>Settings</Text>
       </Screen>,
     );
 
+    expect(screen.root).toHaveStyle({ backgroundColor: light.screen });
     expect(screen.getByText('Settings')).toBeOnTheScreen();
+    expect(screen.queryByText(OFFLINE)).not.toBeOnTheScreen();
+  });
+
+  it('R13.1 shows the offline banner above its content while offline', async () => {
+    await render(
+      <Screen>
+        <Text>Groceries</Text>
+      </Screen>,
+    );
+
+    await act(() => onlineManager.setOnline(false));
+
+    const [banner, content] = screen.root!.children.filter((child) => typeof child !== 'string');
+    expect(within(banner).getByText(OFFLINE)).toBeOnTheScreen();
+    expect(within(content).getByText('Groceries')).toBeOnTheScreen();
+
+    await act(() => onlineManager.setOnline(true));
+    expect(screen.queryByText(OFFLINE)).not.toBeOnTheScreen();
   });
 });

@@ -638,7 +638,7 @@ Run `scripts/two-sims.sh`. Sign in as A on simulator 1 and as B on simulator 2.
 
 ### 6.5 M6 — Error Reporting Privacy (after task 6.2)
 
-- [ ] **MT-6-01** Build in Release configuration (`npx expo run:ios --configuration Release`) and tap "Send test error". An event arrives in Sentry under environment `development`. (R15.3, R26.8)
+- [ ] **MT-6-01** With the DSN in `.env.local`, build in Release configuration (`SENTRY_DISABLE_AUTO_UPLOAD=true npx expo run:ios --configuration Release`; the upload token exists only in EAS) and tap "Send test error". An event arrives in Sentry under environment `development`. (R15.3, R26.8)
 - [ ] **MT-6-02** Open that event. The user is a UUID only; there's no email, IP address, token or item text; breadcrumb URLs have no query strings; there are no screenshots or view hierarchy. (R26.3, R26.4, R26.6, R26.11)
 - [ ] **MT-6-03** In a debug build (`npx expo run:ios`), tap "Send test error". No event arrives. (R26.8)
 - [ ] **MT-6-04** In Sentry project settings, Data Scrubber, the default scrubbers and "Prevent Storing of IP Addresses" are all on. (R26.10)

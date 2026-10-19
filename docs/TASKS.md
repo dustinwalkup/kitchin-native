@@ -50,7 +50,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
      eas login
      eas whoami
      ```
-- [ ] 👤 **0.5** Create a Supabase account at <https://supabase.com/dashboard>. Use GitHub sign-in or email, and turn on MFA for the account.
+- [x] 👤 **0.5** Create a Supabase account at <https://supabase.com/dashboard>. Use GitHub sign-in or email, and turn on MFA for the account.
   - Create an **organization** on the Free plan.
   - **Don't create the production project yet** (that's M7). Free projects pause after about a week without use, so creating it now could mean it's paused by the time you need it.
 - [x] 👤 **0.6** Create a Sentry account at <https://sentry.io/signup/>. The Developer (free) plan is enough. The project itself is set up in M6.
@@ -93,7 +93,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 - [x] 🤖 **1.9** Add `.github/workflows/ci.yml` (the `app` job: lint, format check, typecheck, test, secrets check) and `.github/dependabot.yml` (npm + github-actions, weekly).
 - [x] 🤖 **1.10** Update the README with how to run the app and the npm scripts. Fill in the "Commands" section of `CLAUDE.md`.
 - [x] 👤 **1.11** Link the project to your Expo account. The EAS project already exists: `@dustinwalkup/kitchin`, ID `e7d10c82-e824-4b06-b34e-295b4152a6c5` (created 2026-10-18). In 1.5, Claude sets `owner: "dustinwalkup"`, `slug: "kitchin"` and `extra.eas.projectId` in `app.config.ts`. Keep the slug the same in both variants; only `name` and the bundle ID change. Don't create a second project with `eas init`. If you need to relink, run `eas init --id e7d10c82-e824-4b06-b34e-295b4152a6c5`.
-- [ ] 👤 **1.12** Run the app:
+- [x] 👤 **1.12** Run the app (done 2026-10-18: Groceries and Settings tabs render):
   1. Run `npm install`.
   2. Run `npx expo run:ios`. This builds a development build with your local Xcode and opens it in the iOS Simulator. It's free and uses no EAS quota. The first build takes a few minutes.
   3. Check that the placeholder tabs render with the DEV badge.
@@ -101,7 +101,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 - [ ] 👤 **1.13** Review and merge the PR.
 - [x] 👤 **1.14** Turn on GitHub repo protection: Settings → Code security: enable **Dependabot alerts**, **Secret scanning** and **Push protection**. Done 2026-10-18 (Dependabot security updates are on too).
   - The branch ruleset is deferred to 8.9 (owner decision, 2026-10-18): during the fast-paced development the owner commits directly to `main`. CI still runs on every push to `main`.
-- [ ] ✅ **Checkpoint:** the app runs in the Simulator, and CI is green.
+- [x] ✅ **Checkpoint:** the app runs in the Simulator, and CI is green.
 
 ---
 
@@ -127,15 +127,15 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   2. Run `npx supabase start`.
   3. Open Studio at the URL it prints (usually <http://127.0.0.1:54323>) and look at the tables.
   4. Run `npx supabase stop` when you're done.
-- [ ] 👤 **2.9** Review the SQL PR carefully. This is the most security-critical code in the project, so ask Claude to explain any policy you're unsure about. Then merge.
+- [x] 👤 **2.9** Review the SQL PR carefully. This is the most security-critical code in the project, so ask Claude to explain any policy you're unsure about. Then merge. Approved 2026-10-18. One minor follow-up (members could blank `created_by`) is in 3-tasks 4.1 and 4.2.
 - [x] 👤 **2.10** ~~Add `database` to the required status checks in the `main` ruleset.~~ Moved to 8.9, along with the rest of the ruleset.
-- [ ] ✅ **Checkpoint:** `npx supabase test db` passes locally and in CI, and the negative tests (user C can't see or modify Household 1) are present and passing.
+- [x] ✅ **Checkpoint:** `npx supabase test db` passes locally and in CI, and the negative tests (user C can't see or modify Household 1) are present and passing. Verified 2026-10-18: 73 tests pass locally, and the CI `database` job is green.
 
 ---
 
 ## M3: Authentication
 
-- [ ] 🤖 **3.1** Session storage and refresh:
+- [x] 🤖 **3.1** Session storage and refresh:
   - secure session storage adapter (Keychain via `expo-secure-store`, per SPEC §3/§6.3)
   - Supabase client auth options: `detectSessionInUrl: false`, persist, auto-refresh
   - AppState start/stop of auto-refresh
@@ -164,7 +164,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   - seed lists and items for H1/H2
 - [ ] 🤖 **4.2** Add pgTAP isolation tests for both grocery tables (SPEC §10.2 #1–11) and regenerate types.
 - [ ] 🤖 **4.3** Port the legacy constants: `CATEGORIES` (labels + emoji), `COMMON_ITEMS`, and the copy.
-- [ ] 🤖 **4.4** Data layer:
+- [x] 🤖 **4.4** Data layer:
   - `src/lib/errors.ts`, mapping errors to the categories in SPEC §9.1
   - `src/lib/query-client.ts`, wiring TanStack Query to NetInfo (`onlineManager`) and AppState (`focusManager`)
 - [ ] 🤖 **4.5** In `src/features/groceries/`, write `api.ts` and `hooks.ts`:
@@ -224,14 +224,14 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   - root and `(app)` error boundaries
   - `setUser({ id })` on sign-in, cleared on sign-out
   - a dev-only "Send test error" button in Settings
-- [ ] 🤖 **6.4** Unit tests proving the scrubber removes JWTs, `apikey`/`Authorization` headers, query strings, emails and item names from events and breadcrumbs.
+- [x] 🤖 **6.4** Unit tests proving the scrubber removes JWTs, `apikey`/`Authorization` headers, query strings, emails and item names from events and breadcrumbs.
 - [x] 👤 **6.5** Send the DSN to Claude. It's public, so Claude can put it in `.env.local` and run (done 2026-10-18: `EXPO_PUBLIC_SENTRY_DSN` is in EAS `production`):
   ```sh
   eas env:set --name EXPO_PUBLIC_SENTRY_DSN --value <dsn> --environment production --visibility plaintext
   ```
 - [ ] ✅ **6.6** Test a real error report:
-  1. Sentry is disabled in `__DEV__`, so build a **release-mode** simulator build: `npx expo run:ios --configuration Release`.
-  2. Tap "Send test error".
+  1. Sentry is disabled in `__DEV__`, so build a **release-mode** simulator build. The DSN must be in `.env.local` (`EXPO_PUBLIC_SENTRY_DSN=…`, the public value from step 6.5), or the build has reporting off. The source-map upload needs `SENTRY_AUTH_TOKEN`, which lives only in EAS, so skip it locally: `SENTRY_DISABLE_AUTO_UPLOAD=true npx expo run:ios --configuration Release`.
+  2. Tap "Send test error" (Settings, added by coding task 3.8).
   3. Open the event in Sentry and confirm it has **no** email, IP address, token, or grocery item text.
 - [ ] 👤 **6.7** Review and merge.
 
@@ -288,7 +288,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 ## M8: TestFlight
 
 - [x] 👤 **8.1** Confirm your Apple Developer membership is active: <https://developer.apple.com/account> shows "Apple Developer Program".
-- [ ] 👤 **8.2** App icon: provide a **1024×1024 PNG** with no transparency, or ask Claude for a simple placeholder (chef hat on desert teal). The legacy 180×180 icon is too small.
+- [x] 👤 **8.2** App icon: provide a **1024×1024 PNG** with no transparency, or ask Claude for a simple placeholder (chef hat on desert teal). The legacy 180×180 icon is too small. Decided 2026-10-18: placeholder, which Claude generates in task 8.1.
 - [ ] 🤖 **8.3** Production build config:
   - icon and splash
   - `ios.config.usesNonExemptEncryption: false`. This writes `ITSAppUsesNonExemptEncryption`; the app uses only standard OS HTTPS. Without it, every build shows "Missing Compliance".
@@ -299,22 +299,23 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   ```sh
   eas build --platform ios --profile production
   ```
-  When prompted, log in with your Apple ID and let EAS **create** the bundle identifier, distribution certificate and provisioning profile.
+  When prompted, log in with your Apple ID and let EAS **create** the distribution certificate and provisioning profile. The bundle identifier `com.dustinwalkup.kitchin` was registered by hand on 2026-10-18, so EAS reuses it.
 - [ ] 👤 **8.5** Submit it to TestFlight:
   ```sh
   eas submit --platform ios --latest
   ```
-  - Let EAS create the **App Store Connect app record** and an **App Store Connect API key**. Only the Account Holder or an Admin can create that key, and you are the Account Holder.
+  - The **App Store Connect app record** already exists: "Kitchin Household" (SKU `kitchin-ios`), created by hand on 2026-10-18. EAS finds it by bundle ID. The home-screen name is still "Kitchin".
+  - Let EAS create an **App Store Connect API key**. Only the Account Holder or an Admin can create that key, and you are the Account Holder.
   - Processing takes about 5–15 minutes. Internal builds don't need Beta App Review.
   - Next time, `eas build --platform ios --profile production --auto-submit` does both steps.
-- [ ] 👤 **8.6** Add your wife as an internal tester:
+- [x] 👤 **8.6** Add your wife as an internal tester. Done 2026-10-18: she's an App Store Connect user with the Developer role, and both of you are in the "Household" internal group. When the first build arrives, check that automatic distribution is on for the group.
   1. App Store Connect → **Users and Access** → **+** → invite her Apple Account email with the **Marketing** role.
      - Internal testers must be App Store Connect users with Account Holder, Admin, App Manager, Developer or Marketing roles.
      - Marketing is the least-privileged of those.
      - Managed Apple Accounts can't be testers.
   2. She accepts the email invite.
   3. App Store Connect → your app → **TestFlight** → **Internal Testing** → **+** → create the group "Household", add both of you, and enable automatic distribution.
-- [ ] 👤 **8.7** On both iPhones, install **TestFlight** from the App Store, open the invite, and install **Kitchin**. Sign in with your production accounts.
+- [ ] 👤 **8.7** On both iPhones, install **TestFlight** from the App Store, open the invite, and install **Kitchin Household** (it shows as "Kitchin" on the home screen). Sign in with your production accounts.
 - [ ] ✅ **8.8** Two-phone acceptance test on production:
   - [ ] Both see the same empty list. Add 5 items on phone 1 → they appear on phone 2 within about 1 second
   - [ ] Check, edit, delete and clear on phone 2 → reflected on phone 1
@@ -361,7 +362,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
      npx supabase db dump --db-url "<connection string>" --data-only -f kitchin-data.sql
      ```
   3. Store both files in an encrypted location, for example an encrypted disk image or your password manager's file storage. **Never in the repo.**
-- [ ] 🤖 **Weekly-ish:** review and merge Dependabot PRs once CI is green.
+- [ ] 🤖 **Weekly-ish:** review and merge Dependabot PRs once CI is green. Dependabot skips Expo-managed packages and major versions (`.github/dependabot.yml`), so monthly, run `npx expo install --check` and apply any SDK patch updates with `npx expo install --fix`.
 - [ ] 👤 **Yearly:** renew the Apple Developer Program. 🤖 Upgrade the Expo SDK one version at a time.
 - [ ] 👤 **Rarely:** a lost phone or a suspected compromise → Dashboard → Authentication → Users → that user → sign out of all sessions and set a new password.
 - [ ] 👤 **If you get a Supabase "project will be paused" email** (after about 7 days of low activity, for example a vacation): open the app, or go to the dashboard and click **Resume project** if it already paused. Data is kept.
@@ -370,7 +371,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 
 ## Legacy decommissioning (after about 2 weeks of reliable use)
 
-- [ ] 👤 **Now, optional:** pause or stop the **Railway** zero-cache service. It is a publicly writable endpoint, and Railway may be billing you.
+- [x] 👤 **Now, optional:** pause or stop the **Railway** zero-cache service (paused, 2026-10-18). It is a publicly writable endpoint, and Railway may be billing you.
 - [ ] 👤 Delete the Railway project.
 - [ ] 👤 Delete or pause the **Vercel** project for `kitchin-app`.
 - [ ] 👤 Delete the **Neon** databases (dev + prod).

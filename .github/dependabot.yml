@@ -1,10 +1,40 @@
-# Weekly dependency updates (R27.8, design §3.12). Expo-managed packages must stay on the versions the
-# SDK expects: check an Expo bump with `npx expo install --check` before merging it.
+# Weekly dependency updates (R27.8, design §3.12).
+#
+# Expo SDK 58 pins its packages (node_modules/expo/bundledNativeModules.json), and React Native refuses
+# to start when `react` doesn't exactly match its renderer, so Dependabot leaves those alone. Update them
+# together with `npx expo install --fix`, or in an SDK upgrade. Major versions of everything else are
+# deliberate upgrades, not weekly PRs. Ignored packages still raise Dependabot alerts.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
     schedule: { interval: weekly }
+    ignore:
+      # Versions set by the Expo SDK.
+      - dependency-name: expo
+      - dependency-name: expo-*
+      - dependency-name: '@expo/*'
+      - dependency-name: jest-expo
+      - dependency-name: eslint-config-expo
+      - dependency-name: react
+      - dependency-name: react-dom
+      - dependency-name: react-native
+      - dependency-name: react-native-*
+      - dependency-name: '@react-native-async-storage/async-storage'
+      - dependency-name: '@react-native-community/netinfo'
+      - dependency-name: '@sentry/react-native'
+      # The Expo template sets the TypeScript minor version.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+    groups:
+      # One PR a week for the remaining minor and patch updates.
+      npm-minor-and-patch:
+        update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    groups:
+      github-actions:
+        patterns: ['*']

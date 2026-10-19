@@ -1,13 +1,26 @@
+import * as Sentry from '@sentry/react-native';
 import { DefaultTheme, Stack, type Theme as NavigationTheme, ThemeProvider } from 'expo-router';
 
+import { useForegroundAutoRefresh } from '@/lib/auto-refresh';
 import { env } from '@/lib/env';
+import { initSentry } from '@/lib/sentry';
 import { DevBadge } from '@/ui/dev-badge';
 import { useTheme } from '@/ui/use-theme';
 
 // Section 3 adds the query client, toast, auth and household providers, the Stack.Protected
 // guards (§3.3) and the SplashController here.
 
-export default function RootLayout() {
+// Before anything renders, so startup errors are reported too (§3.9).
+initSentry();
+
+// Catches what the (app) layout's boundary can't: the root itself and screens outside (app).
+export { ErrorBoundary } from '@/ui/crash-screen';
+
+export default Sentry.wrap(RootLayout);
+
+function RootLayout() {
+  useForegroundAutoRefresh();
+
   return (
     <Providers>
       <Stack screenOptions={{ headerShown: false }}>

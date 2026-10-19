@@ -112,6 +112,25 @@ describe('app.config.ts', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('EXPO_PUBLIC_SUPABASE_URL'));
   });
 
+  it.each([
+    ['development', LOCAL_URL],
+    ['production', PROD_URL],
+  ])(
+    'configures Sentry source maps by slug, never with an auth token in %s (R25.4, R26.9)',
+    (variant, url) => {
+      const config = loadConfig({ APP_VARIANT: variant, EXPO_PUBLIC_SUPABASE_URL: url });
+      const sentry = config.plugins?.find(
+        (plugin) => Array.isArray(plugin) && plugin[0] === '@sentry/react-native/expo',
+      );
+
+      // The token comes only from SENTRY_AUTH_TOKEN, an EAS secret, at build time.
+      expect(sentry).toEqual([
+        '@sentry/react-native/expo',
+        { organization: 'personal-1yv', project: 'kitchin', url: 'https://sentry.io/' },
+      ]);
+    },
+  );
+
   it('references only asset files that exist', () => {
     for (const env of [{}, { APP_VARIANT: 'production', EXPO_PUBLIC_SUPABASE_URL: PROD_URL }]) {
       const config = loadConfig(env);

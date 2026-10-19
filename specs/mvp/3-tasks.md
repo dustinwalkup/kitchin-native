@@ -34,7 +34,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
 | G6 | 6.1, 6.2, 6.5: **done**. Org `personal-1yv`, project `kitchin`; the DSN and `SENTRY_AUTH_TOKEN` (Secret) are in EAS `production` | 6.2 |
 | G7 | 7.1–7.4: the production project `kitchin` exists (`us-east-2`), its database password is reset, the access token exists, and the GitHub `production` environment has its secrets and variable. Still to do: the Realtime public-access setting in 7.2. The environment's protection rules are deferred to owner step 8.10 (see task 7.1) | Running the workflow from 7.1 (writing it doesn't need the gate) |
 | G8 | 7.6–7.9: deploy approved, household provisioned, production EAS variables set | The first production build after 8.1 |
-| G9 | "Start now", 8.1 and 8.2: Apple Developer membership active (**done**); a 1024 × 1024 icon provided, or a placeholder requested | 8.1 |
+| G9 | "Start now", 8.1 and 8.2: **done**. Apple Developer membership is active, and the owner asked for the placeholder icon (chef hat on desert teal) | 8.1 |
 
 ---
 
@@ -233,7 +233,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
 
 ## 3. Sign-in and app states (M3)
 
-- [ ] **3.1 Write the encrypted session storage (TDD)** · S
+- [x] **3.1 Write the encrypted session storage (TDD)** · S
   - Write the tests first, with `expo-secure-store`, AsyncStorage and `expo-crypto` mocked:
     - a value round-trips, and every write uses a fresh key
     - the Keychain options include `WHEN_UNLOCKED_THIS_DEVICE_ONLY`
@@ -243,13 +243,13 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - Implement `src/lib/secure-session-storage.ts` per §3.2. Install `expo-secure-store`, `expo-crypto`, AsyncStorage and `aes-js`.
   - _Requirements: R3.1, R3.2_ — _Design: §3.2_
 
-- [ ] **3.2 Create the Supabase client with foreground-only refresh** · S
+- [x] **3.2 Create the Supabase client with foreground-only refresh** · S
   - `src/lib/supabase.ts` per §3.2, typed with the generated `Database`. An AppState listener, registered once from the root layout, starts and stops auto-refresh.
   - Find out whether supabase-js still needs `react-native-url-polyfill` on React Native 0.88 (OI-3).
   - Test: `active` calls `startAutoRefresh`; any other state calls `stopAutoRefresh`.
   - _Requirements: R3.3, R3.4_ — _Design: §3.2, OI-3_
 
-- [ ] **3.3 Write the error classification and reporting facade (TDD)** · M
+- [x] **3.3 Write the error classification and reporting facade (TDD)** · M
   - Write the tests for `src/lib/errors.ts` first, using fixture error shapes:
     - each of these maps to its §6 category:
       - a network `TypeError` and `AuthRetryableFetchError`
@@ -262,7 +262,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - Add `src/lib/reporting.ts`: `report`, `reportOnce` (once per app session, by key), `setReportingUser`, and the typed `SafeExtras`. Until 6.2 it only logs, and only in `__DEV__`.
   - _Requirements: R14.1–R14.5, R26.2, R26.3, R26.4_ — _Design: §3.8, §3.9, §6_
 
-- [ ] **3.4 Configure the query client, connectivity and focus** · S
+- [x] **3.4 Configure the query client, connectivity and focus** · S
   - `src/lib/query-client.ts` per §3.7: NetInfo drives `onlineManager`, and AppState drives `focusManager`. Add `useIsOnline()` and the offline banner inside `Screen`.
   - Tests:
     - going offline shows the banner
@@ -336,7 +336,8 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
     - Checked trigger:
       - checking sets `checked_at` and `checked_by`, and unchecking clears both
       - another member checking it again keeps the first checker
-    - Deleting an auth user sets `checked_by` and `created_by` to null without an error.
+    - Deleting an auth user sets `checked_by` and `created_by` to null without an error. Clear the test's signed-in identity first (reset the role and JWT claims), as GoTrue's account deletion has no `auth.uid()`.
+    - A can't set `created_by` to null on an H1 item; it fails with `42501` (owner review of 2.9, 2026-10-18).
     - A can't insert, update or delete `grocery_lists`.
   - _Requirements: R5.6, R5.7, R5.8, R7.1, R7.2, R7.4, R19.2, R19.4–R19.7, R21.1–R21.5_ — _Design: §4.3, §4.4, §7_
 
@@ -346,6 +347,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
     - `handle_grocery_item_checked()`, with the triggers in order
     - grants, RLS and policies
     - `create or replace provision_household`, now with the list insert
+    - `create or replace private.handle_audit_fields()`, tightening its update check. Change the `created_by` clause to `(new.created_by is distinct from old.created_by and (new.created_by is not null or auth.uid() is not null))`. Then only a change with no signed-in user (the `ON DELETE SET NULL` from deleting an account) can clear it, and members can't blank attribution. This comes from the owner's review of 2.9; `core_households` is committed, so it isn't edited.
   - Add a few items per household to `10_seed_data.sql`, and regenerate the types.
   - Done when 4.1 passes and the structural tests stay green.
   - _Requirements: R19.1, R19.6, R21.1–R21.5, R23.2_ — _Design: §4.3, §4.4, §4.6, §5, DD16, DD21_
@@ -494,7 +496,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
 
 ## 6. Error reporting (M6)
 
-- [ ] **6.1 Write the report scrubber (TDD)** · M
+- [x] **6.1 Write the report scrubber (TDD)** · M
   - Write the tests for `src/lib/sentry-scrub.ts` first, per §3.9:
     - it removes `request`, every user field except the ID, and `server_name`
     - it strips query strings from fetch, XHR and navigation breadcrumbs, and drops console breadcrumbs

@@ -16,6 +16,9 @@ jest.mock('@/lib/env', () => ({
   },
 }));
 
+// The root layout's auto-refresh hook would create the real Supabase client.
+jest.mock('@/lib/auto-refresh', () => ({ useForegroundAutoRefresh: () => {} }));
+
 beforeEach(() => {
   mockVariant = 'development';
 });

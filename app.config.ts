@@ -35,6 +35,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'expo-splash-screen',
       { image: './assets/splash-icon.png', backgroundColor: '#faf3ed', imageWidth: 120 },
     ],
+    // Uploads source maps during EAS production builds (R26.9). The auth token comes only from the
+    // SENTRY_AUTH_TOKEN EAS secret, never from this file (R25.4). Local Debug builds skip the upload.
+    [
+      '@sentry/react-native/expo',
+      { organization: 'personal-1yv', project: 'kitchin', url: 'https://sentry.io/' },
+    ],
   ],
   experiments: { typedRoutes: true, reactCompiler: true },
   extra: {

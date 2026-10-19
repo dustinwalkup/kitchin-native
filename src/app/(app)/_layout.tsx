@@ -2,6 +2,9 @@ import { Stack } from 'expo-router';
 
 import { env } from '@/lib/env';
 
+// A screen that fails to render is replaced by the crash screen, and the root stays mounted (R14.6).
+export { ErrorBoundary } from '@/ui/crash-screen';
+
 export default function AppLayout() {
   return (
     <Stack>
