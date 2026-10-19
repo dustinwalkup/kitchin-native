@@ -1,7 +1,8 @@
 # Kitchin Meal Planning — Implementation Tasks
 
 > **Phase 3 of 4** in the EARS spec-driven process: 1-requirements → 2-design → **3-tasks** → 4-test-plan.
-> **Status:** Draft for owner review, 2026-10-19. Implements [2-design.md](./2-design.md) and [1-requirements.md](./1-requirements.md), both approved 2026-10-19. Implementation waits until the owner approves this document and `4-test-plan.md`.
+> **Status:** Draft for owner review, 2026-10-19. Implements [2-design.md](./2-design.md) and [1-requirements.md](./1-requirements.md), both approved 2026-10-19. Implementation waits until the owner approves this document and [4-test-plan.md](./4-test-plan.md), which cites every task by number.
+> **Amended during test planning:** G10 marked done; task 11.1 adds `trimEntry` and the meal factories (design finding 6, OI-18).
 
 The tasks are ordered by dependency. Numbering continues from [`specs/mvp/3-tasks.md`](../mvp/3-tasks.md): sections start at **9** and owner gates at **G10**, so "task 9.1" means one thing anywhere in the project. Each task fits in one focused session. Tests are written with the code, or before it where a task is marked **TDD**. A task is done when its tests pass locally and the CI `app` and `database` checks pass (CLAUDE.md, Commands).
 
@@ -28,7 +29,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
 
 | Gate | Owner step | Needed before |
 |---|---|---|
-| G10 | MVP task 4.8 (the add-item sheet) ticked in `specs/mvp/3-tasks.md` | 12.4, which opens that sheet from Meals |
+| G10 | MVP task 4.8 (the add-item sheet) ticked in `specs/mvp/3-tasks.md`. **Done**: ticked by 2026-10-19 | 12.4, which opens that sheet from Meals |
 | G11 | `docs/TASKS.md` P2.5: the time-zone check on a physical iPhone (OI-15) | Phase 2 sign-off. If it fails, the fallback in OI-15 becomes a new task |
 | G12 | `docs/TASKS.md` P2.3: the production deploy of `meals_init` | The first TestFlight build with Meals (P2.4) |
 
@@ -119,7 +120,9 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
     - `buildWeek`: seven days, Monday first, slots in meal-type order, planned counts, and entries outside the week ignored
     - `parseEntryRow`: an unknown meal type or a missing field is invalid, naming the field
     - `charLength`, `clampEntry` and `charactersLeft` with emoji and a pasted 600-character text
+    - `trimEntry`: everything `trim()` strips, plus U+0085 (design finding 6) *(added during test planning)*
     - `slotChange`, every branch: trimming, unchanged against `base` (DD27), clear, empty to empty, and save
+  - Add `makeEntryRow` and `makeMealEntry` to `src/test/factories.ts` for the hook and component tests.
   - _Requirements: R30.1–R30.5, R32.4, R32.5, R32.7, R33.1, R35.7, R36.2, R36.3, N23_ — _Design: §3.3.1, §3.3.2, DD27_
 
 - [ ] **11.2 Write the meals API layer** · S

@@ -83,6 +83,11 @@ These were checked on 2026-10-19 against the installed stack: Expo SDK 58.0.14, 
    - `secondary` on `secondarySoft`: 1.70, which fails
    - `accent` on `background`: 3.53
    - `accent` on `screen`: 3.21
+6. **Whitespace: Postgres `\s` against JavaScript `trim()`.** *(Checked during test planning, OI-18.)* On the local database (`en_US.UTF-8`, ICU provider), 19 code points were compared: the ASCII whitespace, U+0085, U+00A0, U+1680, U+180E, U+2000, U+200A, U+200B, U+2028, U+2029, U+202F, U+205F, U+3000 and U+FEFF. They agree except for two:
+   - U+0085 (next line) matches `\s` but survives `trim()`. A meal ending in it would be sent, then rejected as invalid. `trimEntry` strips it too.
+   - U+FEFF (zero-width no-break space) is stripped by `trim()` but doesn't match `\s`. That's harmless, because the app never sends it.
+
+   Grocery names have the same U+0085 exposure under DD16. Fixing that means changing grocery code, which N24 rules out for this phase, so it's left for a later fix.
 
 ### 1.4 Requirement Amendments
 
@@ -299,9 +304,11 @@ export function charLength(s: string): number;        // code points, as Postgre
 export function clampEntry(text: string): string;     // the first ENTRY_MAX code points (32.5, edge case 13)
 export function charactersLeft(text: string): number | null; // null while COUNTER_FROM or more remain
 
+export function trimEntry(s: string): string;        // JavaScript trim() plus U+0085, the one character
+                                                      // Postgres's \s matches that trim() keeps (finding 6)
 export type SlotChange = { kind: 'none' } | { kind: 'save'; body: string } | { kind: 'clear' };
 export function slotChange(base: string, draft: string): SlotChange;
-//   trim (32.4); trimmed draft === base → none (DD27); '' with a non-empty base → clear (33.1);
+//   trimEntry (32.4); trimmed draft === base → none (DD27); '' with a non-empty base → clear (33.1);
 //   '' with an empty base → none; anything else → save
 ```
 
@@ -657,5 +664,5 @@ Each item names the fallback if the assumption fails.
 - **OI-15. `Intl` on a phone.** Confirm `todayIn` and the display formats on a physical iPhone running the dev build. Set the phone to a zone other than the household's and check an instant just after midnight in the household's zone; Simulator and device reports of Hermes `Intl` differ (finding 2). Fallback: bundle `@formatjs/intl-datetimeformat` with zone data and keep `todayIn`'s interface.
 - **OI-16. Clamping a controlled field.** Confirm that `clampEntry` in `onChangeText` doesn't flicker or move the cursor on iOS when typing or pasting at the limit. Fallback: `maxLength={500}`, which counts UTF-16 units and so is stricter for emoji, with `clampEntry` still applied on commit.
 - **OI-17. Scroll to today at large text sizes.** Confirm that one `onLayout` pass places today correctly at the largest standard text size (N12). Fallback: scroll again after the first content-size change.
-- **OI-18. Whitespace agreement.** JavaScript's `trim()` and Postgres's `\s` may disagree on rare characters, the same exposure as grocery names under DD16. A pgTAP case and a unit case cover the common ones (space, tab, newline, NBSP). A disagreement would show as a reported `validation` error (§6).
+- **OI-18. Whitespace agreement.** **Resolved during test planning (finding 6).** The only character that Postgres treats as whitespace and `trim()` keeps is U+0085, so `trimEntry` strips it as well. DB-M-17 and U-MDOM-12 pin both sides. Any future disagreement would show up as a reported `validation` error (§6).
 - **OI-19. SF Symbols.** Confirm that `cup.and.saucer.fill`, `sun.max.fill`, `moon.fill`, `fork.knife` and `cart.badge.plus` render on iOS 16.4. Fallback: the matching `MaterialCommunityIcons` glyphs that the grocery states already use.

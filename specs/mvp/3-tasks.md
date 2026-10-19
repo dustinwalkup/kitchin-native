@@ -32,8 +32,8 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
 | G4 | 0.3: GitHub CLI signed in | The first PR |
 | G5 | 8.9 (moved from 1.14 and 2.10 on 2026-10-18): branch ruleset requiring `app` and `database`. Deferred because the owner commits directly to `main` during the fast-paced development. Secret scanning, push protection and Dependabot alerts are already on | MVP sign-off, after 8.1 |
 | G6 | 6.1, 6.2, 6.5: **done**. Org `personal-1yv`, project `kitchin`; the DSN and `SENTRY_AUTH_TOKEN` (Secret) are in EAS `production` | 6.2 |
-| G7 | 7.1–7.4: the production project `kitchin` exists (`us-east-2`), its database password is reset, the access token exists, and the GitHub `production` environment has its secrets and variable. Still to do: the Realtime public-access setting in 7.2. The environment's protection rules are deferred to owner step 8.10 (see task 7.1) | Running the workflow from 7.1 (writing it doesn't need the gate) |
-| G8 | 7.6–7.9: deploy approved, household provisioned, production EAS variables set | The first production build after 8.1 |
+| G7 | 7.1–7.4: the production project `kitchin` exists (`us-east-2`), its database password is reset, the access token exists, and the GitHub `production` environment has its secrets and variable. Realtime public access is off (7.2, confirmed 2026-10-19). The environment's protection rules are deferred to owner step 8.10 (see task 7.1) | Running the workflow from 7.1 (writing it doesn't need the gate) |
+| G8 | 7.6–7.9: **done** 2026-10-19. Deploy approved, household provisioned, production EAS variables set | The first production build after 8.1 |
 | G9 | "Start now", 8.1 and 8.2: **done**. Apple Developer membership is active, and the owner asked for the placeholder icon (chef hat on desert teal) | 8.1 |
 
 ---

@@ -266,7 +266,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   - **After 8.10:** go to Actions → "Deploy database" → **Review deployments** → approve.
 
   Then check that the tables exist in Dashboard → Table Editor.
-- [ ] 👤 **7.7** Provision the two accounts and the household:
+- [x] 👤 **7.7** Provision the two accounts and the household. Done 2026-10-19: both accounts were created with Auto Confirm, and Table Editor shows the expected 1 / 2 / 1 rows.
   1. Dashboard → Authentication → **Users** → **Add user** → **Create new user**. Enter your email and a generated password, and tick **Auto Confirm User**. Repeat for your wife's account, and save both passwords in your password managers.
      - **Don't use "Send invitation".** Invited users start unconfirmed, and with signups disabled they can't finish signing in.
      - If there's no auto-confirm option, tell Claude, and use the temporary-secret-key fallback in SPEC §6.2. Delete the key afterwards.
@@ -280,8 +280,8 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
      eas env:set --name EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY --value <publishable key> --environment production --visibility plaintext
      ```
   3. Don't use `eas integrations:supabase:connect`. It writes these values to *every* environment, including development.
-- [ ] 👤 **7.9** Dashboard → **Advisors → Security Advisor**: there should be no errors. Show any warnings to Claude.
-- [ ] ✅ **Checkpoint:** production schema deployed through CI only, and the household provisioned.
+- [x] 👤 **7.9** Dashboard → **Advisors → Security Advisor**: there should be no errors. Show any warnings to Claude. Done 2026-10-19: no errors, and one accepted warning, "Leaked Password Protection Disabled". It's a Pro-plan feature (SPEC §6.1); the 12-character minimum and generated passwords cover it.
+- [x] ✅ **Checkpoint:** production schema deployed through CI only, and the household provisioned.
 
 ---
 
