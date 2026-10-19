@@ -454,10 +454,17 @@ describe('reporting user', () => {
 });
 
 describe('the auth callback', () => {
+  // React's async act can let a zero-delay timer run before it resolves, so the provider's
+  // setTimeout is held until the test releases it.
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('U-AUTH-10 returns at once and defers every side effect', async () => {
     const ended = jest.fn();
     register(ended);
     const { clear } = await renderAuth();
+    jest.useFakeTimers();
 
     let returned: unknown = 'not called';
     await act(async () => {
@@ -472,7 +479,9 @@ describe('the auth callback', () => {
     expect(ended).not.toHaveBeenCalled();
     expect(clear).not.toHaveBeenCalled();
 
-    await flushDeferred();
+    await act(async () => {
+      jest.runOnlyPendingTimers();
+    });
     expect(setReportingUser).toHaveBeenCalledWith('user-a');
     expect(ended).toHaveBeenCalledTimes(1);
     expect(clear).toHaveBeenCalledTimes(1);

@@ -32,8 +32,9 @@ const REDACTED = '[redacted]';
 const ROW_MARKERS = /Failing row contains|Key \(|DETAIL:/;
 
 const PATTERNS: [RegExp, string][] = [
-  // URL query strings and fragments, which can hold filters on household content (R26.4)
-  [/\b((?:https?|wss?):\/\/[^\s?#]*)[?#]\S*/gi, '$1'],
+  // URL query strings and fragments, which can hold filters on household content (R26.4). Any
+  // scheme, so deep links (`kitchin://…`) are covered too.
+  [/\b([a-z][\w+.-]*:\/\/[^\s?#]*)[?#]\S*/gi, '$1'],
   [/eyJ[\w-]+\.[\w-]+\.[\w-]+/g, REDACTED], // JWTs
   [/sb_(?:publishable|secret)_[\w-]+/g, REDACTED], // Supabase keys
   [/apikey=[^&\s]+/gi, `apikey=${REDACTED}`],
@@ -76,8 +77,12 @@ const defined = (fields: Record<string, unknown>) =>
 export function scrubBreadcrumb<B extends ScrubbableBreadcrumb>(breadcrumb: B): B | null {
   const { data } = breadcrumb;
   switch (breadcrumb.category) {
-    case 'console':
-      return null; // R26.6
+    case 'console': // R26.6
+    // Sentry labels a tapped element with its accessibility label, testID or text, which can be an
+    // item name (R26.4). `ui.multiClick` is a repeated tap.
+    case 'touch':
+    case 'ui.multiClick':
+      return null;
     case 'fetch':
     case 'xhr':
     case 'http': {

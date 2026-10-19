@@ -126,13 +126,17 @@ describe('scrubEvent', () => {
   it('strips query strings and fragments from URLs anywhere in the event', () => {
     const scrubbed = scrubEvent({
       message: `request to ${REST_URL}?name=eq.Milk&select=* failed`,
-      extra: { socket: 'wss://abcdefghijklmnopqrst.supabase.co/realtime/v1/websocket#vsn=2.0.0' },
+      extra: {
+        socket: 'wss://abcdefghijklmnopqrst.supabase.co/realtime/v1/websocket#vsn=2.0.0',
+        link: 'kitchin://add-item?name=Milk',
+      },
     });
 
     expect(scrubbed.message).toBe(`request to ${REST_URL} failed`);
     expect(scrubbed.extra.socket).toBe(
       'wss://abcdefghijklmnopqrst.supabase.co/realtime/v1/websocket',
     );
+    expect(scrubbed.extra.link).toBe('kitchin://add-item');
   });
 
   it("doesn't change the event it was given", () => {
@@ -189,6 +193,16 @@ describe('scrubBreadcrumb', () => {
       data: { from: '/groceries', to: '/add-item' },
     });
   });
+
+  it.each(['touch', 'ui.multiClick'])(
+    'R26.4 drops %s breadcrumbs, whose labels can be item names',
+    (category) => {
+      const path = [{ name: 'Pressable', label: 'Milk, 2' }];
+      const crumb = { category, message: 'Touch event within element: Milk, 2', data: { path } };
+
+      expect(scrubBreadcrumb(crumb)).toBeNull();
+    },
+  );
 
   it("U-SCR-04 keeps the method and path of Sentry's Expo Router navigation breadcrumbs", () => {
     const scrubbed = scrubBreadcrumb({

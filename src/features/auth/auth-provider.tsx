@@ -24,8 +24,7 @@ export type AuthState =
   | { status: 'signedIn'; session: Session };
 
 export type SignInResult =
-  | { ok: true }
-  | { ok: false; reason: 'invalid_credentials' | 'offline' | 'server' };
+  { ok: true } | { ok: false; reason: 'invalid_credentials' | 'offline' | 'server' };
 
 export type SignOutResult = { ok: true } | { ok: false; reason: 'offline' | 'server' };
 

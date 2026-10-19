@@ -269,7 +269,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
     - a focus change refetches a stale query
   - _Requirements: R11.3, R13.1_ — _Design: §3.7_
 
-- [ ] **3.5 Write the auth provider (TDD)** · M
+- [x] **3.5 Write the auth provider (TDD)** · M
   - Write the tests first, with Supabase Auth mocked:
     - `INITIAL_SESSION` resolves `restoring`.
     - Sign-in results map to invalid credentials, offline or server.
@@ -505,7 +505,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
     - it leaves the allowed fields intact: category, codes, table names and record UUIDs
   - _Requirements: R26.3, R26.4, R26.5_ — _Design: §3.9_
 
-- [ ] **6.2 Wire Sentry, error boundaries and reporting** · M
+- [x] **6.2 Wire Sentry, error boundaries and reporting** · M
   - Needs gate G6.
   - Setup:
     - `npx expo install @sentry/react-native`, then add the config plugin with the org and project slugs, and `getSentryExpoConfig` in `metro.config.js`

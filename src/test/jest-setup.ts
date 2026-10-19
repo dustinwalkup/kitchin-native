@@ -31,7 +31,6 @@ jest.mock('@sentry/react-native', () => ({
   captureMessage: jest.fn(),
   setUser: jest.fn(),
   breadcrumbsIntegration: (options: unknown) => ({ name: 'Breadcrumbs', options }),
-  expoRouterIntegration: () => ({ name: 'ExpoRouter' }),
 }));
 
 // Icon fonts can't load from the asset registry under Jest. Reporting them as loaded lets

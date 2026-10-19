@@ -98,7 +98,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   2. Run `npx expo run:ios`. This builds a development build with your local Xcode and opens it in the iOS Simulator. It's free and uses no EAS quota. The first build takes a few minutes.
   3. Check that the placeholder tabs render with the DEV badge.
   4. After that, `npx expo start` is enough until native dependencies change. We don't use Expo Go.
-- [ ] 👤 **1.13** Review and merge the PR.
+- [x] 👤 **1.13** Review and merge the PR. Done: there are no PRs while the owner commits directly to `main`, and M1 is committed.
 - [x] 👤 **1.14** Turn on GitHub repo protection: Settings → Code security: enable **Dependabot alerts**, **Secret scanning** and **Push protection**. Done 2026-10-18 (Dependabot security updates are on too).
   - The branch ruleset is deferred to 8.9 (owner decision, 2026-10-18): during the fast-paced development the owner commits directly to `main`. CI still runs on every push to `main`.
 - [x] ✅ **Checkpoint:** the app runs in the Simulator, and CI is green.
@@ -147,7 +147,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   - `no-household` screen with a sign-out button.
   - Settings screen showing the signed-in email, the app version and environment, and a sign-out button that clears the query cache and channels.
 - [ ] 🤖 **3.4** Unit tests for the auth/household state transitions and sign-in form validation.
-- [ ] 👤 **3.5** Try it on the Simulator with the local stack running. Use the seed credentials, which are documented in `seed.sql`:
+- [ ] 👤 **3.5** Try it on the Simulator with the local stack running, once coding tasks 3.6 and 3.7 are done (3.8 adds Sign out). Use the seed credentials, which are documented in `supabase/seed/10_seed_data.sql`:
   - [ ] sign in as **A**: lands on Groceries (still a placeholder)
   - [ ] sign out, then sign in as **D**: sees "No household access"
   - [ ] a wrong password shows a friendly error

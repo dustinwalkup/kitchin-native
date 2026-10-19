@@ -42,7 +42,7 @@ describe('initSentry', () => {
       attachViewHierarchy: false,
       enableNetworkBreadcrumbs: false,
       tracesSampleRate: 0,
-      integrations: [{ name: 'Breadcrumbs', options: { console: false } }, { name: 'ExpoRouter' }],
+      integrations: [{ name: 'Breadcrumbs', options: { console: false } }],
       beforeSend: scrubEvent,
       beforeBreadcrumb: scrubBreadcrumb,
     });

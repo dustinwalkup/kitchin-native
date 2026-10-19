@@ -19,11 +19,9 @@ export function initSentry(): void {
     // crash reports never pass through beforeSend. The JS fetch breadcrumbs cover requests.
     enableNetworkBreadcrumbs: false,
     tracesSampleRate: 0, // DD7
-    // Listing breadcrumbsIntegration replaces the default one. No replay integration (R26.6).
-    integrations: [
-      Sentry.breadcrumbsIntegration({ console: false }), // R26.6
-      Sentry.expoRouterIntegration(), // navigation breadcrumbs (OI-6)
-    ],
+    // Listing breadcrumbsIntegration replaces the default one. No replay integration (R26.6). No
+    // expoRouterIntegration either: it can't find Expo Router 58's navigator, so it does nothing (OI-6).
+    integrations: [Sentry.breadcrumbsIntegration({ console: false })], // R26.6
     beforeSend: scrubEvent,
     beforeBreadcrumb: scrubBreadcrumb,
   });
