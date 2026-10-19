@@ -3,6 +3,8 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { DefaultTheme, Stack, type Theme as NavigationTheme, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { type ReactNode, useEffect, useState } from 'react';
+import { StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AuthProvider, type AuthState, useAuth } from '@/features/auth/auth-provider';
 import {
@@ -33,10 +35,13 @@ function RootLayout() {
   useForegroundAutoRefresh();
 
   return (
-    <Providers>
-      <RootNavigator />
-      {env.variant === 'development' && <DevBadge />}
-    </Providers>
+    // Gestures, such as swiping a grocery row to delete it, work only inside this view.
+    <GestureHandlerRootView style={styles.root}>
+      <Providers>
+        <RootNavigator />
+        {env.variant === 'development' && <DevBadge />}
+      </Providers>
+    </GestureHandlerRootView>
   );
 }
 
@@ -133,3 +138,7 @@ function useNavigationTheme(): NavigationTheme {
     },
   };
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+});

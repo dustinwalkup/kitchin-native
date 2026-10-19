@@ -147,27 +147,27 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   - `no-household` screen with a sign-out button.
   - Settings screen showing the signed-in email, the app version and environment, and a sign-out button that clears the query cache and channels.
 - [x] 🤖 **3.4** Unit tests for the auth/household state transitions and sign-in form validation.
-- [ ] 👤 **3.5** Try it on the Simulator with the local stack running, once coding tasks 3.6 and 3.7 are done (3.8 adds Sign out). Use the seed credentials, which are documented in `supabase/seed/10_seed_data.sql`:
-  - [ ] sign in as **A**: lands on Groceries (still a placeholder)
-  - [ ] sign out, then sign in as **D**: sees "No household access"
-  - [ ] a wrong password shows a friendly error
-  - [ ] kill and relaunch the app: you're still signed in
+- [x] 👤 **3.5** Try it on the Simulator with the local stack running, once coding tasks 3.6 and 3.7 are done (3.8 adds Sign out). Use the seed credentials, which are documented in `supabase/seed/10_seed_data.sql`:
+  - [x] sign in as **A**: lands on Groceries (still a placeholder)
+  - [x] sign out, then sign in as **D**: sees "No household access"
+  - [x] a wrong password shows a friendly error
+  - [x] kill and relaunch the app: you're still signed in
 - [ ] 👤 **3.6** Review and merge.
 
 ---
 
 ## M4: Grocery list workflow
 
-- [ ] 🤖 **4.1** Write the migration `groceries_init`:
+- [x] 🤖 **4.1** Write the migration `groceries_init`:
   - `grocery_lists` and `grocery_items` per SPEC §5.4: composite FK, CHECKs, partial unique index, audit + checked triggers, template policies
   - `provision_household` now also creates the default list
   - seed lists and items for H1/H2
-- [ ] 🤖 **4.2** Add pgTAP isolation tests for both grocery tables (SPEC §10.2 #1–11) and regenerate types.
-- [ ] 🤖 **4.3** Port the legacy constants: `CATEGORIES` (labels + emoji), `COMMON_ITEMS`, and the copy.
+- [x] 🤖 **4.2** Add pgTAP isolation tests for both grocery tables (SPEC §10.2 #1–11) and regenerate types.
+- [x] 🤖 **4.3** Port the legacy constants: `CATEGORIES` (labels + emoji), `COMMON_ITEMS`, and the copy.
 - [x] 🤖 **4.4** Data layer:
   - `src/lib/errors.ts`, mapping errors to the categories in SPEC §9.1
   - `src/lib/query-client.ts`, wiring TanStack Query to NetInfo (`onlineManager`) and AppState (`focusManager`)
-- [ ] 🤖 **4.5** In `src/features/groceries/`, write `api.ts` and `hooks.ts`:
+- [x] 🤖 **4.5** In `src/features/groceries/`, write `api.ts` and `hooks.ts`:
   - list query
   - add, check/uncheck, edit quantity, delete and clear-checked mutations, all optimistic with rollback
   - client UUIDs
@@ -185,17 +185,17 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 
 ## M5: Realtime
 
-- [ ] 🤖 **5.1** Write the migration `realtime_household_broadcast`:
+- [x] 🤖 **5.1** Write the migration `realtime_household_broadcast`:
   - `private.broadcast_household_change()`, attached to `grocery_lists` and `grocery_items`
   - the `realtime.messages` SELECT policy for `household:<id>` topics
   - pgTAP tests for that policy (SPEC §10.2 #12)
-- [ ] 🤖 **5.2** Write `src/lib/realtime/household-channel.ts`:
+- [x] 🤖 **5.2** Write `src/lib/realtime/household-channel.ts`:
   - private channel, auth token, and status tracking
   - coalesced invalidation, deferred while mutations are pending
   - refetch on resubscribe and when the app returns to the foreground
   - "Reconnecting…" pill
-- [ ] 🤖 **5.3** Unit tests for coalescing, deferral and the status-to-UI mapping.
-- [ ] 🤖 **5.4** Write a short script or doc for running the app on **two simulators at once**, for example an iPhone and an iPad simulator, or two iPhone models.
+- [x] 🤖 **5.3** Unit tests for coalescing, deferral and the status-to-UI mapping.
+- [x] 🤖 **5.4** Write a short script or doc for running the app on **two simulators at once**, for example an iPhone and an iPad simulator, or two iPhone models.
 - [ ] ✅ **5.5** Two-simulator test against the local stack. Sign in as **A** on one simulator and **B** on the other, then check:
   - [ ] Add on A → appears on B within about 1 second, and vice versa
   - [ ] Check/uncheck, quantity edit, delete and "clear checked" all propagate
@@ -289,7 +289,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 
 - [x] 👤 **8.1** Confirm your Apple Developer membership is active: <https://developer.apple.com/account> shows "Apple Developer Program".
 - [x] 👤 **8.2** App icon: provide a **1024×1024 PNG** with no transparency, or ask Claude for a simple placeholder (chef hat on desert teal). The legacy 180×180 icon is too small. Decided 2026-10-18: placeholder, which Claude generates in task 8.1.
-- [ ] 🤖 **8.3** Production build config:
+- [x] 🤖 **8.3** Production build config:
   - icon and splash
   - `ios.config.usesNonExemptEncryption: false`. This writes `ITSAppUsesNonExemptEncryption`; the app uses only standard OS HTTPS. Without it, every build shows "Missing Compliance".
   - `ios.privacyManifests` with the required-reason API declarations (Apple emails you after upload if any are missing; forward that email to Claude)

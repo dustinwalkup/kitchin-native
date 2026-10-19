@@ -29,6 +29,7 @@ You need Node (the version in `.nvmrc`), Xcode with an iOS Simulator runtime, an
 |---|---|
 | `npm start` | Starts Metro for an installed development build |
 | `npm run ios` | Builds the development variant and opens it in the iOS Simulator |
+| `npm run two-sims` | Installs that build on two simulators, "Kitchin A" and "Kitchin B", for the live-update checks, and prints the sign-ins and the Realtime stop and start commands |
 | `npm test` | Runs Jest. CI adds `--ci --coverage` and fails below the coverage thresholds |
 | `npm run lint` | ESLint, including the import-boundary and colour-literal rules |
 | `npm run format` / `npm run format:check` | Formats with Prettier, or only checks |

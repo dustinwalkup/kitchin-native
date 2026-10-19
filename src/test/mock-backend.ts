@@ -1,19 +1,21 @@
 // A controllable backend for route tests, which render the real root layout and its providers.
-// It stands in for Supabase Auth and the membership query, and nothing else:
+// It stands in for Supabase Auth, the household channel and the membership query, and nothing else:
 //
 //   jest.mock('@/lib/supabase', () => ({
-//     supabase: { auth: jest.requireActual('@/test/mock-backend').mockAuth },
+//     supabase: jest.requireActual('@/test/mock-backend').mockSupabase,
 //   }));
 //   jest.mock('@/features/household/api', () => jest.requireActual('@/test/mock-backend').mockHouseholdApi);
 //
 // jest.requireActual returns the same instance the test file imports, so both share the mocks.
 // Call resetBackend() in beforeEach. Like supabase-js, the auth mock announces INITIAL_SESSION
 // shortly after the provider subscribes, and signOut announces SIGNED_OUT before it resolves.
+// The channel joins only when a test calls `mockRealtime.latest().emitStatus('SUBSCRIBED')`.
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 import type { Membership } from '@/features/household/api';
 
 import { makeSession } from './factories';
+import { createFakeRealtime } from './fake-channel';
 
 type AuthCallback = (event: AuthChangeEvent, session: Session | null) => unknown;
 
@@ -30,6 +32,16 @@ export const mockAuth = {
   signInWithPassword: jest.fn(),
   signOut: jest.fn(),
   admin: { signOut: jest.fn() },
+};
+
+export const mockRealtime = createFakeRealtime();
+
+/** The Supabase client: Auth, plus the realtime calls the household channel makes. */
+export const mockSupabase = {
+  auth: mockAuth,
+  realtime: mockRealtime.realtime,
+  channel: mockRealtime.channel,
+  removeChannel: mockRealtime.removeChannel,
 };
 
 export const mockHouseholdApi = { fetchMemberships: jest.fn() };
@@ -56,6 +68,7 @@ export function resetBackend({
     mock.mockReset();
   }
   mockHouseholdApi.fetchMemberships.mockReset();
+  mockRealtime.reset();
 
   mockAuth.onAuthStateChange.mockImplementation((callback: AuthCallback) => {
     listener = callback;

@@ -13,8 +13,6 @@ export interface CheckboxProps {
 
 /** A 22 pt box inside a 44 pt target (N11). */
 export function Checkbox({ checked, onChange, label, disabled = false }: CheckboxProps) {
-  const theme = useTheme();
-
   return (
     <Pressable
       accessibilityRole="checkbox"
@@ -24,19 +22,32 @@ export function Checkbox({ checked, onChange, label, disabled = false }: Checkbo
       onPress={() => onChange(!checked)}
       style={styles.target}
     >
-      <View
-        style={[
-          styles.box,
-          checked
-            ? { backgroundColor: theme.primary, borderColor: theme.primary }
-            : { backgroundColor: theme.background, borderColor: theme.controlBorder },
-        ]}
-      >
-        {checked ? (
-          <MaterialCommunityIcons name="check-bold" size={16} color={theme.onBrand} />
-        ) : null}
-      </View>
+      <CheckboxMark checked={checked} />
     </Pressable>
+  );
+}
+
+/**
+ * The 22 pt box on its own, for a control that is the touch target itself, such as a grocery row
+ * (§3.4). That control carries the role, label and state for VoiceOver.
+ */
+export function CheckboxMark({ checked }: { checked: boolean }) {
+  const theme = useTheme();
+
+  return (
+    <View
+      testID="checkbox-mark"
+      style={[
+        styles.box,
+        checked
+          ? { backgroundColor: theme.primary, borderColor: theme.primary }
+          : { backgroundColor: theme.background, borderColor: theme.controlBorder },
+      ]}
+    >
+      {checked ? (
+        <MaterialCommunityIcons name="check-bold" size={16} color={theme.onBrand} />
+      ) : null}
+    </View>
   );
 }
 

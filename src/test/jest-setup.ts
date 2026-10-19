@@ -1,7 +1,33 @@
 // Mocks for native modules that can't run under Jest (specs/mvp/4-test-plan.md §8.4). A test file
 // can still override any of them with its own jest.mock().
 
+// Gesture Handler's own mocks, for its native module and detectors. Gestures don't run under Jest,
+// so a test presses what a swipe would reveal.
+import 'react-native-gesture-handler/jestSetup';
+
 jest.mock('react-native-reanimated', () => jest.requireActual('react-native-reanimated/mock'));
+// Worklets' own mock. Its JavaScript build throws when Gesture Handler asks for the UI runtime.
+jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/src/mock'));
+
+// ReanimatedSwipeable's gestures need real shared values, which the Reanimated mock lacks. Here it
+// draws its right-hand actions beside the row, so a test presses Delete as if swiped open.
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
+  const { createElement } = jest.requireActual<typeof import('react')>('react');
+  const { View } = jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    __esModule: true,
+    // The app's actions don't read the swipe progress the real component passes them.
+    default: ({
+      children,
+      containerStyle,
+      renderRightActions,
+    }: {
+      children?: import('react').ReactNode;
+      containerStyle?: import('react-native').StyleProp<import('react-native').ViewStyle>;
+      renderRightActions?: () => import('react').ReactNode;
+    }) => createElement(View, { style: containerStyle }, renderRightActions?.(), children),
+  };
+});
 
 // Zero insets, and a SafeAreaProvider that needs no native measurement.
 jest.mock(

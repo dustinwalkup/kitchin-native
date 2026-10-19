@@ -14,7 +14,7 @@ jest.mock('@/lib/env', () => ({ env: { variant: 'development', sentryDsn: null }
 jest.mock('@/lib/auto-refresh', () => ({ useForegroundAutoRefresh: () => {} }));
 // A signed-in member with a household, so the guards open the (app) screens.
 jest.mock('@/lib/supabase', () => ({
-  supabase: { auth: jest.requireActual('@/test/mock-backend').mockAuth },
+  supabase: jest.requireActual('@/test/mock-backend').mockSupabase,
 }));
 jest.mock(
   '@/features/household/api',

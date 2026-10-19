@@ -21,9 +21,8 @@ jest.mock('@/lib/env', () => ({
 // The root layout's auto-refresh hook would create the real Supabase client.
 jest.mock('@/lib/auto-refresh', () => ({ useForegroundAutoRefresh: () => {} }));
 jest.mock('@/lib/supabase', () => ({
-  supabase: {
-    auth: jest.requireActual<typeof import('@/test/mock-backend')>('@/test/mock-backend').mockAuth,
-  },
+  supabase:
+    jest.requireActual<typeof import('@/test/mock-backend')>('@/test/mock-backend').mockSupabase,
 }));
 jest.mock(
   '@/features/household/api',

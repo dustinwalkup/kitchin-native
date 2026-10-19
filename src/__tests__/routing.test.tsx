@@ -14,6 +14,7 @@ import {
   MEMBERSHIP,
   mockAuth,
   mockHouseholdApi,
+  mockRealtime,
   resetBackend,
   SESSION,
 } from '@/test/mock-backend';
@@ -33,12 +34,16 @@ jest.mock('@/lib/env', () => ({
 }));
 
 jest.mock('@/lib/supabase', () => ({
-  supabase: { auth: jest.requireActual('@/test/mock-backend').mockAuth },
+  supabase: jest.requireActual('@/test/mock-backend').mockSupabase,
 }));
 jest.mock(
   '@/features/household/api',
   () => jest.requireActual('@/test/mock-backend').mockHouseholdApi,
 );
+// Groceries loads an empty list, so the screen settles on its empty state.
+jest.mock('@/features/groceries/api', () => ({
+  fetchList: jest.fn(async () => ({ listId: 'list-1', rows: [] })),
+}));
 // The root layout's auto-refresh hook would create the real Supabase client.
 jest.mock('@/lib/auto-refresh', () => ({ useForegroundAutoRefresh: () => {} }));
 // Debug builds log every report; nothing here asserts on them.
@@ -54,7 +59,7 @@ jest.mock('expo-splash-screen', () => ({
   hide: jest.fn(),
 }));
 
-const GROCERIES = 'Your grocery list will appear here.';
+const GROCERIES = 'No items yet';
 const OFFLINE_BANNER = "Offline — changes will send when you're back online";
 
 beforeEach(() => {
@@ -403,5 +408,43 @@ describe('DEV badge (C-RTE-07, R24.2)', () => {
     await renderApp('/sign-in', 'Kitchin');
 
     expect(screen.queryByLabelText('Development build')).not.toBeOnTheScreen();
+  });
+});
+
+describe('live updates', () => {
+  it('joins the household channel on the household screens and removes it on sign-out (§3.6)', async () => {
+    await renderApp();
+    await waitFor(() =>
+      expect(mockRealtime.channel).toHaveBeenCalledWith(`household:${MEMBERSHIP.household.id}`, {
+        config: { private: true },
+      }),
+    );
+    const channel = mockRealtime.latest();
+
+    await act(() => emitAuth('SIGNED_OUT', null));
+
+    await waitFor(() => expect(mockRealtime.removeChannel).toHaveBeenCalledWith(channel));
+    expect(mockRealtime.channels).toHaveLength(1);
+  });
+
+  it('opens no channel without a household', async () => {
+    resetBackend({ memberships: [] });
+    await renderApp(undefined, 'No household access');
+
+    expect(mockRealtime.realtime.setAuth).not.toHaveBeenCalled();
+    expect(mockRealtime.channel).not.toHaveBeenCalled();
+  });
+});
+
+describe('add-item sheet (§3.4, DD10)', () => {
+  it('opens from the "＋" on Groceries as /add-item, and Done closes it', async () => {
+    const app = await renderApp();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add item' }));
+
+    expect(await screen.findByRole('header', { name: 'Add item' })).toBeOnTheScreen();
+    expect(app.getPathname()).toBe('/add-item');
+    await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(app.getPathname()).toBe('/groceries'));
   });
 });

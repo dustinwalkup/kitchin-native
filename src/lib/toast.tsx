@@ -31,7 +31,13 @@ export const TOAST_WITH_ACTION_MS = 8000;
 
 const ToastContext = createContext<ToastApi | null>(null);
 
-export function ToastProvider({ children }: { children: ReactNode }) {
+export interface ToastProviderProps {
+  children: ReactNode;
+  /** `top` keeps toasts clear of the keyboard, in a sheet that's mostly typed into. */
+  placement?: 'top' | 'bottom';
+}
+
+export function ToastProvider({ children, placement = 'bottom' }: ToastProviderProps) {
   const [toast, setToast] = useState<{ id: number; options: ToastOptions } | null>(null);
 
   const show = useCallback((options: ToastOptions) => {
@@ -54,7 +60,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <View style={styles.root}>
         {children}
         {toast ? (
-          <Toast key={toast.id} options={toast.options} onDismiss={() => setToast(null)} />
+          <Toast
+            key={toast.id}
+            options={toast.options}
+            placement={placement}
+            onDismiss={() => setToast(null)}
+          />
         ) : null}
       </View>
     </ToastContext.Provider>
@@ -67,17 +78,28 @@ export function useToast(): ToastApi {
   return api;
 }
 
-function Toast({ options, onDismiss }: { options: ToastOptions; onDismiss: () => void }) {
+function Toast({
+  options,
+  placement,
+  onDismiss,
+}: {
+  options: ToastOptions;
+  placement: NonNullable<ToastProviderProps['placement']>;
+  onDismiss: () => void;
+}) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { action } = options;
+  // 56 pt above the safe area clears the tab bar.
+  const position = placement === 'top' ? { top: 8 } : { bottom: insets.bottom + 56 };
 
   return (
-    // 56 pt above the safe area clears the tab bar.
     <View
+      testID="toast"
       style={[
         styles.toast,
-        { bottom: insets.bottom + 56, backgroundColor: theme.ink, borderRadius: theme.radius.base },
+        position,
+        { backgroundColor: theme.ink, borderRadius: theme.radius.base },
       ]}
     >
       <Text variant="subhead" color="onBrand" style={styles.message}>

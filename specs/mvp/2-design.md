@@ -707,7 +707,8 @@ const scope = (listId: string) => ({ id: `grocery:${listId}` });           // DD
 
 export function useGroceryList(): {
   listId: string | undefined; items: GroceryItem[]; sections: Section[]; progress: Progress;
-  status: 'loading' | 'ready' | 'error' | 'waiting'; refetch(): void; isRefetching: boolean;
+  status: 'loading' | 'ready' | 'error' | 'waiting'; refetch(): Promise<void>; isRefetching: boolean;
+  refreshFailedAt: number | null;   // errorUpdatedAt of a failed fetch while items are loaded (4.10)
 };
 export function useAddItem(): (v: { name: string; category: CategoryKey; quantity: string | null }) => void;
 export function useSetChecked(): (v: { id: string; isChecked: boolean }) => void;
@@ -716,7 +717,7 @@ export function useDeleteItem(): (v: { id: string }) => void;
 export function useClearChecked(): () => void;
 ```
 
-`useGroceryList` uses `select` to run `parseItemRow`, `buildSections` and `progress`. Invalid rows trigger `reportOnce('invalid_row:'+id+':'+field)`.
+`useGroceryList` uses `select` to run `parseItemRow`, `buildSections` and `progress`. Invalid rows trigger `reportOnce('invalid_row:'+id+':'+field)`. `refetch` resolves once the fetch ends, so pull to refresh shows its spinner only for the member's own pull, not for background refetches. The screen shows a "Couldn't load groceries" toast with Retry for each new `refreshFailedAt` (4.10).
 
 **Shared mutation lifecycle.** A factory, `useGroceryMutation`, implements it for every mutation:
 
@@ -753,7 +754,7 @@ The household channel calls this through the coalescer (§3.6), so a burst of 20
 
 #### 3.5.5 Components
 
-`ProgressHeader`, `ClearCheckedButton`, `CategorySectionHeader`, `ItemRow` (swipeable via `ReanimatedSwipeable` from react-native-gesture-handler), `QuantityEditor`, `SkeletonRows`, `LoadError`, `GroceriesEmptyState`, `AddItemForm`, `CategoryChips` and `QuickAddChips`. Each one renders data and calls hooks; none touches Supabase.
+`ProgressHeader`, `ClearCheckedButton`, `CategorySectionHeader`, `ItemRow` (swipeable via `ReanimatedSwipeable` from react-native-gesture-handler), `QuantityEditor`, `SkeletonRows`, `LoadError`, `GroceriesEmptyState`, `AddItemForm`, `CategoryChips` and `QuickAddChips`. Each one renders data and calls hooks; none touches Supabase. The Groceries screen calls the mutation hooks once and passes their functions to `ItemRow` and `ClearCheckedButton`, rather than each of up to 300 rows creating its own query and mutation observers (N3).
 
 `testID`s are static, for example `item-row` or `quick-add-chip`. They never contain item names (26.7).
 
@@ -1550,7 +1551,8 @@ Each item names the milestone where it gets resolved and the fallback if the ass
 1. **`app.config.ts` importing `src/lib/env-guard.ts`** (M1). Confirm that Expo's config loader transpiles a local TypeScript import. Fallback: make `env-guard` a CommonJS `.js` file with JSDoc types.
 2. **App config evaluated without EAS env vars** (M7). Confirm what `eas build` sees on the laptop. The guard warns rather than failing on a missing URL (§3.1); EAS's remote build still evaluates config with the production variables.
 3. **React Native `URL` and supabase-js** (M2). Confirm whether supabase-js still needs `react-native-url-polyfill` on React Native 0.88. Add it if the current Supabase Expo guide does. **Resolved in task 3.2: not needed.** supabase-js 2.118 sets `URL.protocol`, which React Native 0.88's own `URL` can't do. But Expo SDK 58's runtime installs a standard `URL` over it as soon as `expo` loads. The app entry and the session storage's `expo-*` imports both load it before `createClient` runs. The Supabase guides disagree: the Expo tutorial no longer lists the polyfill, but the auth quickstart's install command still does. `supabase.test.ts` creates the client on Expo's `URL`.
-4. **Broadcast payload shape** (M5). Confirm the payload carries `table`, using a captured fixture. The handler only needs the table name; fall back to invalidating every grocery key.
+4. **Broadcast payload shape** (M5). Confirm the payload carries `table`, using a captured fixture. The handler only needs the table name; fall back to invalidating every grocery key. **Resolved in task 5.4: it does, so no fallback.** On the local stack, a private `household:<H1>` channel joined as member A received `{ type: 'broadcast', event, payload: { id, table, schema, operation, record, old_record }, meta: { id } }` for an insert and a delete. A delete carries the row in `old_record`, with `record` null. `src/lib/realtime/__fixtures__/broadcast-{insert,delete}.json` hold both, with placeholder values, and U-CH-08 replays them. The channel ignores a message whose `payload.table` isn't a string.
+   Also found: Realtime starts streaming `realtime.messages` only when a client joins and no stream is running. In the first capture, an insert sent straight after `SUBSCRIBED` wasn't broadcast, because Realtime created its replication slot about 20 ms after that insert. Writes come from people, so this gap doesn't matter in practice. Scripted checks against the local stack should wait a moment after `SUBSCRIBED`.
 5. **Form sheet with keyboard and ScrollView** (M4). Test on a device. Fallback: `presentation: 'modal'`.
 6. **Sentry Expo Router integration** (M6). Use `Sentry.expoRouterIntegration()` if the installed v8 exports it; otherwise skip it, since tracing is off and navigation breadcrumbs are optional. **Resolved in task 6.2: skipped.** `@sentry/react-native` 8.28 exports it, but it looks for `expo-router/build/global-state/router-store`, which Expo Router 58 no longer has, so it silently does nothing. The SDK's optional `require` of that path still makes Metro print a harmless "invalid package.json configuration" warning for `expo-router`. If navigation breadcrumbs are wanted later, use `Sentry.reactNavigationIntegration()` with `registerNavigationContainer(useNavigationContainerRef())` in the root layout.
 

@@ -13,6 +13,7 @@ declare const __dirname: string;
 const fs = jest.requireActual<{
   existsSync(path: string): boolean;
   readFileSync(path: string, encoding: 'utf8'): string;
+  readFileSync(path: string): Uint8Array;
 }>('node:fs');
 
 const LOCAL_URL = 'http://127.0.0.1:54321';
@@ -131,6 +132,34 @@ describe('app.config.ts', () => {
     },
   );
 
+  it.each([
+    ['development', LOCAL_URL],
+    ['production', PROD_URL],
+  ])('declares the required-reason APIs from design §3.14 in %s (R29.4)', (variant, url) => {
+    const config = loadConfig({ APP_VARIANT: variant, EXPO_PUBLIC_SUPABASE_URL: url });
+
+    expect(config.ios?.privacyManifests).toEqual({
+      NSPrivacyAccessedAPITypes: [
+        {
+          NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryUserDefaults',
+          NSPrivacyAccessedAPITypeReasons: ['CA92.1'],
+        },
+        {
+          NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryFileTimestamp',
+          NSPrivacyAccessedAPITypeReasons: ['C617.1'],
+        },
+        {
+          NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategorySystemBootTime',
+          NSPrivacyAccessedAPITypeReasons: ['35F9.1'],
+        },
+        {
+          NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryDiskSpace',
+          NSPrivacyAccessedAPITypeReasons: ['E174.1'],
+        },
+      ],
+    });
+  });
+
   it('references only asset files that exist', () => {
     for (const env of [{}, { APP_VARIANT: 'production', EXPO_PUBLIC_SUPABASE_URL: PROD_URL }]) {
       const config = loadConfig(env);
@@ -139,6 +168,68 @@ describe('app.config.ts', () => {
       expect(paths.length).toBeGreaterThan(0);
       expect(paths.filter((path) => !fs.existsSync(`${__dirname}/${path}`))).toEqual([]);
     }
+  });
+});
+
+// specs/mvp/4-test-plan.md §3.14. App Store Connect rejects an icon with any transparency (R29.5).
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+const PNG_RGB = 2;
+const PNG_RGBA = 6;
+
+/** Reads IHDR, then walks the chunks before the image data for tRNS, the other way to add alpha. */
+function readPngHeader(bytes: Uint8Array) {
+  expect(Array.from(bytes.subarray(0, 8))).toEqual(PNG_SIGNATURE);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const typeAt = (offset: number) => String.fromCharCode(...bytes.subarray(offset + 4, offset + 8));
+  expect(typeAt(8)).toBe('IHDR');
+
+  let transparencyChunk = false;
+  // Each chunk is a 4-byte length, a 4-byte type, the data and a 4-byte CRC.
+  for (let at = 8; at < bytes.length && typeAt(at) !== 'IDAT'; at += 12 + view.getUint32(at)) {
+    if (typeAt(at) === 'tRNS') transparencyChunk = true;
+  }
+  return {
+    width: view.getUint32(16),
+    height: view.getUint32(20),
+    colourType: bytes[25],
+    transparencyChunk,
+  };
+}
+
+function pngChunk(type: string, data: number[]): number[] {
+  const length = [24, 16, 8, 0].map((shift) => (data.length >>> shift) & 0xff);
+  return [...length, ...Array.from(type, (c) => c.charCodeAt(0)), ...data, 0, 0, 0, 0];
+}
+
+/** A PNG up to its first IDAT: enough for readPngHeader. The CRCs are left as zeros. */
+function fakePng(colourType: number, extraChunks: number[] = []): Uint8Array {
+  const size = [0, 0, 0x04, 0x00]; // 1024
+  const ihdr = pngChunk('IHDR', [...size, ...size, 8, colourType, 0, 0, 0]);
+  return Uint8Array.from([...PNG_SIGNATURE, ...ihdr, ...extraChunks, ...pngChunk('IDAT', [])]);
+}
+
+describe('assets', () => {
+  it.each([
+    ['development', LOCAL_URL],
+    ['production', PROD_URL],
+  ])('U-AST-02 the %s icon is a 1024 × 1024 RGB PNG with no transparency', (variant, url) => {
+    const { icon } = loadConfig({ APP_VARIANT: variant, EXPO_PUBLIC_SUPABASE_URL: url });
+
+    expect(readPngHeader(fs.readFileSync(`${__dirname}/${icon}`))).toEqual({
+      width: 1024,
+      height: 1024,
+      colourType: PNG_RGB,
+      transparencyChunk: false,
+    });
+  });
+
+  it('U-AST-02 the header check sees an alpha channel and a tRNS chunk', () => {
+    expect(readPngHeader(fakePng(PNG_RGB)).colourType).toBe(PNG_RGB);
+    expect(readPngHeader(fakePng(PNG_RGBA)).colourType).toBe(PNG_RGBA);
+    expect(readPngHeader(fakePng(PNG_RGB)).transparencyChunk).toBe(false);
+    expect(
+      readPngHeader(fakePng(PNG_RGB, pngChunk('tRNS', [0, 0, 0, 0, 0, 0]))).transparencyChunk,
+    ).toBe(true);
   });
 });
 

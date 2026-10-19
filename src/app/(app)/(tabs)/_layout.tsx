@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router/js-tabs';
 import { SymbolView } from 'expo-symbols';
 
+import { ReconnectingPill } from '@/features/household/components/reconnecting-pill';
 import { useTheme } from '@/ui/use-theme';
 
 // The main tabs are Groceries and Settings (R1.5). Cactus labels are bold because cactus carries
@@ -20,6 +21,9 @@ export default function TabsLayout() {
         name="groceries"
         options={{
           title: 'Groceries',
+          // Beside the title, where it doesn't cover the list (§3.4, R13.4).
+          headerRight: () => <ReconnectingPill />,
+          headerRightContainerStyle: { paddingRight: 16 },
           tabBarIcon: ({ color, size }) => (
             <SymbolView name="cart.fill" tintColor={color} size={size} />
           ),

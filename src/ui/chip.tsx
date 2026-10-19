@@ -5,6 +5,8 @@ import { useTheme } from './use-theme';
 
 export interface ChipProps {
   label: string;
+  /** What VoiceOver reads, when the visible label is shorter, such as an emoji alone. */
+  accessibilityLabel?: string;
   onPress: () => void;
   /** Cactus with white bold text, for the chosen category. */
   selected?: boolean;
@@ -15,13 +17,19 @@ export interface ChipProps {
 // Chips are 32 pt tall; the slop brings the touch target to 44 pt (N11).
 const HIT_SLOP = { top: 6, bottom: 6, left: 0, right: 0 };
 
-export function Chip({ label, onPress, selected = false, disabled = false }: ChipProps) {
+export function Chip({
+  label,
+  accessibilityLabel = label,
+  onPress,
+  selected = false,
+  disabled = false,
+}: ChipProps) {
   const theme = useTheme();
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={disabled ? `${label}, already added` : label}
+      accessibilityLabel={disabled ? `${accessibilityLabel}, already added` : accessibilityLabel}
       accessibilityState={{ selected, disabled }}
       disabled={disabled}
       hitSlop={HIT_SLOP}

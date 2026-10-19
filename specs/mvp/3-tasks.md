@@ -292,7 +292,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - Implement `src/features/household/api.ts` (the query in §3.3) and `household-provider.tsx`.
   - _Requirements: R1.3, R1.6, R1.7_ — _Design: §3.3_
 
-- [ ] **3.7 Add the root guards, splash and access screens** · M
+- [x] **3.7 Add the root guards, splash and access screens** · M
   - The root `_layout.tsx` gets its providers (query client, toast, auth, household), the `Stack.Protected` guards per §3.3, and the `SplashController`.
   - Screens per §3.4:
     - `sign-in.tsx`: logo tile, autofill attributes, validation, pending state and messages
@@ -341,7 +341,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
     - A can't insert, update or delete `grocery_lists`.
   - _Requirements: R5.6, R5.7, R5.8, R7.1, R7.2, R7.4, R19.2, R19.4–R19.7, R21.1–R21.5_ — _Design: §4.3, §4.4, §7_
 
-- [ ] **4.2 Write the migration `groceries_init`** · M
+- [x] **4.2 Write the migration `groceries_init`** · M
   - Per §4.3 and §4.4:
     - `grocery_lists` and `grocery_items`, their indexes and the partial unique index
     - `handle_grocery_item_checked()`, with the triggers in order
@@ -352,7 +352,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - Done when 4.1 passes and the structural tests stay green.
   - _Requirements: R19.1, R19.6, R21.1–R21.5, R23.2_ — _Design: §4.3, §4.4, §4.6, §5, DD16, DD21_
 
-- [ ] **4.3 Port the grocery constants and write the domain rules (TDD)** · M
+- [x] **4.3 Port the grocery constants and write the domain rules (TDD)** · M
   - `constants.ts`: `CATEGORIES` (fixed order, labels, emoji) and the 78 `COMMON_ITEMS`, copied verbatim from `kitchin-app`, plus the empty-state copy.
   - Tests first, then `domain.ts` per §3.5.1:
     - `normalizeName`
@@ -365,7 +365,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
     - `parseItemRow`: an unknown category becomes Other and is flagged; a missing field marks the row invalid, naming the field
   - _Requirements: R4.1–R4.4, R4.7, R4.8, R5.2–R5.4, R5.6, R5.7, R6.1, R6.2, R8.2, R14.7, R14.8, N17_ — _Design: §3.5.1_
 
-- [ ] **4.4 Write the grocery API layer** · S
+- [x] **4.4 Write the grocery API layer** · S
   - `src/features/groceries/api.ts` per §3.5.2, with every error wrapped by `toApiError`.
   - Tests with a stub client:
     - an update that returns zero rows → `not_found`; a delete of zero rows → success
@@ -374,7 +374,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
     - raw PostgREST text never appears on a thrown error
   - _Requirements: R9.3, R10.3, R12.4, R12.5, R26.4_ — _Design: §3.5.2, §3.8_
 
-- [ ] **4.5 Write the grocery queries and optimistic mutations (TDD)** · L
+- [x] **4.5 Write the grocery queries and optimistic mutations (TDD)** · L
   - Write the tests first, with a real `QueryClient` and a mocked `api.ts`:
     - each mutation's result shows immediately
     - a failure reverts only the affected item, and another mutation's change survives; the Retry toast reuses the same ID
@@ -406,7 +406,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - Render 300 items in the Simulator and check that scrolling is smooth (N3).
   - _Requirements: R4.1–R4.11, R13.1, R26.7, N3, N10, N12_ — _Design: §3.4_
 
-- [ ] **4.7 Add the item interactions: check, quantity, delete and clear** · M
+- [x] **4.7 Add the item interactions: check, quantity, delete and clear** · M
   - `ItemRow`:
     - tapping the row checks or unchecks the item
     - a separate quantity button (at least 44 pt) opens the inline `QuantityEditor`; Return or blur saves, and an empty value clears it
@@ -450,7 +450,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - Extend the structural tests: `broadcast_household_change` is a definer function with a fixed `search_path` that `anon` and `authenticated` can't execute.
   - _Requirements: R22.1, R22.2, R22.3, R22.5, N7_ — _Design: §4.5, §7, OI-7_
 
-- [ ] **5.2 Write the migration `realtime_household_broadcast`** · S
+- [x] **5.2 Write the migration `realtime_household_broadcast`** · S
   - Per §4.5:
     - `broadcast_household_change()`, with the exception guard
     - `after` triggers on both grocery tables
@@ -458,7 +458,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - Done when 5.1 passes.
   - _Requirements: R11.1, R11.2, R22.1–R22.3, R22.5, N7_ — _Design: §4.5, §5_
 
-- [ ] **5.3 Write the event coalescer (TDD)** · S
+- [x] **5.3 Write the event coalescer (TDD)** · S
   - Write the tests first, with fake timers:
     - a burst of events within 150 ms flushes once
     - a continuous stream flushes within 500 ms
@@ -466,7 +466,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - Implement `src/lib/realtime/coalescer.ts`.
   - _Requirements: R11.4, N17_ — _Design: §3.6_
 
-- [ ] **5.4 Write the household channel lifecycle** · M
+- [x] **5.4 Write the household channel lifecycle** · M
   - `src/lib/realtime/household-channel.ts` and `useHouseholdRealtime`, per §3.6. Mount the hook in `(app)/_layout.tsx`, and register `stop()` with `onSessionEnd` (from 3.5).
   - Tests with a fake channel:
     - it joins `household:<id>` with `private: true`, after `setAuth()`
@@ -477,7 +477,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - Capture a real broadcast payload from the local stack as a fixture, and confirm that the handler reads `table` (OI-4).
   - _Requirements: R3.5, R11.1, R11.3, R11.6, R13.5_ — _Design: §3.6, OI-4_
 
-- [ ] **5.5 Handle grocery events and show connection state** · S
+- [x] **5.5 Handle grocery events and show connection state** · S
   - `src/features/groceries/realtime.ts` per §3.5.4, wired through the coalescer.
   - `useReconnectingIndicator` (3 s or more, in the foreground), and the pill in `ProgressHeader`.
   - `reportOnce('realtime_degraded')` after 120 s in the foreground.
@@ -487,11 +487,11 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
     - the degraded report fires once, and never in the background
   - _Requirements: R11.4, R11.5, R13.4, R26.1_ — _Design: §3.5.4, §3.6_
 
-- [ ] **5.6 Add a two-simulator launch script** · S
+- [x] **5.6 Add a two-simulator launch script** · S
   - `scripts/two-sims.sh` (exposed as an npm script):
     - boots two named simulators with `xcrun simctl` and installs the current development build on both
     - prints how to sign in as A and B
-    - prints the `docker` commands that pause and resume the local Realtime container, for the reconnect check
+    - prints the `docker` commands that stop and start the local Realtime container, for the reconnect check (MT-5-07)
   - _Requirements: R11.1 (supports the manual checks in 4-test-plan)_ — _Design: §7_
 
 ## 6. Error reporting (M6)
@@ -536,7 +536,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
 
 ## 8. Release build (M8)
 
-- [ ] **8.1 Finish the release assets and App Store settings** · S
+- [x] **8.1 Finish the release assets and App Store settings** · S
   - Needs gate G9.
   - Replace the placeholder icon with the owner's 1024 × 1024 PNG with no alpha channel. If the owner asks, generate a placeholder chef hat on desert teal instead.
   - Add the splash image, confirm `usesNonExemptEncryption` and `autoIncrement`, and add the privacy-manifest reasons from §3.14.

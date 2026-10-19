@@ -37,6 +37,13 @@ describe('Chip', () => {
     expect(onPress).not.toHaveBeenCalled();
   });
 
+  it('can show a shorter label than the one VoiceOver reads', async () => {
+    await render(<Chip label="🥫" accessibilityLabel="Pantry" disabled onPress={() => {}} />);
+
+    expect(screen.getByRole('button', { name: 'Pantry, already added' })).toBeOnTheScreen();
+    expect(screen.getByText('✓ 🥫')).toBeOnTheScreen();
+  });
+
   it('renders a selected chip as bold onBrand text on cactus', async () => {
     await render(<Chip label="Produce" selected onPress={() => {}} />);
 

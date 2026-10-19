@@ -8,6 +8,15 @@ const BUNDLE_ID_PREFIX = 'com.dustinwalkup'; // DD9, chosen by the owner (gate G
 const variant = parseVariant(process.env.APP_VARIANT);
 const isProd = variant === 'production';
 
+// Required-reason APIs that React Native and AsyncStorage use (R29.4, design §3.14). Apple emails
+// after an upload if one is missing; add whatever that email names here.
+const REQUIRED_REASON_APIS: Record<string, string[]> = {
+  NSPrivacyAccessedAPICategoryUserDefaults: ['CA92.1'],
+  NSPrivacyAccessedAPICategoryFileTimestamp: ['C617.1'],
+  NSPrivacyAccessedAPICategorySystemBootTime: ['35F9.1'],
+  NSPrivacyAccessedAPICategoryDiskSpace: ['E174.1'],
+};
+
 // Some tools (expo-doctor, Jest) evaluate config without env vars, so a missing URL only warns here.
 // A wrong URL fails the build. env.ts fails at startup if the URL is missing.
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -28,6 +37,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: isProd ? `${BUNDLE_ID_PREFIX}.kitchin` : `${BUNDLE_ID_PREFIX}.kitchin.dev`, // R24.1
     supportsTablet: false,
     config: { usesNonExemptEncryption: false }, // R29.3
+    privacyManifests: {
+      NSPrivacyAccessedAPITypes: Object.entries(REQUIRED_REASON_APIS).map(([type, reasons]) => ({
+        NSPrivacyAccessedAPIType: type,
+        NSPrivacyAccessedAPITypeReasons: reasons,
+      })),
+    },
   },
   plugins: [
     'expo-router',

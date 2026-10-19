@@ -8,6 +8,8 @@ import {
   type Session,
 } from '@supabase/supabase-js';
 
+import type { GroceryItem, GroceryItemRow } from '@/features/groceries/domain';
+
 import { makeJwt } from './jwt';
 
 /** Household text that error fixtures embed, so tests can prove it never survives classification. */
@@ -104,5 +106,35 @@ export function makeSession(userId = 'user-a'): Session {
       user_metadata: {},
       created_at: '2026-01-01T00:00:00Z',
     },
+  };
+}
+
+/** An open grocery item. A checked one gets a `checkedAt` unless the overrides set it. */
+export function makeItem(overrides: Partial<GroceryItem> = {}): GroceryItem {
+  return {
+    id: 'item-1',
+    listId: 'list-1',
+    name: 'Bread',
+    category: 'bakery',
+    quantity: null,
+    isChecked: false,
+    checkedAt: overrides.isChecked ? '2026-10-18T12:30:00+00:00' : null,
+    createdAt: '2026-10-18T12:00:00+00:00',
+    ...overrides,
+  };
+}
+
+/** The `grocery_items` row that `makeItem()` comes from, as `api.ts` selects it. */
+export function makeRow(overrides: Partial<GroceryItemRow> = {}): GroceryItemRow {
+  return {
+    id: 'item-1',
+    list_id: 'list-1',
+    name: 'Bread',
+    category: 'bakery',
+    quantity: null,
+    is_checked: false,
+    checked_at: null,
+    created_at: '2026-10-18T12:00:00+00:00',
+    ...overrides,
   };
 }

@@ -632,7 +632,7 @@ Run `scripts/two-sims.sh`. Sign in as A on simulator 1 and as B on simulator 2.
 - [ ] **MT-5-04** Check two items. On A, open Clear checked and leave the prompt showing "2". On B, uncheck one of them. Then confirm on A. The item B unchecked survives. (R10.4)
 - [ ] **MT-5-05** Take B offline. On A, delete an item; on B, check that item. Bring B back online. B removes it and shows "That item was removed on another device". (R12.5)
 - [ ] **MT-5-06** Send B to the home screen. Make three changes on A, wait one minute, then reopen B. B shows all three. (R11.3)
-- [ ] **MT-5-07** Pause Realtime with the `docker pause` command that `two-sims.sh` prints. Within about 3 seconds both show "Reconnecting…", and a change on A doesn't reach B live. Unpause: the indicator goes away, and B reloads and shows the change. (R11.3, R11.6, R13.4, R13.5)
+- [ ] **MT-5-07** Stop Realtime with the `docker stop` command that `two-sims.sh` prints. Within about 3 seconds both show "Reconnecting…", and a change on A doesn't reach B live. Start it again with the `docker start` command: the indicator goes away, and B reloads and shows the change. Not `docker pause`: a paused container leaves the socket open, so the app notices only when a heartbeat goes unanswered, 25 to 50 seconds later. (R11.3, R11.6, R13.4, R13.5)
 - [ ] **MT-5-08** Change the same item's quantity on A and B at about the same time. Both settle on the same value. (R8.4)
 - [ ] **MT-5-09** Check 20 items on A and clear them. B updates in one step, without flickering item by item. (R11.4)
 - [ ] **MT-5-10** Sign in as C on simulator 2. It shows none of Household 1's items, and changes on A never appear there. (R19.2, R22.1)

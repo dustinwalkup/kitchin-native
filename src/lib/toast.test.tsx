@@ -66,6 +66,25 @@ describe('Toast', () => {
     expect(screen.queryByText('Failed')).not.toBeOnTheScreen();
   });
 
+  it('shows above the tab bar by default', async () => {
+    const toast = await renderProvider();
+
+    await act(() => toast.show({ message: 'Saved' }));
+
+    expect(screen.getByTestId('toast')).toHaveStyle({ bottom: 56 });
+  });
+
+  it('can show at the top instead, clear of the keyboard', async () => {
+    const { result } = await renderHook(() => useToast(), {
+      wrapper: ({ children }) => <ToastProvider placement="top">{children}</ToastProvider>,
+    });
+
+    await act(() => result.current.show({ message: 'Saved' }));
+
+    expect(screen.getByTestId('toast')).toHaveStyle({ top: 8 });
+    expect(screen.getByTestId('toast')).not.toHaveStyle({ bottom: 56 });
+  });
+
   it('replaces the current toast with a newer one', async () => {
     const toast = await renderProvider();
     await act(() => toast.show({ message: 'First' }));
