@@ -44,4 +44,10 @@ Stack: Expo + React Native + TypeScript (strict) + Expo Router, with Supabase (P
 
 ## Commands
 
-_To be filled in during M1._
+Before calling a task done, run the CI `app` job's checks: `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm test` and `npm run check:secrets`.
+
+- `npm test -- <path>` runs one file; CI runs `npm test -- --ci --coverage`, which fails below the 4-test-plan §9 thresholds. Route tests go in `src/__tests__/`, because every file under `src/app/` becomes a route.
+- `npm run format` fixes formatting. `npm run check:secrets` scans tracked and untracked, non-ignored files for credentials.
+- `npm run ios` builds the development variant ("Kitchin Dev") and opens it in the Simulator. It needs `.env.local` (copy `.env.example`). Once that build is installed, `npm start` is enough until native dependencies change.
+- `ios/` is generated and gitignored. After changing native config in `app.config.ts` (name, bundle ID, icon, plugins), run `npx expo prebuild --clean --platform ios`.
+- Local database: `npx supabase start`, then `npx supabase test db`, `npx supabase db lint --local --schema public,private --fail-on error` and `npx supabase db advisors --local --type security --fail-on warn`. Regenerate types with `npx supabase gen types typescript --local > src/types/database.ts`.

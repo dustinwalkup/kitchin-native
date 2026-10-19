@@ -1,0 +1,10 @@
+# Weekly dependency updates (R27.8, design §3.12). Expo-managed packages must stay on the versions the
+# SDK expects: check an Expo bump with `npx expo install --check` before merging it.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }

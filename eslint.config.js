@@ -34,6 +34,11 @@ module.exports = defineConfig([
     languageOptions: { globals: globals.node },
   },
   {
+    // TypeScript tests get these from @types/jest; JavaScript tests need them declared.
+    files: ['**/*.test.{js,mjs}'],
+    languageOptions: { globals: globals.jest },
+  },
+  {
     // Colours come only from theme tokens (R16.7). The theme test compares palette values to SPEC §4.6.
     files: ['src/**/*.{js,jsx,ts,tsx}'],
     ignores: ['src/ui/theme.ts', 'src/ui/theme.test.ts'],

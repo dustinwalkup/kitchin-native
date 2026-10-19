@@ -59,6 +59,9 @@ module.exports = {
   // Loads Reanimated's and worklets' JavaScript builds instead of their native ones. It replaces
   // the React Native preset's resolver, whose only job (a packageFilter) Jest 30 no longer runs.
   resolver: 'react-native-reanimated/jest/resolver',
+  // The preset compiles only .js and .ts files. Jest merges this entry into the preset's transforms,
+  // so scripts/*.mjs compile to CommonJS with the same Babel setup.
+  transform: { '\\.mjs$': require('jest-expo/jest-preset').transform['\\.[jt]sx?$'] },
   setupFilesAfterEnv: ['<rootDir>/src/test/jest-setup.ts'],
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',

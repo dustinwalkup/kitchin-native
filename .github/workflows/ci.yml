@@ -5,7 +5,20 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  # Task 1.9 adds the `app` job (27.1) above this one.
+  app: # 27.1, design §3.12
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm ci
+      - run: npm run lint # includes the import-boundary and colour-literal rules
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm test -- --ci --coverage # fails below the 4-test-plan §9 thresholds
+      - run: npm run check:secrets # 25.3
+
   database: # 27.2–27.6, design §3.12
     runs-on: ubuntu-latest
     steps:

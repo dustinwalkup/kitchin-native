@@ -31,7 +31,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
 | G3 | 0.4 and 1.11: **done**. The EAS project `@dustinwalkup/kitchin` exists; 1.5 writes its `owner`, `slug` and `projectId`. Don't run `eas init` | — |
 | G4 | 0.3: GitHub CLI signed in | The first PR |
 | G5 | 8.9 (moved from 1.14 and 2.10 on 2026-10-18): branch ruleset requiring `app` and `database`. Deferred because the owner commits directly to `main` during the fast-paced development. Secret scanning, push protection and Dependabot alerts are already on | MVP sign-off, after 8.1 |
-| G6 | 6.1, 6.2, 6.5: Sentry project, DSN and slugs shared; `SENTRY_AUTH_TOKEN` stored as an EAS secret | 6.2 |
+| G6 | 6.1, 6.2, 6.5: Sentry project, DSN and slugs shared (**done**: org `personal-1yv`, project `kitchin`, DSN in EAS `production`); `SENTRY_AUTH_TOKEN` stored as an EAS secret (still to do) | 6.2 |
 | G7 | 7.1–7.4: the production project `kitchin` exists (`us-east-2`), its database password is reset, the access token exists, and the GitHub `production` environment has its secrets and variable. Still to do: the Realtime public-access setting in 7.2. The environment's protection rules are deferred to owner step 8.10 (see task 7.1) | Running the workflow from 7.1 (writing it doesn't need the gate) |
 | G8 | 7.6–7.9: deploy approved, household provisioned, production EAS variables set | The first production build after 8.1 |
 | G9 | "Start now", 8.1 and 8.2: Apple Developer membership active (**done**); a 1024 × 1024 icon provided, or a placeholder requested | 8.1 |
@@ -134,7 +134,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - Done when the Simulator shows the placeholder tabs with the DEV badge (G1).
   - _Requirements: R1.5, R15.3, R15.4, R24.2_ — _Design: §2.3, §3.4_
 
-- [ ] **1.9 Write the secrets scanner and the CI `app` job** · M
+- [x] **1.9 Write the secrets scanner and the CI `app` job** · M
   - Write the tests for `scripts/check-secrets.mjs` first, with fixtures built at runtime:
     - each §3.12 pattern fails the scan
     - prose that mentions "service_role" passes
@@ -226,7 +226,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - Done when the `database` job is green (then G5).
   - _Requirements: R27.2, R27.6_ — _Design: §3.12, §1.3 (finding 5), OI-8_
 
-- [ ] **2.8 Add the provisioning template script** · S
+- [x] **2.8 Add the provisioning template script** · S
   - `scripts/provision-household.sql` per §4.6, containing placeholders only.
   - A unit test checks that it contains only `<…>` placeholders and no `@`.
   - _Requirements: R23.2, R23.6, R25.6_ — _Design: §4.6_

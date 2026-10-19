@@ -76,7 +76,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   - The default template now also generates `AGENTS.md` and **`.claude/settings.json`**. Use the template's flag to skip them, or delete them. **Don't commit any agent or permissions config without your review.**
   - Remove the web-only config (`web.output: "server"`). Keep `typedRoutes`. Keep `reactCompiler` unless it causes problems.
 - [x] 🤖 **1.2** Pin the Node version in `.nvmrc`. Set `"strict": true` in `tsconfig.json` and add the `@/*` → `src/*` alias.
-- [ ] 🤖 **1.3** Set up tooling and npm scripts:
+- [x] 🤖 **1.3** Set up tooling and npm scripts:
   - ESLint (`npx expo lint`, flat config) and Prettier
   - scripts: `lint`, `format`, `format:check`, `typecheck`, `test`, `check:secrets`
 - [x] 🤖 **1.4** Set up Jest (`jest-expo`) and React Native Testing Library, with one example test.
@@ -90,8 +90,8 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   - Add placeholder routes: `sign-in`, `(app)/(tabs)/groceries`, `(app)/(tabs)/settings`.
   - Add a dev-only "Theme" screen showing every token as a swatch, so you can check the colors against the old app.
 - [x] 🤖 **1.8** Add `.env.example` (names and dummy values only) and `src/lib/env.ts`, which validates the required `EXPO_PUBLIC_*` variables.
-- [ ] 🤖 **1.9** Add `.github/workflows/ci.yml` (the `app` job: lint, format check, typecheck, test, secrets check) and `.github/dependabot.yml` (npm + github-actions, weekly).
-- [ ] 🤖 **1.10** Update the README with how to run the app and the npm scripts. Fill in the "Commands" section of `CLAUDE.md`.
+- [x] 🤖 **1.9** Add `.github/workflows/ci.yml` (the `app` job: lint, format check, typecheck, test, secrets check) and `.github/dependabot.yml` (npm + github-actions, weekly).
+- [x] 🤖 **1.10** Update the README with how to run the app and the npm scripts. Fill in the "Commands" section of `CLAUDE.md`.
 - [x] 👤 **1.11** Link the project to your Expo account. The EAS project already exists: `@dustinwalkup/kitchin`, ID `e7d10c82-e824-4b06-b34e-295b4152a6c5` (created 2026-10-18). In 1.5, Claude sets `owner: "dustinwalkup"`, `slug: "kitchin"` and `extra.eas.projectId` in `app.config.ts`. Keep the slug the same in both variants; only `name` and the bundle ID change. Don't create a second project with `eas init`. If you need to relink, run `eas init --id e7d10c82-e824-4b06-b34e-295b4152a6c5`.
 - [ ] 👤 **1.12** Run the app:
   1. Run `npm install`.
@@ -121,8 +121,8 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 - [x] 🤖 **2.4** Write the pgTAP tests: hand-written test helpers in `supabase/tests/`, the structural tests (RLS, `household_id`, grants, function security) and the core-table behavioral tests from SPEC §10.2.
 - [ ] 🤖 **2.5** Generate `src/types/database.ts`. Add `src/lib/supabase.ts` (client using the publishable key from env), and a `.env.local` template pointing at the local stack (`.env.local` itself is gitignored).
 - [x] 🤖 **2.6** Add the `database` job to `ci.yml`: `supabase db start`, `db advisors --type security`, `db lint`, `test db`, and the types-drift check.
-- [ ] 🤖 **2.7** Write `scripts/provision-household.sql`, a template with `<EMAIL_1>`-style placeholders. You fill it in inside the dashboard SQL editor in M7. It never contains real values in the repo.
-- [ ] 👤 **2.8** Try the stack locally (optional but useful):
+- [x] 🤖 **2.7** Write `scripts/provision-household.sql`, a template with `<EMAIL_1>`-style placeholders. You fill it in inside the dashboard SQL editor in M7. It never contains real values in the repo.
+- [x] 👤 **2.8** Try the stack locally (optional but useful):
   1. Make sure Docker/OrbStack is running.
   2. Run `npx supabase start`.
   3. Open Studio at the URL it prints (usually <http://127.0.0.1:54323>) and look at the tables.
@@ -209,7 +209,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 
 ## M6: Sentry
 
-- [ ] 👤 **6.1** In Sentry:
+- [ ] 👤 **6.1** In Sentry. Steps 1–3 done 2026-10-18 through the API: org `personal-1yv` (US region), team `personal`, project `kitchin`. Only step 4 remains.
   1. **Create Project** → platform **React Native** → name `kitchin`.
   2. Note the **DSN** (public, OK to share with Claude), the **organization slug** and the **project slug**.
   3. Project Settings → **Security & Privacy**: turn on **Data Scrubber** and **Use Default Scrubbers**, and turn on **Prevent Storing of IP Addresses**.
@@ -225,7 +225,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   - `setUser({ id })` on sign-in, cleared on sign-out
   - a dev-only "Send test error" button in Settings
 - [ ] 🤖 **6.4** Unit tests proving the scrubber removes JWTs, `apikey`/`Authorization` headers, query strings, emails and item names from events and breadcrumbs.
-- [ ] 👤 **6.5** Send the DSN to Claude. It's public, so Claude can put it in `.env.local` and run:
+- [x] 👤 **6.5** Send the DSN to Claude. It's public, so Claude can put it in `.env.local` and run (done 2026-10-18: `EXPO_PUBLIC_SENTRY_DSN` is in EAS `production`):
   ```sh
   eas env:set --name EXPO_PUBLIC_SENTRY_DSN --value <dsn> --environment production --visibility plaintext
   ```
