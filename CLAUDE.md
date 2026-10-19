@@ -32,6 +32,7 @@ Stack: Expo + React Native + TypeScript (strict) + Expo Router, with Supabase (P
 
 ## Workflow
 
+- Agents never run `git commit` (or amend). Leave changes uncommitted in the working tree; the owner reviews and commits them.
 - Use a branch and a PR per task group. Keep CI green: lint, format check, typecheck, Jest, `supabase db lint`, `supabase test db`, and the generated-types drift check.
 - Change the schema only through `npx supabase migration new <name>`. Never edit a migration that has already merged. Regenerate `src/types/database.ts` after every schema change.
 - Migrations must stay backward compatible with the TestFlight build currently installed (expand → migrate → contract).

@@ -63,23 +63,23 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   - [ ] **Node:** v22.19.0 is installed, and SDK 58 needs ≥ 22.13 (even-numbered majors only). Claude will pin it in `.nvmrc` during M1.
   - [ ] **Watchman** and **CocoaPods** are installed. Nothing to do.
   - [ ] **Supabase CLI:** nothing to install. Claude adds it as a project dev dependency, so run it with `npx supabase …`.
-- [ ] 👤 **0.8** Decide your bundle-identifier prefix (D6, for example `com.dustinwalkup`) and your Supabase region (D7). Both are effectively permanent.
+- [x] 👤 **0.8** Decide your bundle-identifier prefix (D6, for example `com.dustinwalkup`) and your Supabase region (D7). Both are effectively permanent. Decided 2026-10-18: `com.dustinwalkup`.
 
 ---
 
 ## M1: Expo + TypeScript foundation (CI from day one)
 
-- [ ] 🤖 **1.1** Scaffold the app with `npx create-expo-app@latest --template default@sdk-58` (per D15), then run the template's `npm run reset-project`.
+- [x] 🤖 **1.1** Scaffold the app with `npx create-expo-app@latest --template default@sdk-58` (per D15), then run the template's `npm run reset-project`.
   - Scaffold into a temporary directory and move the files in, because this repo already has `docs/`, `README.md`, `CLAUDE.md` and `.gitignore`.
   - Merge `.gitignore` entries rather than overwriting them.
   - Remove the template's example screens. Routes live in `src/app/`.
   - The default template now also generates `AGENTS.md` and **`.claude/settings.json`**. Use the template's flag to skip them, or delete them. **Don't commit any agent or permissions config without your review.**
   - Remove the web-only config (`web.output: "server"`). Keep `typedRoutes`. Keep `reactCompiler` unless it causes problems.
-- [ ] 🤖 **1.2** Pin the Node version in `.nvmrc`. Set `"strict": true` in `tsconfig.json` and add the `@/*` → `src/*` alias.
+- [x] 🤖 **1.2** Pin the Node version in `.nvmrc`. Set `"strict": true` in `tsconfig.json` and add the `@/*` → `src/*` alias.
 - [ ] 🤖 **1.3** Set up tooling and npm scripts:
   - ESLint (`npx expo lint`, flat config) and Prettier
   - scripts: `lint`, `format`, `format:check`, `typecheck`, `test`, `check:secrets`
-- [ ] 🤖 **1.4** Set up Jest (`jest-expo`) and React Native Testing Library, with one example test.
+- [x] 🤖 **1.4** Set up Jest (`jest-expo`) and React Native Testing Library, with one example test.
 - [ ] 🤖 **1.5** Write `app.config.ts` with app variants:
   - Driven by `APP_VARIANT`: `development` gives bundle ID `<prefix>.kitchin.dev` and the name "Kitchin Dev"; `production` gives `<prefix>.kitchin` and "Kitchin".
   - Add a "DEV" badge component for the development variant.
@@ -89,7 +89,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   - Add basic primitives (Screen, Text, Button, TextField, Checkbox, Banner) that use only theme tokens.
   - Add placeholder routes: `sign-in`, `(app)/(tabs)/groceries`, `(app)/(tabs)/settings`.
   - Add a dev-only "Theme" screen showing every token as a swatch, so you can check the colors against the old app.
-- [ ] 🤖 **1.8** Add `.env.example` (names and dummy values only) and `src/lib/env.ts`, which validates the required `EXPO_PUBLIC_*` variables.
+- [x] 🤖 **1.8** Add `.env.example` (names and dummy values only) and `src/lib/env.ts`, which validates the required `EXPO_PUBLIC_*` variables.
 - [ ] 🤖 **1.9** Add `.github/workflows/ci.yml` (the `app` job: lint, format check, typecheck, test, secrets check) and `.github/dependabot.yml` (npm + github-actions, weekly).
 - [ ] 🤖 **1.10** Update the README with how to run the app and the npm scripts. Fill in the "Commands" section of `CLAUDE.md`.
 - [x] 👤 **1.11** Link the project to your Expo account. The EAS project already exists: `@dustinwalkup/kitchin`, ID `e7d10c82-e824-4b06-b34e-295b4152a6c5` (created 2026-10-18). In 1.5, Claude sets `owner: "dustinwalkup"`, `slug: "kitchin"` and `extra.eas.projectId` in `app.config.ts`. Keep the slug the same in both variants; only `name` and the bundle ID change. Don't create a second project with `eas init`. If you need to relink, run `eas init --id e7d10c82-e824-4b06-b34e-295b4152a6c5`.
@@ -114,7 +114,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 
 ## M2: Supabase foundation (local stack, core schema, RLS, tests)
 
-- [ ] 🤖 **2.1** Add the `supabase` CLI as a dev dependency (pinned) and run `npx supabase init`.
+- [x] 🤖 **2.1** Add the `supabase` CLI as a dev dependency (pinned) and run `npx supabase init`.
   - In `supabase/config.toml`: `[auth] enable_signup = false` and `[auth.email] enable_signup = false`, anonymous sign-ins disabled, minimum password length 12.
   - Leave the deprecated `auto_expose_new_tables` unset; tables must be granted explicitly (SPEC §7.1).
 - [ ] 🤖 **2.2** Write the migration `core_households`:
