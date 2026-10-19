@@ -40,7 +40,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
 
 ## 1. Project foundation (M1)
 
-- [ ] **1.1 Scaffold the Expo SDK 58 project** · S
+- [x] **1.1 Scaffold the Expo SDK 58 project** · S
   - Run `npx create-expo-app@latest --template default@sdk-58` in a temporary directory, then move the files into the repo. Merge `.gitignore` rather than overwriting it, and keep `docs/`, `specs/`, `README.md` and `CLAUDE.md`.
   - Run the template's `reset-project`, delete the example screens, and remove `web.output: "server"`. Keep `typedRoutes` and `reactCompiler`.
   - Don't commit the generated `AGENTS.md` or `.claude/settings.json`. Skip them with the template flag, or delete them.
@@ -49,13 +49,13 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - Done when `npx tsc --noEmit` passes and `npx expo run:ios` opens the empty app in the Simulator (G1).
   - _Requirements: Constraints 1–3, N8_ — _Design: §2.3, DD8, OI-10_
 
-- [ ] **1.2 Set up Jest and React Native Testing Library** · S
+- [x] **1.2 Set up Jest and React Native Testing Library** · S
   - Install the `jest-expo` preset, `@testing-library/react-native` 14 and `expo-router/testing-library`, and add the `test` script.
   - Add one example component test that uses the async API (`await render`, `await fireEvent`).
   - Set the per-path `coverageThreshold` values from 4-test-plan §9 in `jest.config.js`, and run the CI test command with `--coverage`.
   - _Requirements: R27.1_ — _Design: §7_ — _Tests: CI-04_
 
-- [ ] **1.3 Add lint, format and import-boundary rules** · S
+- [x] **1.3 Add lint, format and import-boundary rules** · S
   - ESLint flat config extending `eslint-config-expo`, plus Prettier. Scripts: `lint`, `format`, `format:check`, `typecheck`.
   - The §2.2 rules:
     - `no-restricted-imports`: no `@/lib/supabase` in `src/app/**` or `**/components/**`, and no React, React Native, Supabase or TanStack imports in `**/domain.ts`.
