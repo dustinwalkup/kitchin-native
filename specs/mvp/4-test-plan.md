@@ -609,7 +609,7 @@ Start the stack with `npx supabase start`. The seed passwords are in `supabase/s
 - [ ] **MT-4-05** Check Eggs. It moves to the bottom of its section and is struck through. Uncheck it, and it moves back. (R4.4, R4.6, R7.5)
 - [ ] **MT-4-06** Check Milk, add "milk" again, then try to uncheck the first Milk. It stays checked, with "Milk is already on the list". (R21.3, edge case 22)
 - [ ] **MT-4-07** Change Eggs' quantity to "2 dozen", then clear it. Both changes show immediately. (R8.1–R8.3)
-- [ ] **MT-4-08** Swipe left on an item and delete it. It disappears without a confirmation. (R9.1, R9.2)
+- [x] **MT-4-08** Swipe left on an item and delete it. It disappears without a confirmation. (R9.1, R9.2)
 - [ ] **MT-4-09** Check three items, then tap Clear checked. The prompt says "Clear 3 checked items?". Cancel changes nothing; Clear removes exactly those three. (R10.1–R10.5)
 - [ ] **MT-4-10** Delete everything. You see the empty state, and the header has no percentage. (R4.8)
 - [ ] **MT-4-11** Pull down on the list. It reloads. (R4.11)
@@ -617,25 +617,25 @@ Start the stack with `npx supabase start`. The seed passwords are in `supabase/s
 - [ ] **MT-4-13** VoiceOver (Accessibility Inspector, or a device). A row reads like "Milk, 1 gallon, not checked"; the actions "Edit quantity" and "Delete" work; a disabled chip is announced as dimmed. (N10)
 - [ ] **MT-4-14** Set the largest standard text size (Settings → Accessibility → Display & Text Size → Larger Text, at the largest non-accessibility size). No control is clipped, and names wrap. (N12, R4.5)
 - [ ] **MT-4-15** Turn on Reduce Motion. The skeleton has no shimmer, and checking an item doesn't animate. (N14)
-- [ ] **MT-4-16** Load 300 items with the snippet in §8.2, then scroll the whole list. It's smooth, with no blank areas that linger. (N3)
+- [x] **MT-4-16** Load 300 items with the snippet in §8.2, then scroll the whole list. It's smooth, with no blank areas that linger. (N3)
 - [ ] **MT-4-17** Add a 200-character name: it wraps in full. A 201-character name is blocked. (R4.5, R5.4)
 - [ ] **MT-4-18** Run the Accessibility Inspector's contrast audit on Groceries, Add item, Settings and Sign-in. It finds no text-contrast failures. (N13)
-- [ ] **MT-4-19** Open the add-item sheet and type with the keyboard up. The fields and the Add button stay reachable (OI-5).
+- [x] **MT-4-19** Open the add-item sheet and type with the keyboard up. The fields and the Add button stay reachable (OI-5).
 
 ### 6.4 M5 — Two Simulators Against the Local Stack (after task 5.6)
 
 Run `scripts/two-sims.sh`. Sign in as A on simulator 1 and as B on simulator 2.
 
-- [ ] **MT-5-01** Add an item on A. It appears on B within about 1 second, and the reverse works too. (R11.1, N1)
-- [ ] **MT-5-02** Check, uncheck, change a quantity, delete and clear checked on A. Each one shows up on B. (R11.2)
-- [ ] **MT-5-03** Tap the same quick-add chip on both at nearly the same moment. Exactly one item results, and neither simulator shows an error. (R6.4)
-- [ ] **MT-5-04** Check two items. On A, open Clear checked and leave the prompt showing "2". On B, uncheck one of them. Then confirm on A. The item B unchecked survives. (R10.4)
-- [ ] **MT-5-05** Take B offline. On A, delete an item; on B, check that item. Bring B back online. B removes it and shows "That item was removed on another device". (R12.5)
-- [ ] **MT-5-06** Send B to the home screen. Make three changes on A, wait one minute, then reopen B. B shows all three. (R11.3)
-- [ ] **MT-5-07** Stop Realtime with the `docker stop` command that `two-sims.sh` prints. Within about 3 seconds both show "Reconnecting…", and a change on A doesn't reach B live. Start it again with the `docker start` command: the indicator goes away, and B reloads and shows the change. Not `docker pause`: a paused container leaves the socket open, so the app notices only when a heartbeat goes unanswered, 25 to 50 seconds later. (R11.3, R11.6, R13.4, R13.5)
-- [ ] **MT-5-08** Change the same item's quantity on A and B at about the same time. Both settle on the same value. (R8.4)
-- [ ] **MT-5-09** Check 20 items on A and clear them. B updates in one step, without flickering item by item. (R11.4)
-- [ ] **MT-5-10** Sign in as C on simulator 2. It shows none of Household 1's items, and changes on A never appear there. (R19.2, R22.1)
+- [x] **MT-5-01** Add an item on A. It appears on B within about 1 second, and the reverse works too. (R11.1, N1)
+- [x] **MT-5-02** Check, uncheck, change a quantity, delete and clear checked on A. Each one shows up on B. (R11.2)
+- [x] **MT-5-03** Tap the same quick-add chip on both at nearly the same moment. Exactly one item results, and neither simulator shows an error. (R6.4)
+- [x] **MT-5-04** Check two items. On A, open Clear checked and leave the prompt showing "2". On B, uncheck one of them. Then confirm on A. The item B unchecked survives. (R10.4)
+- [x] **MT-5-05** Take B offline. On A, delete an item; on B, check that item. Bring B back online. B removes it and shows "That item was removed on another device". (R12.5) *(2026-10-19: run on two simulators with Realtime stopped instead of B offline, because both simulators share the Mac's network. The offline queue is MT-4-12.)*
+- [x] **MT-5-06** Send B to the home screen. Make three changes on A, wait one minute, then reopen B. B shows all three. (R11.3)
+- [x] **MT-5-07** Stop Realtime with the `docker stop` command that `two-sims.sh` prints. Within about 3 seconds both show "Reconnecting…", and a change on A doesn't reach B live. Start it again with the `docker start` command: the indicator goes away, and B reloads and shows the change. Not `docker pause`: a paused container leaves the socket open, so the app notices only when a heartbeat goes unanswered, 25 to 50 seconds later. (R11.3, R11.6, R13.4, R13.5)
+- [x] **MT-5-08** Change the same item's quantity on A and B at about the same time. Both settle on the same value. (R8.4)
+- [x] **MT-5-09** Check 20 items on A and clear them. B updates in one step, without flickering item by item. (R11.4)
+- [x] **MT-5-10** Sign in as C on simulator 2. It shows none of Household 1's items, and changes on A never appear there. (R19.2, R22.1)
 
 ### 6.5 M6 — Error Reporting Privacy (after task 6.2)
 

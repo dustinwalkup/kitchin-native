@@ -4,6 +4,7 @@
 > **Status:** Approved by the owner, 2026-10-18.
 > **Amendments proposed during design** (approved together with `2-design.md`): 1.7 added, 2.2 changed, 3.9 added, edge cases 20–21 added. See [2-design.md §1.4](./2-design.md#14-requirement-amendments).
 > **Amendment proposed during test planning** (approved together with `4-test-plan.md`): edge case 22 added.
+> **Amended for meal planning** (approved with `specs/meals/2-design.md`, 2026-10-19): the glossary, 1.5, 11.2, 26.4 and Out of Scope. See [specs/meals/1-requirements.md](../meals/1-requirements.md#amendments-to-the-mvp-requirements).
 
 ## Introduction
 
@@ -22,7 +23,7 @@ The MVP also lays the foundation that every later feature reuses: household-scop
 | **Member** | One of the two people who use the app. Every member belongs to a household. |
 | **Owner** | The member who administers the project: provisions accounts, holds production credentials, and approves deploys and builds. |
 | **Household** | The unit of sharing. Every record of household data belongs to exactly one household. |
-| **Household data** | Any record members create or see through the app: grocery lists and items now; meals, chores and notes later. |
+| **Household data** | Any record members create or see through the app: grocery lists and items, and meal entries; chores and notes later. *(Amended for meal planning.)* |
 | **The app** | The Kitchin iOS app. |
 | **The backend** | The Supabase project: Auth, the Data API, Realtime and the Postgres database. |
 | **The database** | Postgres, including its grants, row-level security policies, constraints and triggers. A requirement assigned to the database must hold even when someone calls the Data API directly, without the app. |
@@ -89,7 +90,7 @@ The requirements below depend on these decisions. Each one is a SPEC §16 recomm
 2. WHEN there is no valid session THEN the app SHALL show the sign-in screen.
 3. WHEN a member is signed in but has no household membership THEN the app SHALL show a "No household access" screen that explains the account isn't linked to a household and offers Sign out, and SHALL NOT request any household data.
 4. WHEN a member is signed in and has a household membership THEN the app SHALL show the main tabs, opening on Groceries.
-5. The main tabs SHALL be **Groceries** and **Settings**.
+5. The main tabs SHALL be **Groceries**, **Meals** and **Settings**, in that order. *(Amended for meal planning.)*
 6. IF a signed-in account has more than one household membership THEN the app SHALL use the oldest membership and SHALL report a warning that contains no personal data ([Requirement 26](#requirement-26-delivery--error-reporting-and-privacy)).
 7. IF a member is signed in but the app can't load their membership because the device is offline or the backend can't be reached THEN the app SHALL show a screen saying it can't reach Kitchin, with Retry, and SHALL try again automatically when connectivity returns. *(Added during design.)*
 
@@ -225,7 +226,7 @@ The requirements below depend on these decisions. Each one is a SPEC §16 recomm
 #### Acceptance Criteria
 
 1. WHEN a change to household data is saved on one phone THEN the other phone SHALL show the change within 2 seconds (target: about 1 second), provided the app is in the foreground and online.
-2. Live updates SHALL cover adding, checking, unchecking, editing, deleting and clearing items.
+2. Live updates SHALL cover adding, checking, unchecking, editing, deleting and clearing items, and saving and clearing meal slots. *(Amended for meal planning.)*
 3. WHEN the app returns to the foreground, regains connectivity, or re-establishes its live-update connection THEN it SHALL reload household data from the backend, so that any changes it missed appear.
 4. WHEN many changes arrive together (for example, the other member clears 20 checked items) THEN the app SHALL apply them as one update, not redraw once per item.
 5. WHILE a member's own change is being saved, incoming updates for the same list SHALL NOT make that change flicker or temporarily revert.
@@ -453,7 +454,7 @@ This requirement applies only if the owner confirms the single-category view for
    - the app version and OS version
    - the live-update connection status
    - the member's account ID
-4. Reports and breadcrumbs SHALL NOT contain passwords, tokens, API keys, email addresses, display names, household content (item names, quantities, notes), request or response bodies, or URL query strings.
+4. Reports and breadcrumbs SHALL NOT contain passwords, tokens, API keys, email addresses, display names, household content (item names, quantities, notes, meal entries), request or response bodies, or URL query strings. *(Amended for meal planning.)*
 5. As a final safeguard, the app SHALL scrub every outgoing report and breadcrumb for token, key, `Bearer` and email patterns before sending it.
 6. The app SHALL NOT capture screenshots, view hierarchies or session replays. In production it SHALL NOT record console output as breadcrumbs.
 7. UI test identifiers SHALL be static and SHALL NOT contain household content.
@@ -623,7 +624,7 @@ This requirement applies only if the owner confirms the single-category view for
 
 These are deferred and SHALL NOT appear in this spec's design, tasks or implementation:
 
-- Meal planning, chores and notes (Phases 2–4, each with its own spec folder).
+- Chores and notes (Phases 3–4, each with its own spec folder). Meal planning is now in scope under `specs/meals/`. *(Amended for meal planning.)*
 - Multiple grocery lists, prices and budgets, and a household "frequent items" list.
 - Editing an item's name or category after it's created (delete and re-add instead), and item notes in the UI (the database column exists).
 - Push notifications, Sign in with Apple, email codes or magic links, self-service password reset, and Face ID app lock.

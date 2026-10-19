@@ -13,6 +13,9 @@ const URL_VAR = 'EXPO_PUBLIC_SUPABASE_URL';
 const KEY_VAR = 'EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY';
 const DSN_VAR = 'EXPO_PUBLIC_SENTRY_DSN';
 
+// tsconfig keeps Node's global types out of app code. Jest runs this file as CommonJS, so it exists.
+declare const __dirname: string;
+
 const VARIANTS: AppVariant[] = ['development', 'production'];
 
 // Built at runtime so this file never contains a secret-key pattern (25.3).
@@ -109,6 +112,19 @@ describe('assertPublishableKey', () => {
   it('U-ENV-07 development also accepts the local anon JWT', () => {
     expect(() => assertPublishableKey('development', PUBLISHABLE_KEY)).not.toThrow();
     expect(() => assertPublishableKey('development', ANON_JWT)).not.toThrow();
+  });
+
+  // A copied .env.example passes the format check, and sign-in and REST still work with it, but
+  // Realtime refuses the socket. So the placeholder fails at launch instead.
+  it.each(VARIANTS)('rejects the placeholder key from .env.example in %s', (variant) => {
+    const { readFileSync } = jest.requireActual<{
+      readFileSync(path: string, encoding: 'utf8'): string;
+    }>('node:fs');
+    const example = readFileSync(`${__dirname}/../../.env.example`, 'utf8');
+    const placeholder = /^EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=(.*)$/m.exec(example)?.[1];
+    expect(placeholder).toMatch(/^sb_publishable_/);
+
+    expect(() => assertPublishableKey(variant, placeholder!)).toThrow(/\.env\.example placeholder/);
   });
 
   it.each([

@@ -389,7 +389,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
     - the `useGroceryMutation` factory and the five mutation hooks
   - _Requirements: R5.5, R5.6, R6.3, R6.4, R7.3, R8.3, R8.4, R9.2, R9.3, R10.3, R12.1–R12.6, R13.2, R13.3, R14.8, N2, N5_ — _Design: §3.5.3, DD14, DD15_
 
-- [ ] **4.6 Build the Groceries screen: list, progress and states** · M
+- [x] **4.6 Build the Groceries screen: list, progress and states** · M
   - `groceries.tsx` with:
     - `ProgressHeader`, `CategorySectionHeader`, and a read-only `ItemRow`
     - `SkeletonRows`, `LoadError`, the "Waiting for connection…" state and `GroceriesEmptyState`
@@ -420,7 +420,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
     - the accessibility actions fire
   - _Requirements: R7.3, R7.5, R8.1–R8.3, R9.1, R9.2, R10.1, R10.2, R10.5, N10, N11_ — _Design: §3.4, DD11, OI-13_
 
-- [ ] **4.8 Build the add-item sheet and quick-add** · M
+- [x] **4.8 Build the add-item sheet and quick-add** · M
   - `(app)/add-item.tsx` as a form sheet, per §3.4:
     - name, category chips, quantity and Add
     - the category follows `suggestCategory` until the member picks one

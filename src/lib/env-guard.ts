@@ -55,6 +55,9 @@ export function assertBackendUrl(variant: AppVariant, url: string): void {
 }
 
 const PUBLISHABLE_KEY = /^sb_publishable_[A-Za-z0-9_-]+$/;
+// The value .env.example ships with. Sign-in and REST still work with it, but Realtime refuses the
+// socket, so live updates would fail quietly.
+const PLACEHOLDER_KEY = 'sb_publishable_replace_me';
 const JWT = /^[A-Za-z0-9_-]+\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]*$/;
 const PRIVILEGED_ROLES: unknown[] = ['service_role', 'supabase_admin'];
 const BASE64URL_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
@@ -101,6 +104,12 @@ export function assertPublishableKey(variant: AppVariant, key: string): void {
   if (PRIVILEGED_ROLES.includes(role)) {
     throw new ConfigError(
       `${KEY_VAR} holds a privileged (service_role or supabase_admin) JWT. Only the publishable key may ship in the app.`,
+    );
+  }
+
+  if (key === PLACEHOLDER_KEY) {
+    throw new ConfigError(
+      `${KEY_VAR} is still the .env.example placeholder. Set the real publishable key; \`npx supabase status\` prints the local one.`,
     );
   }
 

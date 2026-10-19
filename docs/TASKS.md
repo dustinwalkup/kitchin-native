@@ -172,12 +172,12 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   - add, check/uncheck, edit quantity, delete and clear-checked mutations, all optimistic with rollback
   - client UUIDs
   - `23505` treated as "already on the list"; 0-row updates treated as "removed elsewhere"
-- [ ] 🤖 **4.6** Build the UI per D9:
+- [x] 🤖 **4.6** Build the UI per D9:
   - category-sectioned list with counts and a progress header
   - add-item sheet (name, category picker, quantity) and quick-add chips with de-duplication
   - item row: checkbox, quantity edit, swipe or button to delete; "Clear checked" with confirmation
   - empty, skeleton, error + retry, and offline-banner states
-- [ ] 🤖 **4.7** Unit tests for `domain.ts` and component tests for add, check, delete and rollback-on-failure.
+- [x] 🤖 **4.7** Unit tests for `domain.ts` and component tests for add, check, delete and rollback-on-failure.
 - [ ] 👤 **4.8** Use it on the Simulator for a few minutes as user A, then give UX feedback. Claude iterates.
 - [ ] 👤 **4.9** Review and merge.
 
@@ -196,13 +196,13 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   - "Reconnecting…" pill
 - [x] 🤖 **5.3** Unit tests for coalescing, deferral and the status-to-UI mapping.
 - [x] 🤖 **5.4** Write a short script or doc for running the app on **two simulators at once**, for example an iPhone and an iPad simulator, or two iPhone models.
-- [ ] ✅ **5.5** Two-simulator test against the local stack. Sign in as **A** on one simulator and **B** on the other, then check:
-  - [ ] Add on A → appears on B within about 1 second, and vice versa
-  - [ ] Check/uncheck, quantity edit, delete and "clear checked" all propagate
-  - [ ] Both quick-add the same item at nearly the same time → only one copy exists
-  - [ ] Send B to the home screen, make 3 changes on A, wait 1 minute, reopen B → B shows all changes
-  - [ ] Stop realtime briefly (Claude will give you the `docker` command) → the "Reconnecting…" pill shows → restart → it recovers and refetches
-  - [ ] Sign in as **C** on a simulator → sees none of Household 1's items or events
+- [x] ✅ **5.5** Two-simulator test against the local stack. Sign in as **A** on one simulator and **B** on the other, then check:
+  - [x] Add on A → appears on B within about 1 second, and vice versa
+  - [x] Check/uncheck, quantity edit, delete and "clear checked" all propagate
+  - [x] Both quick-add the same item at nearly the same time → only one copy exists
+  - [x] Send B to the home screen, make 3 changes on A, wait 1 minute, reopen B → B shows all changes
+  - [x] Stop realtime briefly (Claude will give you the `docker` command) → the "Reconnecting…" pill shows → restart → it recovers and refetches
+  - [x] Sign in as **C** on a simulator → sees none of Household 1's items or events
 - [ ] 👤 **5.6** Review and merge.
 
 ---
@@ -261,7 +261,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
     - Add `SUPABASE_PROJECT_ID` as a repository variable.
     - Tell Claude, and the workflow will be **manual-trigger only** (SPEC §10.3).
 - [x] 🤖 **7.5** Add `.github/workflows/deploy-db.yml` (SPEC §10.3).
-- [ ] 👤 **7.6** Merge, then start the deploy:
+- [x] 👤 **7.6** Merge, then start the deploy. Done 2026-10-19: run 39204208592 applied all three migrations and the production security advisor found no issues. Its first four attempts failed at the dry run because `SUPABASE_DB_PASSWORD` didn't match the database password.
   - **Until 8.10:** the workflow is manual-trigger only, so go to Actions → "Deploy database" → **Run workflow** on `main`. Starting it yourself is the approval (R28.2).
   - **After 8.10:** go to Actions → "Deploy database" → **Review deployments** → approve.
 
@@ -295,17 +295,18 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   - `ios.privacyManifests` with the required-reason API declarations (Apple emails you after upload if any are missing; forward that email to Claude)
   - `autoIncrement` build numbers in `eas.json`; `distribution: "store"` on the production profile
   - `ios.bundleIdentifier` per D6
-- [ ] 👤 **8.4** First production build. This step is interactive, so run it yourself:
+- [x] 👤 **8.4** First production build. This step is interactive, so run it yourself. Done 2026-10-19: build 1 (1.0.0), signed with the distribution certificate hoador already uses, which expires 27 Jul 2027.
   ```sh
   eas build --platform ios --profile production
   ```
   When prompted, log in with your Apple ID and let EAS **create** the distribution certificate and provisioning profile. The bundle identifier `com.dustinwalkup.kitchin` was registered by hand on 2026-10-18, so EAS reuses it.
-- [ ] 👤 **8.5** Submit it to TestFlight:
+- [x] 👤 **8.5** Submit it to TestFlight. Done 2026-10-19: build 1 reached TestFlight and installs on the owner's phone.
   ```sh
-  eas submit --platform ios --latest
+  APP_VARIANT=production eas submit --platform ios --latest
   ```
+  - **Keep the `APP_VARIANT=production` prefix.** Unlike `eas build`, `eas submit` ignores the build profile's env and reads `app.config.ts` with your shell's, so without it the config falls back to the development variant. On 2026-10-19 that made EAS create a "Kitchin Dev" app record for `com.dustinwalkup.kitchin.dev`. Check that the first line after sign-in names `com.dustinwalkup.kitchin`, not `.dev`.
   - The **App Store Connect app record** already exists: "Kitchin Household" (SKU `kitchin-ios`), created by hand on 2026-10-18. EAS finds it by bundle ID. The home-screen name is still "Kitchin".
-  - Let EAS create an **App Store Connect API key**. Only the Account Holder or an Admin can create that key, and you are the Account Holder.
+  - **App Store Connect API key:** reuse the existing "[Expo] EAS Submit" key when asked. Like the distribution certificate, it covers the whole team, not one app.
   - Processing takes about 5–15 minutes. Internal builds don't need Beta App Review.
   - Next time, `eas build --platform ios --profile production --auto-submit` does both steps.
 - [x] 👤 **8.6** Add your wife as an internal tester. Done 2026-10-18: she's an App Store Connect user with the Developer role, and both of you are in the "Household" internal group. When the first build arrives, check that automatic distribution is on for the group.
@@ -343,10 +344,49 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 
 | Phase | Feature | Process |
 |---|---|---|
-| 2 | Meal planning (date-based) | Follow SPEC Appendix B. Claude implements; you do the two-phone check, approve the DB deploy, and run the TestFlight build |
-| 3 | Chores / tasks | same |
-| 4 | Notes (with conflict detection) | same |
+| 2 | Meal planning (date-based) | Spec in `specs/meals/`. Steps in [Phase 2](#phase-2-meal-planning) below |
+| 3 | Chores / tasks | Its own `specs/chores/`, through the same four phases |
+| 4 | Notes (with conflict detection) | Its own `specs/notes/`, through the same four phases |
 | later | Push notifications, Sign in with Apple linking, Face ID lock, EAS Update, widget | Each needs its own mini-spec and approval first |
+
+---
+
+## Phase 2: Meal planning
+
+The spec is [`specs/meals/`](../specs/meals/). Its requirements and design were approved on 2026-10-19. The 🤖 lines mirror [`specs/meals/3-tasks.md`](../specs/meals/3-tasks.md) **under the same numbers**, so tick both together. Coding starts once you approve `3-tasks.md` and `4-test-plan.md`, whenever you're ready; this runbook suggests a couple of weeks of MVP use first.
+
+- [ ] 🤖 **9.1** Meal database tests (pgTAP)
+- [ ] 🤖 **9.2** Migration `meals_init`, seed and types
+- [ ] 🤖 **10.1** Calendar module and the local-`Date` lint rule
+- [ ] 🤖 **10.2** `useHouseholdToday`
+- [ ] 🤖 **11.1** Meal constants and domain rules
+- [ ] 🤖 **11.2** Meals API layer
+- [ ] 🤖 **11.3** Week query and save mutation
+- [ ] 🤖 **11.4** Meal live updates
+- [ ] 🤖 **12.1** Theme pairs and week components
+- [ ] 🤖 **12.2** Slot editor
+- [ ] 🤖 **12.3** Meals screen and tab
+- [ ] 🤖 **12.4** Add to groceries shortcut (needs MVP task 4.8 first)
+- [ ] 🤖 **13.1** Docs follow-through
+- [ ] ✅ **P2.1** Two-simulator check against the local stack. Run `npm run two-sims`, then sign in as **A** on one simulator and **B** on the other:
+  - [ ] Save a meal on A → it appears on B within about 1 second. Clearing it propagates too
+  - [ ] Both open the same slot. B types and taps Done; A's typing isn't disturbed. A taps Done → both show A's text
+  - [ ] B saves a slot while A has it open without changing it. A taps Done → B's text stays
+  - [ ] Turn the Mac's Wi-Fi off, save two meals on A (the offline banner shows), and turn it back on → both arrive on B
+  - [ ] Previous, Next and This week work, and a past week still shows its meals
+  - [ ] **Add to groceries** on Meals opens the add-item sheet; the item appears on Groceries on both simulators
+  - [ ] Sign in as **C** → sees none of Household One's meals
+- [ ] 👤 **P2.2** Review and commit the changes on `main`.
+- [ ] 👤 **P2.3** Deploy the migration. Actions → "Deploy database" → **Run workflow** on `main` (manual until 8.10). Check that the dry run lists only `meals_init`. Starting the run is your approval (R28.2).
+- [ ] 👤 **P2.4** Build and install. Run `eas build --platform ios --profile production --auto-submit`, then install the new build from TestFlight on **both** phones.
+- [ ] 👤 **P2.5** Time-zone check on your phone (design OI-15). On the TestFlight build:
+  1. Settings → General → Date & Time → turn off **Set Automatically**, and pick a time zone where today's date differs from home's. From Chicago, for example, Auckland is a day ahead from about 6 am Chicago time onwards.
+  2. Open Meals. **Today** must still mark your household's date, not the phone's.
+  3. Turn **Set Automatically** back on.
+  - If Today is wrong, tell Claude; the fallback in OI-15 becomes a task.
+- [ ] ✅ **P2.6** Two-phone check on production: the success criteria in `specs/meals/1-requirements.md` (live updates, past weeks, Today after midnight, an edit in airplane mode, and typing never interrupted).
+- [ ] 👤 **P2.7** Revisit backups now that meal history builds up (DD6, N20). Decide whether to stay on monthly dumps or move to Pro.
+- [ ] 🎉 **Phase 2 done.**
 
 ---
 
