@@ -63,7 +63,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - A Jest test runs the ESLint Node API over inline fixtures and checks that each rule fires, so a rule can't silently stop working after an upgrade.
   - _Requirements: R16.7, N16, N17_ — _Design: §2.2_
 
-- [ ] **1.4 Write the environment guard and validated config (TDD)** · M
+- [x] **1.4 Write the environment guard and validated config (TDD)** · M
   - Write the tests for `src/lib/env-guard.ts` first:
     - `parseVariant`.
     - `assertBackendUrl`:
@@ -148,7 +148,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
 
 ## 2. Database foundation (M2)
 
-- [ ] **2.1 Add the Supabase CLI and configure the local stack** · S
+- [x] **2.1 Add the Supabase CLI and configure the local stack** · S
   - Add `supabase` as a pinned devDependency (2.121.0, or whatever is current then), and run `npx supabase init`.
   - Write `supabase/config.toml` per §4.9:
     - both signup settings off, and anonymous sign-ins off
