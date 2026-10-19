@@ -60,12 +60,20 @@ beforeEach(() => {
   });
 });
 
-afterEach(() => {
+// Session-end callbacks are app-wide, so a test's deferred teardown must finish before the next
+// test registers its own.
+afterEach(async () => {
+  await flushDeferred();
   unregisters.splice(0).forEach((unregister) => unregister());
 });
 
 function register(callback: () => void | Promise<void>) {
   unregisters.push(onSessionEnd(callback));
+}
+
+/** Runs the side effects the provider defers out of the auth callback. */
+function flushDeferred() {
+  return act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
 }
 
 async function renderAuth() {
@@ -85,9 +93,6 @@ async function send(event: AuthChangeEvent, session: Session | null) {
     emitAuth(event, session);
   });
 }
-
-/** Runs the side effects the provider defers out of the auth callback. */
-const flushDeferred = () => act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
 
 async function renderSignedIn() {
   const rendered = await renderAuth();
