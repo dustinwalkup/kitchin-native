@@ -563,7 +563,7 @@ These run with a real `QueryClient`, a mocked `api.ts` and a controllable `onlin
 | CI-05 | Secrets scan | `npm run check:secrets` | R25.3 |
 | CI-06 | Migrations apply from scratch, then seeds | `npx supabase start -x …` | R27.2 |
 | CI-07 | Security advisor | `npx supabase db advisors --local --type security --fail-on warn` | R27.2 |
-| CI-08 | Database lint | `npx supabase db lint --local --fail-on error` | R27.2 |
+| CI-08 | Database lint, of the schemas that ship (not the seed-only `tests`) | `npx supabase db lint --local --schema public,private --fail-on error` | R27.2 |
 | CI-09 | pgTAP suite (§2) | `npx supabase test db` | R27.2–R27.6 |
 | CI-10 | Generated types match the migrations | `gen types` + `git diff --exit-code` | R27.2 |
 | CI-11 | Workflow syntax | `actionlint` | R28 |

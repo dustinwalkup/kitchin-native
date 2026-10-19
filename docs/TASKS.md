@@ -25,7 +25,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 
 ## Start now: long lead time
 
-- [ ] 👤 **Enroll in the Apple Developer Program.** Approval can take anywhere from hours to several days, and it blocks M8 (TestFlight).
+- [x] 👤 **Enroll in the Apple Developer Program.** Approval can take anywhere from hours to several days, and it blocks M8 (TestFlight).
   1. Make sure your Apple ID has two-factor authentication on.
   2. Go to <https://developer.apple.com/programs/enroll/>, enroll as an **Individual**, and pay $99/year.
   3. Wait for the "Welcome to the Apple Developer Program" email. Nothing else in M0–M7 depends on it.
@@ -34,15 +34,15 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 
 ## M0: Decisions, accounts and tools
 
-- [ ] 👤 **0.1** Read `SPEC.md`, especially §6, §7, §8 and §16. Reply to Claude with "approve all", or with changes to individual decisions (D1–D17).
-- [ ] 👤 **0.2** Decide repository visibility (D5). The repo is **public** right now. To make it private: GitHub → `kitchin-native` → Settings → General → Danger Zone → Change visibility.
-- [ ] 👤 **0.3** Install the GitHub CLI so Claude Code can open PRs for you:
+- [x] 👤 **0.1** Read `SPEC.md`, especially §6, §7, §8 and §16. Reply to Claude with "approve all", or with changes to individual decisions (D1–D17).
+- [x] 👤 **0.2** Decide repository visibility (D5). The repo is **public** right now. To make it private: GitHub → `kitchin-native` → Settings → General → Danger Zone → Change visibility. Decided 2026-10-18: stay public (DD3).
+- [x] 👤 **0.3** Install the GitHub CLI so Claude Code can open PRs for you:
   ```sh
   brew install gh
   gh auth login          # choose GitHub.com → SSH → your existing key → login with browser
   gh auth status
   ```
-- [ ] 👤 **0.4** Expo account and EAS CLI:
+- [x] 👤 **0.4** Expo account and EAS CLI (CLI updated to 25.2.0 on 2026-10-18):
   1. Create a free account at <https://expo.dev/signup>.
   2. Update the CLI (you have 18.0.5 installed; 25.x is current, and newer commands like `eas env:set` need it):
      ```sh
@@ -53,16 +53,16 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 - [ ] 👤 **0.5** Create a Supabase account at <https://supabase.com/dashboard>. Use GitHub sign-in or email, and turn on MFA for the account.
   - Create an **organization** on the Free plan.
   - **Don't create the production project yet** (that's M7). Free projects pause after about a week without use, so creating it now could mean it's paused by the time you need it.
-- [ ] 👤 **0.6** Create a Sentry account at <https://sentry.io/signup/>. The Developer (free) plan is enough. The project itself is set up in M6.
-- [ ] 👤 **0.7** Check your local tools. Most are already installed:
-  - [ ] **Docker:** you have both Docker Desktop and OrbStack. Pick **one** to run (OrbStack is lighter), and make sure `docker info` works. The Supabase local stack needs it.
-  - [ ] **Xcode:** you have two copies (`Xcode.app` and `Xcode-26.5.0.app`). Expo SDK 58 needs **Xcode 26.4+**.
+- [x] 👤 **0.6** Create a Sentry account at <https://sentry.io/signup/>. The Developer (free) plan is enough. The project itself is set up in M6.
+- [x] 👤 **0.7** Check your local tools. Most are already installed:
+  - [x] **Docker:** you have both Docker Desktop and OrbStack. Pick **one** to run (OrbStack is lighter), and make sure `docker info` works. The Supabase local stack needs it.
+  - [x] **Xcode:** you have two copies (`Xcode.app` and `Xcode-26.5.0.app`). Expo SDK 58 needs **Xcode 26.4+**.
     1. Choose the one to use: `sudo xcode-select -s /Applications/Xcode-26.5.0.app`, or whichever is 26.4 or newer.
     2. Open it once and accept the license.
     3. In Xcode → Settings → Components, install an **iOS Simulator** runtime.
-  - [ ] **Node:** v22.19.0 is installed, and SDK 58 needs ≥ 22.13 (even-numbered majors only). Claude will pin it in `.nvmrc` during M1.
-  - [ ] **Watchman** and **CocoaPods** are installed. Nothing to do.
-  - [ ] **Supabase CLI:** nothing to install. Claude adds it as a project dev dependency, so run it with `npx supabase …`.
+  - [x] **Node:** v22.19.0 is installed, and SDK 58 needs ≥ 22.13 (even-numbered majors only). Claude will pin it in `.nvmrc` during M1.
+  - [x] **Watchman** and **CocoaPods** are installed. Nothing to do.
+  - [x] **Supabase CLI:** nothing to install. Claude adds it as a project dev dependency, so run it with `npx supabase …`.
 - [x] 👤 **0.8** Decide your bundle-identifier prefix (D6, for example `com.dustinwalkup`) and your Supabase region (D7). Both are effectively permanent. Decided 2026-10-18: `com.dustinwalkup`.
 
 ---
@@ -80,12 +80,12 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   - ESLint (`npx expo lint`, flat config) and Prettier
   - scripts: `lint`, `format`, `format:check`, `typecheck`, `test`, `check:secrets`
 - [x] 🤖 **1.4** Set up Jest (`jest-expo`) and React Native Testing Library, with one example test.
-- [ ] 🤖 **1.5** Write `app.config.ts` with app variants:
+- [x] 🤖 **1.5** Write `app.config.ts` with app variants:
   - Driven by `APP_VARIANT`: `development` gives bundle ID `<prefix>.kitchin.dev` and the name "Kitchin Dev"; `production` gives `<prefix>.kitchin` and "Kitchin".
   - Add a "DEV" badge component for the development variant.
   - Add the URL guard from SPEC §11: the build refuses a dev variant pointing at a non-local Supabase URL, and vice versa.
-- [ ] 🤖 **1.6** Write `eas.json` with `development` (dev client, simulator) and `production` profiles, and set each profile's env (`APP_VARIANT`, `EXPO_PUBLIC_APP_ENV`).
-- [ ] 🤖 **1.7** Port the legacy **desert palette** exactly, per SPEC §4.6: brand colors, neutrals, category badge colors and radii go in `src/ui/theme.ts` as `{ light, dark }`, with light-only for the MVP per D17.
+- [x] 🤖 **1.6** Write `eas.json` with `development` (dev client, simulator) and `production` profiles, and set each profile's env (`APP_VARIANT`, `EXPO_PUBLIC_APP_ENV`).
+- [x] 🤖 **1.7** Port the legacy **desert palette** exactly, per SPEC §4.6: brand colors, neutrals, category badge colors and radii go in `src/ui/theme.ts` as `{ light, dark }`, with light-only for the MVP per D17.
   - Add basic primitives (Screen, Text, Button, TextField, Checkbox, Banner) that use only theme tokens.
   - Add placeholder routes: `sign-in`, `(app)/(tabs)/groceries`, `(app)/(tabs)/settings`.
   - Add a dev-only "Theme" screen showing every token as a swatch, so you can check the colors against the old app.
@@ -99,16 +99,9 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   3. Check that the placeholder tabs render with the DEV badge.
   4. After that, `npx expo start` is enough until native dependencies change. We don't use Expo Go.
 - [ ] 👤 **1.13** Review and merge the PR.
-- [ ] 👤 **1.14** Turn on GitHub repo protection, now that CI has run once:
-  1. Settings → Code security: enable **Dependabot alerts**, **Secret scanning** and **Push protection**.
-  2. Settings → Rules → Rulesets → **New branch ruleset**:
-     - Name: "main"
-     - Enforcement: Active
-     - Target: default branch
-     - Enable **Require a pull request before merging** (0 approvals is fine when it's just you)
-     - Enable **Require status checks to pass** and add `app`
-     - Enable **Block force pushes**
-- [ ] ✅ **Checkpoint:** the app runs in the Simulator, and CI is green and required.
+- [x] 👤 **1.14** Turn on GitHub repo protection: Settings → Code security: enable **Dependabot alerts**, **Secret scanning** and **Push protection**. Done 2026-10-18 (Dependabot security updates are on too).
+  - The branch ruleset is deferred to 8.9 (owner decision, 2026-10-18): during the fast-paced development the owner commits directly to `main`. CI still runs on every push to `main`.
+- [ ] ✅ **Checkpoint:** the app runs in the Simulator, and CI is green.
 
 ---
 
@@ -117,17 +110,17 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 - [x] 🤖 **2.1** Add the `supabase` CLI as a dev dependency (pinned) and run `npx supabase init`.
   - In `supabase/config.toml`: `[auth] enable_signup = false` and `[auth.email] enable_signup = false`, anonymous sign-ins disabled, minimum password length 12.
   - Leave the deprecated `auto_expose_new_tables` unset; tables must be granted explicitly (SPEC §7.1).
-- [ ] 🤖 **2.2** Write the migration `core_households`:
+- [x] 🤖 **2.2** Write the migration `core_households`:
   - `private` schema with revoked grants
   - `households`, `household_members`
   - `private.my_household_ids()`, `private.handle_audit_fields()`, `private.provision_household(...)`
   - explicit grants to `authenticated` only, plus RLS and policies per SPEC §7.3
-- [ ] 🤖 **2.3** Write `supabase/seed.sql` (local only):
+- [x] 🤖 **2.3** Write `supabase/seed.sql` (local only):
   - users A and B in Household 1, user C in Household 2, user D with **no** household
   - local-only throwaway passwords
-- [ ] 🤖 **2.4** Write the pgTAP tests: hand-written test helpers in `supabase/tests/`, the structural tests (RLS, `household_id`, grants, function security) and the core-table behavioral tests from SPEC §10.2.
+- [x] 🤖 **2.4** Write the pgTAP tests: hand-written test helpers in `supabase/tests/`, the structural tests (RLS, `household_id`, grants, function security) and the core-table behavioral tests from SPEC §10.2.
 - [ ] 🤖 **2.5** Generate `src/types/database.ts`. Add `src/lib/supabase.ts` (client using the publishable key from env), and a `.env.local` template pointing at the local stack (`.env.local` itself is gitignored).
-- [ ] 🤖 **2.6** Add the `database` job to `ci.yml`: `supabase db start`, `db advisors --type security`, `db lint`, `test db`, and the types-drift check.
+- [x] 🤖 **2.6** Add the `database` job to `ci.yml`: `supabase db start`, `db advisors --type security`, `db lint`, `test db`, and the types-drift check.
 - [ ] 🤖 **2.7** Write `scripts/provision-household.sql`, a template with `<EMAIL_1>`-style placeholders. You fill it in inside the dashboard SQL editor in M7. It never contains real values in the repo.
 - [ ] 👤 **2.8** Try the stack locally (optional but useful):
   1. Make sure Docker/OrbStack is running.
@@ -135,7 +128,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   3. Open Studio at the URL it prints (usually <http://127.0.0.1:54323>) and look at the tables.
   4. Run `npx supabase stop` when you're done.
 - [ ] 👤 **2.9** Review the SQL PR carefully. This is the most security-critical code in the project, so ask Claude to explain any policy you're unsure about. Then merge.
-- [ ] 👤 **2.10** Add `database` to the required status checks in the `main` ruleset.
+- [x] 👤 **2.10** ~~Add `database` to the required status checks in the `main` ruleset.~~ Moved to 8.9, along with the rest of the ruleset.
 - [ ] ✅ **Checkpoint:** `npx supabase test db` passes locally and in CI, and the negative tests (user C can't see or modify Household 1) are present and passing.
 
 ---
@@ -246,21 +239,21 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 
 ## M7: Production environment and database deploy pipeline
 
-- [ ] 👤 **7.1** Create the production Supabase project. **Created 2026-10-18** by Claude with the CLI, at your request:
+- [x] 👤 **7.1** Create the production Supabase project. **Created 2026-10-18** by Claude with the CLI, at your request:
   - Name `kitchin`, Free plan, Postgres 17, region **East US (Ohio)**, `us-east-2` (D7: central US; Supabase has no central-US region).
   - Project ref: `kbctrdoinofseiventai`.
-  - [ ] **Remaining:** reset the database password so only you know it. Claude set a random one it never displayed. Go to <https://supabase.com/dashboard/project/kbctrdoinofseiventai/database/settings> → **Reset database password** → **Generate a password**, then save it in your password manager as "kitchin DB password". Don't share it with Claude.
-- [ ] 👤 **7.2** Configure Auth in Dashboard → **Authentication**:
-  - [ ] Sign In / Providers → turn **off** "Allow new users to sign up"
-  - [ ] Turn **off** anonymous sign-ins
-  - [ ] Keep the **Email** provider enabled. Password requirements: minimum length **12**.
-  - [ ] Leave the other providers disabled.
-  - [ ] Dashboard → **Realtime** → Settings → turn **off "Allow public access"**, so only authorized private channels work.
-- [ ] 👤 **7.3** Create a Supabase **personal access token** for CI: Dashboard → Account (top right) → **Access Tokens** → Generate. Name it `github-actions-kitchin` and copy it, but don't share it. If the dashboard offers scoping, limit it to this project with the least access needed.
-- [ ] 👤 **7.4** Set up GitHub so the deploy workflow can reach production. Which steps you follow depends on D5.
+  - [x] **Remaining:** reset the database password so only you know it. Done 2026-10-18. Claude set a random one it never displayed. Go to <https://supabase.com/dashboard/project/kbctrdoinofseiventai/database/settings> → **Reset database password** → **Generate a password**, then save it in your password manager as "kitchin DB password". Don't share it with Claude.
+- [x] 👤 **7.2** Configure Auth in Dashboard → **Authentication**:
+  - [x] Sign In / Providers → turn **off** "Allow new users to sign up"
+  - [x] Turn **off** anonymous sign-ins
+  - [x] Keep the **Email** provider enabled. Password requirements: minimum length **12**.
+  - [x] Leave the other providers disabled.
+  - [x] Dashboard → **Realtime** → Settings → turn **off "Allow public access"**, so only authorized private channels work. Direct link: <https://supabase.com/dashboard/project/kbctrdoinofseiventai/realtime/settings>.
+- [x] 👤 **7.3** Create a Supabase **personal access token** for CI: Dashboard → Account (top right) → **Access Tokens** → Generate. Name it `github-actions-kitchin` and copy it, but don't share it. If the dashboard offers scoping, limit it to this project with the least access needed.
+- [x] 👤 **7.4** Set up GitHub so the deploy workflow can reach production. Which steps you follow depends on D5. Done 2026-10-18 (public repo), except the two protection rules, which are deferred to 8.10.
   - **If the repo is public:** repo → Settings → **Environments** → **New environment** → `production`.
-    - **Required reviewers:** add yourself.
-    - **Deployment branches:** Selected branches → `main`.
+    - ~~**Required reviewers:** add yourself.~~ Deferred to 8.10.
+    - ~~**Deployment branches:** Selected branches → `main`.~~ Deferred to 8.10.
     - **Environment secrets:** `SUPABASE_ACCESS_TOKEN` (from 7.3) and `SUPABASE_DB_PASSWORD` (from 7.1).
     - **Environment variables:** `SUPABASE_PROJECT_ID`, set to the project ref from 7.1.
   - **If the repo is private (GitHub Free):** environments aren't available.
@@ -269,8 +262,8 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
     - Tell Claude, and the workflow will be **manual-trigger only** (SPEC §10.3).
 - [ ] 🤖 **7.5** Add `.github/workflows/deploy-db.yml` (SPEC §10.3).
 - [ ] 👤 **7.6** Merge, then start the deploy:
-  - **Public repo:** go to Actions → "Deploy database" → **Review deployments** → approve.
-  - **Private repo:** go to Actions → "Deploy database" → **Run workflow** on `main`.
+  - **Until 8.10:** the workflow is manual-trigger only, so go to Actions → "Deploy database" → **Run workflow** on `main`. Starting it yourself is the approval (R28.2).
+  - **After 8.10:** go to Actions → "Deploy database" → **Review deployments** → approve.
 
   Then check that the tables exist in Dashboard → Table Editor.
 - [ ] 👤 **7.7** Provision the two accounts and the household:
@@ -279,7 +272,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
      - If there's no auto-confirm option, tell Claude, and use the temporary-secret-key fallback in SPEC §6.2. Delete the key afterwards.
   2. Dashboard → **SQL Editor**: paste `scripts/provision-household.sql`, replace the placeholders with your household name, time zone (for example `America/Chicago`), both emails and display names, and run it. **Don't commit the filled-in version.**
   3. Check in Table Editor that `households` has 1 row, `household_members` has 2, and `grocery_lists` has 1.
-- [ ] 👤 **7.8** Add the production app config to EAS. These values are public, so you can also give them to Claude to run:
+- [x] 👤 **7.8** Add the production app config to EAS. These values are public, so you can also give them to Claude to run. Done 2026-10-18 by Claude: both variables are in `production` only, and `development` has none.
   1. Get the **Project URL** and the **publishable key** from Dashboard → Project Settings → **API Keys**. Use the publishable key, **never** the secret or `service_role` key.
   2. Store them in the **production** environment only:
      ```sh
@@ -294,7 +287,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 
 ## M8: TestFlight
 
-- [ ] 👤 **8.1** Confirm your Apple Developer membership is active: <https://developer.apple.com/account> shows "Apple Developer Program".
+- [x] 👤 **8.1** Confirm your Apple Developer membership is active: <https://developer.apple.com/account> shows "Apple Developer Program".
 - [ ] 👤 **8.2** App icon: provide a **1024×1024 PNG** with no transparency, or ask Claude for a simple placeholder (chef hat on desert teal). The legacy 180×180 icon is too small.
 - [ ] 🤖 **8.3** Production build config:
   - icon and splash
@@ -329,6 +322,18 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
   - [ ] Force-quit and reopen both phones → still signed in, data intact
   - [ ] Sign out on one phone → back to sign-in; the other phone is unaffected
   - [ ] Sentry shows no unexpected errors
+- [ ] 👤 **8.9** Turn on the `main` branch ruleset (deferred from 1.14 and 2.10 until the fast-paced development is over; R27.7). After this, changes go through PRs.
+  1. Settings → Rules → Rulesets → **New branch ruleset**:
+     - Name: "main"
+     - Enforcement: Active
+     - Target: default branch
+     - Enable **Require a pull request before merging** (0 approvals is fine when it's just you)
+     - Enable **Require status checks to pass** and add `app` and `database`
+     - Keep **Restrict deletions** and **Block force pushes** enabled
+- [ ] 👤 **8.10** Turn on the `production` environment's protection rules (deferred from 7.4 until the fast-paced development is over; R28.2, R28.3). Then tell Claude, so it can add the push trigger back to `deploy-db.yml`.
+  1. Settings → Environments → `production`.
+  2. Tick **Required reviewers**, add yourself, leave **Prevent self-review** unticked, and click **Save protection rules**.
+  3. **Deployment branches and tags** → **Selected branches and tags** → **Add deployment branch or tag rule** → Branch `main` → **Add rule**.
 - [ ] 🎉 **MVP done.** Use it for a couple of weeks before starting Phase 2.
 
 ---
@@ -347,6 +352,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 ## Recurring maintenance
 
 - [ ] 👤 **Every ~80 days:** ship a new TestFlight build. Builds expire after 90 days, and an expired build stops opening. Run `eas build --platform ios --profile production --auto-submit`.
+  - At the same time, renew the Supabase access token `github-actions-kitchin` (created 2026-10-18 with a 90-day expiry): generate a new one, overwrite `SUPABASE_ACCESS_TOKEN` in GitHub → Settings → Environments → `production`, then delete the old token in Supabase. If it expires first, the next database deploy fails at sign-in before any migration runs.
 - [ ] 👤 **Monthly (on the Free plan, D11):** take a backup.
   1. Get the connection string from Dashboard → **Connect** (Session pooler).
   2. Run:

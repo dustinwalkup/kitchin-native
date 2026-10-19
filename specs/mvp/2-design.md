@@ -984,7 +984,9 @@ Triggers fire whatever the `EXECUTE` grants say, so every function except `my_ho
 name: CI
 on: { pull_request: {}, push: { branches: [main] } }
 permissions: { contents: read }
-concurrency: { group: ci-${{ github.ref }}, cancel-in-progress: true }
+concurrency:                             # block style: `${{` inside a { } flow map isn't valid YAML
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   app:                                   # 27.1
     runs-on: ubuntu-latest
@@ -1009,7 +1011,8 @@ jobs:
         # Runs Postgres, Auth (auth schema), Realtime (realtime.messages), PostgREST and postgres-meta (type generation).
         # Applies every migration from scratch, then the seed files (§4.9).
       - run: npx supabase db advisors --local --type security --fail-on warn
-      - run: npx supabase db lint --local --fail-on error
+      - run: npx supabase db lint --local --schema public,private --fail-on error
+        # Only the schemas that ship; the seed-only `tests` schema is never deployed (§4.9).
       - run: npx supabase test db
       - run: |
           npx supabase gen types typescript --local > src/types/database.ts
@@ -1551,10 +1554,10 @@ Each item names the milestone where it gets resolved and the fallback if the ass
 5. **Form sheet with keyboard and ScrollView** (M4). Test on a device. Fallback: `presentation: 'modal'`.
 6. **Sentry Expo Router integration** (M6). Use `Sentry.expoRouterIntegration()` if the installed v8 exports it; otherwise skip it, since tracing is off and navigation breadcrumbs are optional.
 7. **Realtime partitions in pgTAP** (M5). Confirm that creating today's `realtime.messages` partition inside the test transaction works on the pinned CLI's Realtime version.
-8. **Security Advisor and `private.my_household_ids()`** (M2). Confirm that `--fail-on warn` passes with a definer function executable by `authenticated` in a schema the API doesn't expose. If it warns, document why the warning is accepted, or switch to the advisor's suggested pattern.
+8. **Security Advisor and `private.my_household_ids()`** (M2). Confirm that `--fail-on warn` passes with a definer function executable by `authenticated` in a schema the API doesn't expose. If it warns, document why the warning is accepted, or switch to the advisor's suggested pattern. **Resolved in task 2.7:** the CLI 2.121.0 advisor reports no issues at any level, so there's no exception to record.
 9. **supabase-js sign-out when offline** (M3). Confirm with a unit test that a network error leaves the session in place, which is the basis for 3.9.
 10. **Default template contents** (M1). Check whether `react-native-gesture-handler` and `react-native-reanimated` are already present, and add any that are missing with `npx expo install`.
 11. **Privacy manifest reasons** (M8). Adjust them after Apple's post-upload email.
-12. **Local publishable key format** (M2). Confirm that the pinned CLI prints an `sb_publishable_…` key; `env-guard` also accepts the legacy local anon JWT.
+12. **Local publishable key format** (M2). Confirm that the pinned CLI prints an `sb_publishable_…` key; `env-guard` also accepts the legacy local anon JWT. **Resolved in task 2.1:** CLI 2.121.0 prints `PUBLISHABLE_KEY=sb_publishable_…`, alongside the legacy `ANON_KEY`.
 13. **Swipe and VoiceOver** (M4). Confirm that `ReanimatedSwipeable` doesn't swallow the row's accessibility actions.
 14. **Docs follow-up** (M1). Point `CLAUDE.md` at `specs/mvp/` as the authoritative design, and fix the advisors flag in SPEC.md, or mark SPEC.md §3–§11 as superseded.

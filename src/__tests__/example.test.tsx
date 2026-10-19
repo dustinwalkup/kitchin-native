@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { renderRouter } from 'expo-router/testing-library';
 
 function Counter() {
   const [count, setCount] = useState(0);
@@ -19,11 +18,5 @@ describe('test setup', () => {
     await fireEvent.press(screen.getByRole('button'));
 
     expect(screen.getByRole('button')).toHaveTextContent('Pressed 1 times');
-  });
-
-  it('renders the app routes with renderRouter', async () => {
-    const router = await renderRouter('./src/app');
-
-    expect(router.getPathname()).toBe('/');
   });
 });

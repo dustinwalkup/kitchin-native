@@ -30,11 +30,11 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
 | G2 | 0.8: bundle-identifier prefix chosen (DD9) | 1.5 |
 | G3 | 0.4 and 1.11: **done**. The EAS project `@dustinwalkup/kitchin` exists; 1.5 writes its `owner`, `slug` and `projectId`. Don't run `eas init` | — |
 | G4 | 0.3: GitHub CLI signed in | The first PR |
-| G5 | 1.14 and 2.10: branch ruleset requiring `app`, then `database` | After 1.9, after 2.7 |
+| G5 | 8.9 (moved from 1.14 and 2.10 on 2026-10-18): branch ruleset requiring `app` and `database`. Deferred because the owner commits directly to `main` during the fast-paced development. Secret scanning, push protection and Dependabot alerts are already on | MVP sign-off, after 8.1 |
 | G6 | 6.1, 6.2, 6.5: Sentry project, DSN and slugs shared; `SENTRY_AUTH_TOKEN` stored as an EAS secret | 6.2 |
-| G7 | 7.1–7.4: the production project `kitchin` exists (`us-east-2`), but the owner still has to reset its database password. Then the auth settings, access token and GitHub `production` environment | Running the workflow from 7.1 (writing it doesn't need the gate) |
+| G7 | 7.1–7.4: the production project `kitchin` exists (`us-east-2`), its database password is reset, the access token exists, and the GitHub `production` environment has its secrets and variable. Still to do: the Realtime public-access setting in 7.2. The environment's protection rules are deferred to owner step 8.10 (see task 7.1) | Running the workflow from 7.1 (writing it doesn't need the gate) |
 | G8 | 7.6–7.9: deploy approved, household provisioned, production EAS variables set | The first production build after 8.1 |
-| G9 | "Start now", 8.1 and 8.2: Apple Developer membership active; a 1024 × 1024 icon provided, or a placeholder requested | 8.1 |
+| G9 | "Start now", 8.1 and 8.2: Apple Developer membership active (**done**); a 1024 × 1024 icon provided, or a placeholder requested | 8.1 |
 
 ---
 
@@ -80,7 +80,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - Add `.env.example` with the three names and dummy values.
   - _Requirements: R24.3, R24.4, R24.5, R25.1, R25.2_ — _Design: §3.1, DD22_
 
-- [ ] **1.5 Configure the app variants (`app.config.ts`, `eas.json`)** · S
+- [x] **1.5 Configure the app variants (`app.config.ts`, `eas.json`)** · S
   - `app.config.ts` per §3.1:
     - the variant comes from `APP_VARIANT`
     - `owner: 'dustinwalkup'`, `slug: 'kitchin'` and `extra.eas.projectId` from `docs/TASKS.md` 1.11, the same for both variants
@@ -96,7 +96,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
     - development with a local URL produces "Kitchin Dev" and the `.dev` bundle ID
   - _Requirements: R16.6, R24.1, R24.3, R24.4, R24.6, R29.2, R29.3_ — _Design: §3.1, §3.14, DD9, DD22, OI-1_
 
-- [ ] **1.6 Port the desert theme with contrast tests (TDD)** · M
+- [x] **1.6 Port the desert theme with contrast tests (TDD)** · M
   - First, `src/ui/theme.test.ts` checks that:
     - every `TEXT_PAIRS` entry meets its minimum ratio (WCAG relative luminance)
     - each soft tint equals its source colour blended over white at the stated alpha
@@ -104,7 +104,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - Then `src/ui/theme.ts` per §3.10: palette, neutrals, `inkMuted`, `controlBorder`, `onBrand`, soft tints, category badge pairs, radii, spacing, and `{ light, dark }` with dark equal to light.
   - _Requirements: R16.1, R16.4, R16.7, N13_ — _Design: §3.10, DD19_
 
-- [ ] **1.7 Build the accessible UI primitives** · M
+- [x] **1.7 Build the accessible UI primitives** · M
   - In `src/ui/`:
     - `Text`: iOS text styles, `maxFontSizeMultiplier={2}`
     - `Button`, `Checkbox`, `TextField`, `Chip`, `Banner`, `Pill`
@@ -120,7 +120,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
     - `Skeleton` stays static when Reduce Motion is on
   - _Requirements: R16.2, R16.5, N10, N11, N12, N13, N14_ — _Design: §3.10_
 
-- [ ] **1.8 Add the route skeleton, DEV badge and theme preview** · S
+- [x] **1.8 Add the route skeleton, DEV badge and theme preview** · S
   - The root `_layout.tsx` gets a provider shell, which section 3 fills in. Plus:
     - a `sign-in.tsx` placeholder
     - `(app)/(tabs)/_layout.tsx` with the Groceries and Settings tabs: SF Symbols `cart.fill` and `gearshape.fill`, bold labels, cactus as the active tint
@@ -159,7 +159,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - Done when `npx supabase start` runs locally (G1) and a sign-up request to the local Auth API is refused.
   - _Requirements: R18.1, R18.2, R18.3, R18.4, R24.7_ — _Design: §4.9_
 
-- [ ] **2.2 Write the pgTAP test helpers** · S
+- [x] **2.2 Write the pgTAP test helpers** · S
   - `supabase/seed/00_test_helpers.sql` per §4.9:
     - a `tests` schema with no grants to `anon` or `authenticated`
     - `tests.create_user`: bcrypt password, confirmed, the empty-string token columns GoTrue expects, and an `auth.identities` row
@@ -168,7 +168,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - A smoke test checks that a created user can be authenticated as, and that `auth.uid()` then returns their ID.
   - _Requirements: R27.6_ — _Design: §4.9, §7_
 
-- [ ] **2.3 Write the structural database tests first** · M
+- [x] **2.3 Write the structural database tests first** · M
   - `supabase/tests/database/00_structure.test.sql`, with every structural check in §7:
     - every `public` table has RLS enabled, and every one except the allowlist has `household_id`
     - no policy applies to `anon` or `public`, and none has a `true` qual
@@ -180,7 +180,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - These tests fail until 2.4 lands.
   - _Requirements: R19.3, R19.10, R19.11, R23.5, R27.3, R27.4, R27.5_ — _Design: §4.4, §7_
 
-- [ ] **2.4 Write the migration `core_households`** · L
+- [x] **2.4 Write the migration `core_households`** · L
   - Create it with `npx supabase migration new core_households`. Contents per §4.3 (first block) and §4.4:
     - the default-privilege revokes and the `private` schema
     - `households`, `household_members` and its index
@@ -193,14 +193,14 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
   - Done when 2.3's structural tests pass.
   - _Requirements: R19.1–R19.8, R19.11, R19.12, R20.1–R20.6, R23.3, R23.5_ — _Design: §3.11, §4.1, §4.3, §4.4, §4.6, DD17_
 
-- [ ] **2.5 Seed local users and households** · S
+- [x] **2.5 Seed local users and households** · S
   - `supabase/seed/10_seed_data.sql`:
     - users `member-a` to `member-d` `@example.com`, with local-only throwaway passwords documented in the file
     - households H1 (A and B) and H2 (C), created through `private.provision_household`
     - D gets no membership
   - _Requirements: R25.6_ — _Design: §4.9_
 
-- [ ] **2.6 Write behavioural tests for households, memberships and provisioning** · M
+- [x] **2.6 Write behavioural tests for households, memberships and provisioning** · M
   - `10_households.test.sql`:
     - A sees H1 and both H1 memberships, and nothing else.
     - C sees none of H1; D and anon see nothing.
@@ -214,12 +214,12 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
     - `authenticated` can't execute the function
   - _Requirements: R19.2, R19.3, R19.4, R19.5, R19.9, R20.1–R20.5, R23.3, R23.5_ — _Design: §4.3, §4.6, §7_
 
-- [ ] **2.7 Generate types and add the CI `database` job** · S
+- [x] **2.7 Generate types and add the CI `database` job** · S
   - Generate the types with `npx supabase gen types typescript --local > src/types/database.ts`.
   - Add the `database` job to `ci.yml` per §3.12:
     - `npx supabase start -x …`
     - `db advisors --local --type security --fail-on warn`
-    - `db lint --local --fail-on error`
+    - `db lint --local --schema public,private --fail-on error`: only the schemas that ship. The seed-only `tests` lookups name tables that later migrations add, so linting them fails until 4.1 *(owner decision during 2.2)*
     - `test db`
     - the type-drift check
   - Resolve OI-8: if the advisor warns about `private.my_household_ids()`, fix it or record the accepted exception in a migration comment.
@@ -528,6 +528,7 @@ This list contains only coding work. Owner steps (accounts, dashboards, secrets,
     - a post-deploy advisors check with `--fail-on error`
     - concurrency control
   - Validate both workflows with `actionlint` in the CI `app` job.
+  - Until owner step 8.10 adds required reviewers to the `production` environment, use only the `workflow_dispatch` trigger and leave out the push trigger. Starting the run by hand is then the owner's approval (R28.2). Without this, every migration pushed to `main` would deploy to production unapproved. After 8.10, add the push trigger back per §3.13.
   - Running the workflow needs G7.
   - _Requirements: R24.8, R28.2, R28.3, R28.4, R28.6_ — _Design: §3.13_
 

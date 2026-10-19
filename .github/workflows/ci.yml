@@ -1,0 +1,31 @@
+name: CI
+on: { pull_request: {}, push: { branches: [main] } }
+permissions: { contents: read }
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  # Task 1.9 adds the `app` job (27.1) above this one.
+  database: # 27.2–27.6, design §3.12
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm ci # Supabase CLI pinned as a devDependency
+      - run: npx supabase start -x studio,imgproxy,mailpit,storage-api,edge-runtime,logflare,vector,supavisor
+        # Runs Postgres, Auth (auth schema), Realtime (realtime.messages), PostgREST and postgres-meta (type generation).
+        # Applies every migration from scratch, then the seed files (§4.9).
+      - run: npx supabase db advisors --local --type security --fail-on warn
+      - run: npx supabase db lint --local --schema public,private --fail-on error
+        # Only the schemas that ship; the seed-only `tests` schema is never deployed (§4.9).
+      - run: npx supabase test db
+      - name: Generated types match the migrations
+        run: |
+          git ls-files --error-unmatch src/types/database.ts > /dev/null
+          npx supabase gen types typescript --local > src/types/database.ts
+          git diff --exit-code -- src/types/database.ts || {
+            echo "::error file=src/types/database.ts::Stale types. Run: npx supabase gen types typescript --local > src/types/database.ts"
+            exit 1
+          }
