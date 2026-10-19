@@ -345,6 +345,7 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 | Phase | Feature | Process |
 |---|---|---|
 | 2 | Meal planning (date-based) | Spec in `specs/meals/`. Steps in [Phase 2](#phase-2-meal-planning) below |
+| — | Meal library (saved meals, tags, choose from library) | Spec in `specs/meal-library/`. Steps in [Meal library](#meal-library) below |
 | 3 | Chores / tasks | Its own `specs/chores/`, through the same four phases |
 | 4 | Notes (with conflict detection) | Its own `specs/notes/`, through the same four phases |
 | — | OTA updates and builds from GitHub Actions | Mini-spec `specs/app-deploy/spec.md`. Steps in [App deploys](#app-deploys-ota-updates-and-builds) below |
@@ -414,6 +415,50 @@ The spec is [`specs/meals/`](../specs/meals/). Its requirements and design were 
 - [ ] ✅ **P2.6** Two-phone check on production: the success criteria in `specs/meals/1-requirements.md` (live updates, past weeks, Today after midnight, an edit in airplane mode, and typing never interrupted).
 - [ ] 👤 **P2.7** Revisit backups now that meal history builds up (DD6, N20). Decide whether to stay on monthly dumps or move to Pro.
 - [ ] 🎉 **Phase 2 done.**
+
+---
+
+## Meal library
+
+The spec is [`specs/meal-library/`](../specs/meal-library/). Its requirements and design were approved on 2026-10-19. The 🤖 lines mirror [`specs/meal-library/3-tasks.md`](../specs/meal-library/3-tasks.md) **under the same numbers**, so tick both together. Coding starts once you approve `3-tasks.md` and `4-test-plan.md`. The requirements expect Meals to be in daily use first (P2.4).
+
+- [ ] 🤖 **15.1** Library database tests (pgTAP)
+- [ ] 🤖 **15.2** Migration `meal_library_init`, seed, provisioning comment and types
+- [ ] 🤖 **16.1** Library constants and the text, search and tag rules
+- [ ] 🤖 **16.2** Form and save-plan rules
+- [ ] 🤖 **16.3** Hand-offs between screens
+- [ ] 🤖 **16.4** Library API layer (closes OI-24)
+- [ ] 🤖 **16.5** Library query and the save and delete mutations
+- [ ] 🤖 **16.6** Library live updates
+- [ ] 🤖 **17.1** Terracotta tone, tag-pill colours and CHECK constraint names
+- [ ] 🤖 **18.1** Browser components (search, tag filter, rows)
+- [ ] 🤖 **18.2** Meal Library screen and the Library button on Meals
+- [ ] 🤖 **18.3** Meal form components
+- [ ] 🤖 **18.4** Meal form screen
+- [ ] 🤖 **19.1** Choose from Meal Library in the slot editor
+- [ ] 🤖 **19.2** Picker
+- [ ] 🤖 **19.3** Picker connected to Meals (closes OI-20, OI-21)
+- [ ] 🤖 **20.1** Docs follow-through
+- [ ] ✅ **ML.1** Two-simulator check against the local stack. Run `npm run two-sims`, then sign in as **A** on one simulator and **B** on the other:
+  - [ ] On A, add a meal with a new tag → it appears in B's library within about 1 second, and B can put the new tag on another meal
+  - [ ] Both type the same new tag, in different capitals, on two new meals and save at about the same time → one tag, on both meals
+  - [ ] A changes a meal's description while B adds a tag to it → both changes stay
+  - [ ] B deletes a meal while A has it open. A taps Save → "This meal was deleted on another device"; **Save as new meal** brings it back
+  - [ ] Open a slot on A, tap **Choose from Meal Library**, and pick a meal → the slot shows its name and description on both simulators. Then edit or delete that meal in the library → the planned slot doesn't change
+  - [ ] In the picker, tap **+ Add new meal**, save it → you're back in the picker with it under **Just saved**, ready to choose
+  - [ ] Turn the Mac's Wi-Fi off. Saving a library meal fails at once and keeps what you typed. Choosing a meal for a slot still works and sends when you're back online
+  - [ ] Sign in as **C** → sees only Household Two's library, with none of Household One's meals or custom tags
+- [ ] 👤 **ML.2** Review and commit the changes on `main`.
+- [ ] 👤 **ML.3** Deploy the migration (gate G14). Actions → "Deploy database" → **Run workflow** on `main`. Check that the dry run lists only `meal_library_init`. Starting the run is your approval (R28.2). Then check in Table Editor that `library_tags` has 7 rows for your household.
+- [ ] 👤 **ML.4** Ship it to both phones. Actions → **EAS Deploy** → `ota-update`: the library adds no native package. Only after ML.3. Open Kitchin, force-quit it, and open it again on each phone to load the update.
+- [ ] 👤 **ML.5** Search check on your phone (design OI-22, gate G15). On the updated app:
+  1. In the Meal Library, add a meal named **Jalapeño poppers**.
+  2. Search **jalapeno** (no accent). The meal must show.
+  3. Add meals named **Soup 10** and **Soup 2**. Soup 2 must be listed first.
+  4. Delete the three test meals.
+  - If either check fails, tell Claude; OI-22's fallback becomes a task.
+- [ ] ✅ **ML.6** Two-phone check on production: the success criteria in `specs/meal-library/1-requirements.md`.
+- [ ] 🎉 **Meal library done.**
 
 ---
 

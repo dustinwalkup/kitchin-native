@@ -5,6 +5,7 @@
 > **Amendments proposed during design** (approved together with `2-design.md`): 1.7 added, 2.2 changed, 3.9 added, edge cases 20–21 added. See [2-design.md §1.4](./2-design.md#14-requirement-amendments).
 > **Amendment proposed during test planning** (approved together with `4-test-plan.md`): edge case 22 added.
 > **Amended for meal planning** (approved with `specs/meals/2-design.md`, 2026-10-19): the glossary, 1.5, 11.2, 26.4 and Out of Scope. See [specs/meals/1-requirements.md](../meals/1-requirements.md#amendments-to-the-mvp-requirements).
+> **Amended for the meal library** (approved with `specs/meal-library/2-design.md`, 2026-10-19): the glossary, 11.2, 13.2, 14.1, 23.2 and 26.4. See [specs/meal-library/1-requirements.md](../meal-library/1-requirements.md#amendments-to-earlier-requirements).
 > **Amended for app deploys** (proposed with `specs/app-deploy/spec.md`, 2026-10-19, awaiting approval): 25.4, 26.9 and Out of Scope. See [specs/app-deploy/spec.md](../app-deploy/spec.md#amendments-to-the-mvp-requirements).
 
 ## Introduction
@@ -24,7 +25,7 @@ The MVP also lays the foundation that every later feature reuses: household-scop
 | **Member** | One of the two people who use the app. Every member belongs to a household. |
 | **Owner** | The member who administers the project: provisions accounts, holds production credentials, and approves deploys and builds. |
 | **Household** | The unit of sharing. Every record of household data belongs to exactly one household. |
-| **Household data** | Any record members create or see through the app: grocery lists and items, and meal entries; chores and notes later. *(Amended for meal planning.)* |
+| **Household data** | Any record members create or see through the app: grocery lists and items, meal entries, and the meal library's meals, tags and tag links; chores and notes later. *(Amended for meal planning and for the meal library.)* |
 | **The app** | The Kitchin iOS app. |
 | **The backend** | The Supabase project: Auth, the Data API, Realtime and the Postgres database. |
 | **The database** | Postgres, including its grants, row-level security policies, constraints and triggers. A requirement assigned to the database must hold even when someone calls the Data API directly, without the app. |
@@ -227,7 +228,7 @@ The requirements below depend on these decisions. Each one is a SPEC §16 recomm
 #### Acceptance Criteria
 
 1. WHEN a change to household data is saved on one phone THEN the other phone SHALL show the change within 2 seconds (target: about 1 second), provided the app is in the foreground and online.
-2. Live updates SHALL cover adding, checking, unchecking, editing, deleting and clearing items, and saving and clearing meal slots. *(Amended for meal planning.)*
+2. Live updates SHALL cover adding, checking, unchecking, editing, deleting and clearing items, saving and clearing meal slots, and adding, editing and deleting library meals and creating tags. *(Amended for meal planning and for the meal library.)*
 3. WHEN the app returns to the foreground, regains connectivity, or re-establishes its live-update connection THEN it SHALL reload household data from the backend, so that any changes it missed appear.
 4. WHEN many changes arrive together (for example, the other member clears 20 checked items) THEN the app SHALL apply them as one update, not redraw once per item.
 5. WHILE a member's own change is being saved, incoming updates for the same list SHALL NOT make that change flicker or temporarily revert.
@@ -253,7 +254,7 @@ The requirements below depend on these decisions. Each one is a SPEC §16 recomm
 #### Acceptance Criteria
 
 1. WHILE the device has no network connection, the app SHALL show the banner "Offline — changes will send when you're back online" and SHALL keep showing the last-loaded list.
-2. WHILE the device is offline, the app SHALL accept a member's changes, show them immediately (12.1), and hold them for sending.
+2. WHILE the device is offline, the app SHALL accept a member's changes, show them immediately (12.1), and hold them for sending. Saving or deleting a library meal is the exception: it fails at once while offline and isn't held (meal library 46.3). *(Amended for the meal library.)*
 3. WHEN connectivity returns while the app is still running THEN the app SHALL send the held changes in the order they were made, then reload the list.
 4. WHILE the app is in the foreground and its live-update connection has been down for more than 3 seconds, the app SHALL show a small, non-blocking "Reconnecting…" indicator. It SHALL remove the indicator once reconnected.
 5. The app SHALL re-establish the live-update connection automatically, without member action.
@@ -264,7 +265,7 @@ The requirements below depend on these decisions. Each one is a SPEC §16 recomm
 
 #### Acceptance Criteria
 
-1. IF a request fails because the device is offline or the network timed out THEN the app SHALL show the offline banner (13.1) and retry automatically.
+1. IF a request fails because the device is offline or the network timed out THEN the app SHALL show the offline banner (13.1) and retry automatically. A library save or delete isn't retried automatically; the meal form offers Retry instead (meal library 46.3). *(Amended for the meal library.)*
 2. IF the session can't be refreshed THEN the app SHALL follow 3.6.
 3. IF the database denies access to a request THEN the app SHALL show "You don't have access to that".
 4. IF the database rejects a value as invalid THEN the app SHALL show an inline message at the relevant field.
@@ -396,7 +397,7 @@ This requirement applies only if the owner confirms the single-category view for
 #### Acceptance Criteria
 
 1. The owner SHALL be able to create each account in the backend dashboard as an already-confirmed user, without any email being sent.
-2. The owner SHALL be able to create a household, its two memberships and its grocery list in one step from the dashboard SQL editor, using a committed template script that contains only placeholders.
+2. The owner SHALL be able to create a household, its two memberships, its grocery list and its starter tags in one step from the dashboard SQL editor, using a committed template script that contains only placeholders. *(Amended for the meal library.)*
 3. IF any part of provisioning fails THEN nothing SHALL be created.
 4. Provisioning SHALL NOT require a secret key on the owner's laptop. IF the dashboard can't create confirmed users THEN the owner SHALL be able to use a temporary secret key for a single command and delete the key immediately afterwards.
 5. Only the database administrator SHALL be able to run the provisioning function. Signed-in users and unauthenticated callers SHALL NOT.
@@ -455,7 +456,7 @@ This requirement applies only if the owner confirms the single-category view for
    - the app version and OS version
    - the live-update connection status
    - the member's account ID
-4. Reports and breadcrumbs SHALL NOT contain passwords, tokens, API keys, email addresses, display names, household content (item names, quantities, notes, meal entries), request or response bodies, or URL query strings. *(Amended for meal planning.)*
+4. Reports and breadcrumbs SHALL NOT contain passwords, tokens, API keys, email addresses, display names, household content (item names, quantities, notes, meal entries, meal library names, descriptions and ingredients, and tag names), request or response bodies, or URL query strings. *(Amended for meal planning and for the meal library.)*
 5. As a final safeguard, the app SHALL scrub every outgoing report and breadcrumb for token, key, `Bearer` and email patterns before sending it.
 6. The app SHALL NOT capture screenshots, view hierarchies or session replays. In production it SHALL NOT record console output as breadcrumbs.
 7. UI test identifiers SHALL be static and SHALL NOT contain household content.

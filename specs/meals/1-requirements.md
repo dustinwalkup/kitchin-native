@@ -3,6 +3,7 @@
 > **Phase 1 of 4** in the EARS spec-driven process: **1-requirements** → 2-design → 3-tasks → 4-test-plan.
 > **Status:** Approved by the owner, 2026-10-19, including decisions K9–K17.
 > **Amendment proposed during design** (approved together with `2-design.md`): 32.7 changed. See [2-design.md §1.4](./2-design.md#14-requirement-amendments).
+> **Amended for the meal library** (approved with `specs/meal-library/2-design.md`, 2026-10-19): N24 and Out of Scope. See [specs/meal-library/1-requirements.md](../meal-library/1-requirements.md#amendments-to-earlier-requirements).
 
 ## Introduction
 
@@ -226,7 +227,7 @@ N1–N20 apply to meal planning unchanged. These add to them.
 ### Maintainability & Extensibility
 
 - **N23.** Date rules SHALL be pure functions with unit tests (N17). They include today in a given time zone, the dates of a week, the current week across daylight-saving changes and year ends, and the planned count.
-- **N24.** Meal planning SHALL be additive (N16): new tables, a new feature module and a new tab. No core table or policy, and no grocery code, SHALL need to change, apart from the tab list in 1.5.
+- **N24.** Meal planning SHALL be additive (N16): new tables, a new feature module and a new tab. No core table or policy, and no grocery code, SHALL need to change, apart from the tab list in 1.5. The meal library adds a Library button to the Meals header and a Choose from Meal Library button to the slot editor (meal library N30). *(Amended for the meal library.)*
 
 ---
 
@@ -269,10 +270,10 @@ N1–N20 apply to meal planning unchanged. These add to them.
 
 These are deferred and SHALL NOT appear in this phase's design, tasks or implementation:
 
-- Recipes: ingredients, instructions, servings, prep time, photos, and recipe links or imports. The `kitchin` prototype sketched these.
+- Recipes: instructions, servings, prep time, photos, and recipe links or imports. The `kitchin` prototype sketched these. *(Amended for the meal library: free-text ingredients on saved meals moved into scope under [`specs/meal-library/`](../meal-library/1-requirements.md).)*
 - Creating grocery items from meal text, and linking grocery items to meals. Requirement 37 only opens the existing add-item sheet.
 - Meal types beyond breakfast, lunch and dinner (snacks, dessert), several entries in one slot, custom slots, and markers such as Leftovers or Eating out. Members type these as text.
-- Saved, favourite, pinned or template meals, and suggestions drawn from past entries.
+- Favourite or pinned meals, and suggestions drawn from past entries. *(Amended for the meal library: saved meals moved into scope under [`specs/meal-library/`](../meal-library/1-requirements.md).)*
 - Moving, swapping, dragging or copying a meal between slots, and copying or clearing a whole week. Other apps commonly offer these and the saved meals above ([research.md §6](./research.md#6-survey-of-meal-planning-apps)), so they're the first candidates for a later iteration.
 - A month view, and a configurable start of the week.
 - Assigning who cooks, who's eating, or servings.
