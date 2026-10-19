@@ -209,12 +209,12 @@ Open this repo in Claude Code and say: *"Implement M<n> from docs/TASKS.md. Stop
 
 ## M6: Sentry
 
-- [ ] 👤 **6.1** In Sentry. Steps 1–3 done 2026-10-18 through the API: org `personal-1yv` (US region), team `personal`, project `kitchin`. Only step 4 remains.
+- [x] 👤 **6.1** In Sentry. Done 2026-10-18 (steps 1–3 through the API): org `personal-1yv` (US region), team `personal`, project `kitchin`; org token `eas-kitchin-sourcemaps`.
   1. **Create Project** → platform **React Native** → name `kitchin`.
   2. Note the **DSN** (public, OK to share with Claude), the **organization slug** and the **project slug**.
   3. Project Settings → **Security & Privacy**: turn on **Data Scrubber** and **Use Default Scrubbers**, and turn on **Prevent Storing of IP Addresses**.
   4. Settings → **Auth Tokens** → create an **Organization Token**, used for uploading source maps at build time. Copy it, but don't share it.
-- [ ] 👤 **6.2** Store the Sentry token as an EAS secret. **Enter it yourself on the website**, so it never lands in shell history:
+- [x] 👤 **6.2** Store the Sentry token as an EAS secret (done 2026-10-18; production only, visibility Secret). **Enter it yourself on the website**, so it never lands in shell history:
   1. Go to <https://expo.dev> → your `kitchin` project → **Environment variables** → **Add variable**.
   2. Name: `SENTRY_AUTH_TOKEN`. Environment: **production**. Visibility: **Secret**. Paste the token and save.
 - [ ] 🤖 **6.3** Install and configure Sentry **by hand. Don't use `@sentry/wizard`**, because it can write the auth token into files:
