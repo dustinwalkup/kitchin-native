@@ -79,13 +79,17 @@ describe('HouseholdProvider', () => {
 
   it('loads once the member signs in', async () => {
     setAuth({ status: 'signedOut', reason: 'none' });
-    fetchMock.mockResolvedValue([OLDEST]);
+    // Held until the test resolves it. An already-resolved fetch can reach the hook before
+    // `rerender` returns on a slow runner, which skips the loading state.
+    let resolveFetch!: (memberships: Membership[]) => void;
+    fetchMock.mockReturnValue(new Promise((resolve) => (resolveFetch = resolve)));
     const { result, rerender } = await renderHousehold();
 
     setAuth(SIGNED_IN);
     await rerender({});
 
     expect(result.current).toEqual({ status: 'loading' });
+    await act(async () => resolveFetch([OLDEST]));
     await waitFor(() => expect(result.current.status).toBe('ready'));
     expect(fetchMock).toHaveBeenCalledWith('user-a');
     expect(queryClient.getQueryData(['membership', 'user-a'])).toEqual([OLDEST]);
