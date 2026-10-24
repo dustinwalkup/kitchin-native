@@ -450,6 +450,23 @@ describe('SlotEditor with Choose from Meal Library', () => {
     expect(setMeal).toHaveBeenCalledWith(saved('Tacos'));
   });
 
+  it('starts from initialText rather than the entry, and saves only a change to it (DD27)', async () => {
+    // The meal just chosen, which the screen has saved and the week doesn't show yet.
+    await render(
+      <SlotEditor
+        slot={slot('Pasta')}
+        name="Thursday dinner"
+        setMeal={setMeal}
+        onClose={onClose}
+        initialText={'Tacos\nBeef, corn tortillas'}
+      />,
+    );
+
+    expect(field()).toHaveDisplayValue('Tacos\nBeef, corn tortillas');
+    await pressReturn();
+    expect(setMeal).not.toHaveBeenCalled();
+  });
+
   it('C-SLOT-18 wraps the counter, Choose and Clear at the largest text size, clipping none', async () => {
     await render(withChoose(slot('a'.repeat(480))));
 

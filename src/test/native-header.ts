@@ -20,3 +20,17 @@ export function nativeHeaders(
     ...node.children.flatMap((child) => (typeof child === 'string' ? [] : nativeHeaders(child))),
   ];
 }
+
+/**
+ * How each mounted native-stack screen is presented, such as `push` or `fullScreenModal`, in tree
+ * order. Jest draws no native presentation, so a modal can't be told from a card any other way.
+ */
+export function stackPresentations(node = screen.root as unknown as HostNode): unknown[] {
+  const own = 'stackPresentation' in node.props ? [node.props.stackPresentation] : [];
+  return [
+    ...own,
+    ...node.children.flatMap((child) =>
+      typeof child === 'string' ? [] : stackPresentations(child),
+    ),
+  ];
+}

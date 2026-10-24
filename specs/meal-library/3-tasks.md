@@ -210,7 +210,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
   - In the Simulator, with 300 meals of five tags each loaded by a local-only SQL snippet (not the seed), check that the list scrolls smoothly and searching keeps up with typing (N25).
   - _Requirements: R40, R41.9, R42.6, R42.9, R44.3, N25, N26_ — _Design: §3.8, §3.11, DD50, DD51, DD55, DD60_
 
-- [ ] **18.3 Build the meal form components** · L
+- [x] **18.3 Build the meal form components** · L
   - Needs 16.2 and 17.1.
   - Build `TagPicker`, `FormError` and `MealForm` per §3.7 and §3.9.
   - Component tests:
@@ -223,7 +223,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
   - Follow meals OI-16's outcome if the owner has settled it differently from DD56.
   - _Requirements: R42.1–R42.5, R42.7, R42.10, R43.1–R43.7, R43.10, R44.1, R46.7, N26, N27, N29_ — _Design: §3.7, §3.9, DD56, DD57_
 
-- [ ] **18.4 Build the meal form screen** · M
+- [x] **18.4 Build the meal form screen** · M
   - Needs 16.3, 16.5, 18.2 and 18.3.
   - Write `src/app/(app)/meal-form.tsx` per §3.9, and register it in `src/app/(app)/_layout.tsx` with `presentation: 'fullScreenModal'`.
   - Route tests in `meal-library.test.tsx`:
@@ -245,7 +245,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
   - Tests: no button without the prop; with it, tapping calls the prop; the footer wraps at the largest standard text size; the existing slot-editor tests still pass unchanged.
   - _Requirements: R45.1, R45.13, N11, N12, N26_ — _Design: §3.11_
 
-- [ ] **19.2 Build the picker** · M
+- [x] **19.2 Build the picker** · M
   - Needs 16.3, 16.5, 18.1 and 18.4.
   - Write `src/app/(app)/meal-picker.tsx` per §3.10, and register it in `src/app/(app)/_layout.tsx` with `presentation: 'modal'` and `title: 'Choose a meal'`.
   - Route tests:
@@ -257,7 +257,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
     - the empty library offers "+ Add new meal"; no row offers edit or delete
   - _Requirements: R45.2–R45.4, R45.7–R45.12_ — _Design: §3.10, DD50, DD51, DD55, DD60_
 
-- [ ] **19.3 Connect the picker to Meals** · M
+- [x] **19.3 Connect the picker to Meals** · M
   - Needs 19.1 and 19.2.
   - In `src/app/(app)/(tabs)/meals.tsx`, add `returning` and `appliedPick`, `chooseFromLibrary`, and the focus-effect setup per §3.11.
   - Route tests in `meals.test.tsx`, with the picker's hand-off set by the test:

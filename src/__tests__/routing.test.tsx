@@ -19,7 +19,7 @@ import {
   SESSION,
 } from '@/test/mock-backend';
 import { makeAuthError } from '@/test/factories';
-import { nativeHeaders } from '@/test/native-header';
+import { nativeHeaders, stackPresentations } from '@/test/native-header';
 import { type ColourToken, type Theme, themes } from '@/ui/theme';
 
 // Route tests from specs/mvp/4-test-plan.md §4.2. Tests live outside src/app, where Expo Router
@@ -507,5 +507,51 @@ describe('meal library routes (C-RTE-11)', () => {
 
     expect(app.getPathname()).toBe('/sign-in');
     expect(screen.queryByText('No saved meals yet')).not.toBeOnTheScreen();
+  });
+
+  it('opens /meal-form under (app) as a full-screen modal, titled "New meal" (§3.9)', async () => {
+    const app = await renderApp('/meal-library', 'No saved meals yet');
+
+    await act(() => router.push('/meal-form'));
+
+    expect(app.getPathname()).toBe('/meal-form');
+    expect(await screen.findByLabelText('Description (optional)')).toBeOnTheScreen();
+    expect(stackPresentations().at(-1)).toBe('fullScreenModal');
+    expect(nativeHeaders()).toContainEqual(expect.objectContaining({ title: 'New meal' }));
+  });
+
+  it('opens /meal-picker under (app) as a page sheet, titled "Choose a meal" (§3.10)', async () => {
+    const app = await renderApp('/meal-library', 'No saved meals yet');
+
+    await act(() =>
+      router.push({ pathname: '/meal-picker', params: { date: '2026-10-22', mealType: 'dinner' } }),
+    );
+
+    expect(app.getPathname()).toBe('/meal-picker');
+    expect(await screen.findByText('For Thursday dinner')).toBeOnTheScreen();
+    expect(stackPresentations().at(-1)).toBe('modal');
+    expect(nativeHeaders()).toContainEqual(expect.objectContaining({ title: 'Choose a meal' }));
+  });
+
+  it("doesn't open /meal-picker while signed out (R1.2)", async () => {
+    resetBackend({ session: null });
+    const app = await renderApp('/settings', 'Kitchin');
+
+    await act(() =>
+      router.push({ pathname: '/meal-picker', params: { date: '2026-10-22', mealType: 'dinner' } }),
+    );
+
+    expect(app.getPathname()).toBe('/sign-in');
+    expect(screen.queryByText('For Thursday dinner')).not.toBeOnTheScreen();
+  });
+
+  it("doesn't open /meal-form while signed out (R1.2)", async () => {
+    resetBackend({ session: null });
+    const app = await renderApp('/settings', 'Kitchin');
+
+    await act(() => router.push('/meal-form'));
+
+    expect(app.getPathname()).toBe('/sign-in');
+    expect(screen.queryByLabelText('Description (optional)')).not.toBeOnTheScreen();
   });
 });

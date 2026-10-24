@@ -3,7 +3,7 @@ import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { renderRouter } from 'expo-router/testing-library';
 import { useCallback, useSyncExternalStore } from 'react';
-import { ScrollView, Text } from 'react-native';
+import { AccessibilityInfo, ScrollView, Text } from 'react-native';
 
 import TabsLayout from '@/app/(app)/(tabs)/_layout';
 import Meals from '@/app/(app)/(tabs)/meals';
@@ -11,6 +11,7 @@ import AppLayout from '@/app/(app)/_layout';
 import AddItem from '@/app/(app)/add-item';
 import { buildSections, type GroceryItem, progress } from '@/features/groceries/domain';
 import type { GroceryList } from '@/features/groceries/hooks';
+import { mealPick } from '@/features/meal-library/handoff';
 import { DAY_KEYS } from '@/features/meals/constants';
 import { buildWeek, type MealEntry } from '@/features/meals/domain';
 import type { MealWeek, SetMealVariables } from '@/features/meals/hooks';
@@ -20,11 +21,11 @@ import { touchTarget } from '@/test/a11y';
 import { makeItem, makeMealEntry } from '@/test/factories';
 
 // Meals screen tests C-MEAL-01 to C-MEAL-14 and Add to groceries C-AGR-01 to C-AGR-05 (meals
-// 4-test-plan §4.3, §4.4). The real Meals screen and add-item sheet run inside the real (app) and
-// tabs layouts, so tab focus, the header, the tab bar and the sheet behave as in the app. The hooks
-// are mocked (§8.4): the week comes from the real buildWeek over each test's entries, today is
-// whatever the test sets, and the grocery list is `mockList`. 2026-10-22 is a Thursday, in the week
-// of 2026-10-19.
+// 4-test-plan §4.3, §4.4), and the Library and Choose additions (meal-library 4-test-plan §4.2,
+// §4.7). The real Meals screen and add-item sheet run inside the real (app) and tabs layouts, so tab
+// focus, the header, the tab bar and the sheet behave as in the app. The hooks are mocked (§8.4):
+// the week comes from the real buildWeek over each test's entries, today is whatever the test sets,
+// and the grocery list is `mockList`. 2026-10-22 is a Thursday, in the week of 2026-10-19.
 
 const THIS_WEEK = '2026-10-19' as IsoDate;
 const THURSDAY = '2026-10-22' as IsoDate;
@@ -80,12 +81,29 @@ const mockHooks = {
     };
   },
 
+  /**
+   * Shows a save in the week, as the real hook's optimistic update does (R12.1). That update lands
+   * after an `await`, so a screen can redraw before the week shows it; so does this one.
+   */
+  async putEntry({ date, mealType, body }: SetMealVariables) {
+    await Promise.resolve();
+
+    const others = mockState.entries.filter((e) => e.date !== date || e.mealType !== mealType);
+    mockState.entries =
+      body === null
+        ? others
+        : [...others, makeMealEntry({ id: `saved-${date}-${mealType}`, date, mealType, body })];
+    mockState.version += 1;
+    mockState.listeners.forEach((listener) => listener());
+  },
+
   // A failing save shows its toast as the real hook does, through the nearest ToastProvider (DD35).
   useSetMeal() {
     const toast = useToast();
     return useCallback(
       (v: SetMealVariables) => {
         mockSetMeal(v);
+        void mockHooks.putEntry(v);
         if (mockState.saveFails) {
           toast.show({
             message: "Couldn't save that meal",
@@ -133,13 +151,20 @@ function SettingsStub() {
   return <Text>Settings screen</Text>;
 }
 
-function ThemeStub() {
+// Routes these tests never open.
+function UnusedStub() {
   return null;
 }
 
 // The library's own tests are in meal-library.test.tsx.
 function MealLibraryStub() {
   return <Text>Meal Library screen</Text>;
+}
+
+// The picker's own tests are in meal-library.test.tsx. Here the test plays its part with
+// `closePicker`.
+function MealPickerStub() {
+  return <Text>Meal picker screen</Text>;
 }
 
 const ROUTES = {
@@ -150,7 +175,9 @@ const ROUTES = {
   '(app)/(tabs)/settings': SettingsStub,
   '(app)/add-item': AddItem,
   '(app)/meal-library': MealLibraryStub,
-  '(app)/theme': ThemeStub,
+  '(app)/meal-form': UnusedStub,
+  '(app)/meal-picker': MealPickerStub,
+  '(app)/theme': UnusedStub,
 };
 
 const OFFLINE_BANNER = "Offline — changes will send when you're back online";
@@ -174,6 +201,7 @@ function listOf(items: GroceryItem[]): GroceryList {
 
 beforeEach(async () => {
   jest.clearAllMocks();
+  mealPick.clear();
   mockWeekStarts = [];
   mockList = listOf([makeItem({ id: 'milk', name: 'Milk', category: 'dairy' })]);
   await update({
@@ -651,5 +679,190 @@ describe('Library button', () => {
     await fireEvent.press(library());
 
     expect(mockSetMeal.mock.calls).toEqual([[{ date: THURSDAY, mealType: 'lunch', body: 'Soup' }]]);
+  });
+});
+
+// Choosing from the Meal Library, meal-library 4-test-plan §4.7 and design §3.11. The picker is a
+// stub: `closePicker` leaves its hand-off and goes back, as choosing or Cancel does (C-PICK-04,
+// C-PICK-05).
+describe('Choose from Meal Library', () => {
+  type MealPick = Parameters<typeof mealPick.set>[0];
+  const TACOS = 'Tacos\nBeef, corn tortillas';
+  const thursdayDinner = (text: string): MealPick => ({ date: THURSDAY, mealType: 'dinner', text });
+
+  let announce: jest.SpyInstance;
+
+  beforeEach(() => {
+    announce = jest
+      .spyOn(AccessibilityInfo, 'announceForAccessibility')
+      .mockImplementation(() => {});
+  });
+
+  afterEach(() => announce.mockRestore());
+
+  /** Opens a slot's editor, optionally types in it, and taps Choose from Meal Library. */
+  async function openPicker(slotTestID: string, typed?: string) {
+    await fireEvent.press(screen.getByTestId(slotTestID));
+    if (typed !== undefined) await typeInEditor(typed);
+    await fireEvent.press(screen.getByTestId('slot-choose'));
+  }
+
+  /** What the picker does on leaving: a choice sets the pick, then it goes back. */
+  const closePicker = (pick?: MealPick) =>
+    act(() => {
+      if (pick) mealPick.set(pick);
+      router.back();
+    });
+
+  const editor = () => screen.getByTestId('slot-editor');
+
+  it('C-MEAL-15 Choose opens the picker with only the date and meal type, saving the draft as it opens', async () => {
+    const app = await renderMeals();
+
+    await openPicker('slot-thu-dinner', 'Pasta');
+
+    expect(app.getPathname()).toBe('/meal-picker');
+    expect(screen.getByText('Meal picker screen')).toBeOnTheScreen();
+    // C-MEAL-22: no meal text in the route (R26.4, DD51).
+    expect(app.getSearchParams()).toEqual({ date: THURSDAY, mealType: 'dinner' });
+    expect(app.getPathnameWithParams()).not.toMatch(/Pasta|Tacos/);
+    // The editor closed and saved the draft (R32.3, R45.7). Meals stays mounted underneath.
+    expect(mockSetMeal.mock.calls).toEqual([
+      [{ date: THURSDAY, mealType: 'dinner', body: 'Pasta' }],
+    ]);
+    expect(screen.queryByTestId('slot-editor', { includeHiddenElements: true })).toBeNull();
+    expect(screen.getByTestId('meals-week', { includeHiddenElements: true })).toBeOnTheScreen();
+  });
+
+  it('C-MEAL-16 a pick saves the copied text, reopens the editor showing it, and announces it', async () => {
+    const app = await renderMeals();
+    await openPicker('slot-thu-dinner', 'Pasta');
+
+    await closePicker(thursdayDinner(TACOS));
+
+    expect(app.getPathname()).toBe('/meals');
+    expect(mockSetMeal.mock.calls).toEqual([
+      [{ date: THURSDAY, mealType: 'dinner', body: 'Pasta' }],
+      [{ date: THURSDAY, mealType: 'dinner', body: TACOS }],
+    ]);
+    expect(editor()).toHaveProp('accessibilityLabel', 'Thursday dinner');
+    expect(editor()).toHaveDisplayValue(TACOS);
+    expect(announce).toHaveBeenCalledWith('Thursday dinner: Tacos');
+    // Applied once, then cleared (DD51).
+    expect(mealPick.read()).toBeNull();
+
+    // The copied text changes and saves like typed text (R45.5).
+    await typeInEditor(`${TACOS} — no cheese`);
+    await fireEvent(editor(), 'submitEditing');
+
+    expect(mockSetMeal.mock.calls.at(-1)).toEqual([
+      { date: THURSDAY, mealType: 'dinner', body: `${TACOS} — no cheese` },
+    ]);
+    expect(screen.queryByTestId('slot-editor')).toBeNull();
+
+    // Opened again by a tap, the slot starts from its entry, not from the meal chosen earlier.
+    await fireEvent.press(screen.getByTestId('slot-thu-dinner'));
+    expect(editor()).toHaveDisplayValue(`${TACOS} — no cheese`);
+  });
+
+  it("C-MEAL-17 a pick equal to the slot's text sends no write, and the editor reopens", async () => {
+    await renderMeals();
+    await openPicker('slot-thu-dinner');
+
+    await closePicker(thursdayDinner('Tacos'));
+
+    expect(mockSetMeal).not.toHaveBeenCalled();
+    expect(editor()).toHaveProp('accessibilityLabel', 'Thursday dinner');
+    expect(editor()).toHaveDisplayValue('Tacos');
+  });
+
+  it("C-MEAL-18 closing without a pick reopens the slot's editor at the same week, with the text typed before", async () => {
+    const app = await renderMeals();
+    await press('Next week');
+    await openPicker('slot-thu-dinner', 'Pasta');
+
+    await closePicker();
+
+    expect(app.getPathname()).toBe('/meals');
+    expect(range()).toHaveTextContent('Oct 26 – Nov 1');
+    expect(mockSetMeal.mock.calls).toEqual([
+      [{ date: '2026-10-29', mealType: 'dinner', body: 'Pasta' }],
+    ]);
+    expect(editor()).toHaveProp('accessibilityLabel', 'Thursday dinner');
+    expect(editor()).toHaveDisplayValue('Pasta');
+  });
+
+  it('C-MEAL-19 ignores a pick for another slot', async () => {
+    await renderMeals();
+    await openPicker('slot-thu-dinner');
+
+    await closePicker({ date: '2026-10-23' as IsoDate, mealType: 'dinner', text: TACOS });
+
+    expect(mockSetMeal).not.toHaveBeenCalled();
+    expect(editor()).toHaveProp('accessibilityLabel', 'Thursday dinner');
+    expect(editor()).toHaveDisplayValue('Tacos');
+    expect(within(screen.getByTestId('day-fri')).getByText('＋ Add dinner')).toBeOnTheScreen();
+  });
+
+  it('C-MEAL-19 ignores a pick it has already applied', async () => {
+    // The hand-off keeps the pick, as if clearing it had failed, so Meals sees its id again.
+    const clear = jest.spyOn(mealPick, 'clear').mockImplementation(() => {});
+    try {
+      await renderMeals();
+      await openPicker('slot-thu-dinner');
+      await closePicker(thursdayDinner(TACOS));
+      await typeInEditor('Tacos, no cheese');
+
+      // Choose again, then close the picker without choosing.
+      await fireEvent.press(screen.getByTestId('slot-choose'));
+      await closePicker();
+
+      expect(mockSetMeal.mock.calls).toEqual([
+        [{ date: THURSDAY, mealType: 'dinner', body: TACOS }],
+        [{ date: THURSDAY, mealType: 'dinner', body: 'Tacos, no cheese' }],
+      ]);
+      expect(editor()).toHaveDisplayValue('Tacos, no cheese');
+    } finally {
+      clear.mockRestore();
+    }
+  });
+
+  it("C-MEAL-20 shows Meals' Retry toast when saving the chosen text fails", async () => {
+    await update({ saveFails: true });
+    await renderMeals();
+    await openPicker('slot-thu-dinner');
+
+    await closePicker(thursdayDinner(TACOS));
+
+    expect(mockSetMeal).toHaveBeenCalledWith({ date: THURSDAY, mealType: 'dinner', body: TACOS });
+    const toast = screen.getByTestId('toast');
+    expect(within(toast).getByText("Couldn't save that meal")).toBeOnTheScreen();
+    expect(within(toast).getByRole('button', { name: 'Retry' })).toBeOnTheScreen();
+  });
+
+  it('C-MEAL-21 typing in a slot works as before when the library is never opened', async () => {
+    await renderMeals();
+    // A pick that no Choose asked for, such as one left by a picker opened another way.
+    mealPick.set(thursdayDinner(TACOS));
+
+    await tab('Groceries');
+    await tab('Meals');
+    await fireEvent.press(screen.getByTestId('slot-thu-lunch'));
+    await typeInEditor('Soup');
+    await fireEvent(editor(), 'submitEditing');
+
+    expect(mockSetMeal.mock.calls).toEqual([[{ date: THURSDAY, mealType: 'lunch', body: 'Soup' }]]);
+    expect(screen.queryByTestId('slot-editor')).toBeNull();
+  });
+
+  it('only a pick made while the picker is open fills the slot (R45.7)', async () => {
+    await renderMeals();
+    mealPick.set(thursdayDinner(TACOS));
+
+    await openPicker('slot-thu-dinner');
+    await closePicker();
+
+    expect(mockSetMeal).not.toHaveBeenCalled();
+    expect(editor()).toHaveDisplayValue('Tacos');
   });
 });

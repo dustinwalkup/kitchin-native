@@ -25,6 +25,11 @@ export interface SlotEditorProps {
    * (R45.13). The screen's navigation unmounts the editor, which saves the draft as usual.
    */
   onChooseFromLibrary?: () => void;
+  /**
+   * The text to start from instead of the slot's entry: the meal just chosen for the slot, which
+   * the screen has saved but the week may not show yet (meal-library §3.11).
+   */
+  initialText?: string;
 }
 
 /** "49 characters left", "1 character left" or "No characters left" (R32.5). */
@@ -52,11 +57,18 @@ function announceCounter(before: number | null, after: number | null) {
  * the text the slot had when editing began (DD27), then makes the draft the new `base`, so a second
  * save of the same text sends nothing.
  */
-export function SlotEditor({ slot, name, setMeal, onClose, onChooseFromLibrary }: SlotEditorProps) {
+export function SlotEditor({
+  slot,
+  name,
+  setMeal,
+  onClose,
+  onChooseFromLibrary,
+  initialText,
+}: SlotEditorProps) {
   const theme = useTheme();
   const { label } = MEAL_TYPES.find((t) => t.key === slot.mealType)!;
   // Read once: a later `slot.entry`, such as the other member's save, leaves the field alone (R35.2).
-  const [draft, setDraft] = useState(() => slot.entry?.body ?? '');
+  const [draft, setDraft] = useState(() => initialText ?? slot.entry?.body ?? '');
   // Commits run from handlers, AppState and unmount, so they read a ref rather than a render's state.
   const edit = useRef({ base: draft, draft });
 

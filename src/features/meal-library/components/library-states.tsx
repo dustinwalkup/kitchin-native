@@ -116,6 +116,22 @@ export function NoMatch({ onClearFilters }: { onClearFilters: () => void }) {
   );
 }
 
+/**
+ * The meal form was opened for a meal the loaded library doesn't hold, such as one deleted on the
+ * other phone (§3.9). Close is the only way on.
+ */
+export function MissingMeal({ onClose }: { onClose: () => void }) {
+  return (
+    <LibraryMessage
+      testID="meal-form-missing"
+      icon="book-remove-outline"
+      title="This meal isn't in the library any more"
+    >
+      <Button label="Close" tone="accent" onPress={onClose} />
+    </LibraryMessage>
+  );
+}
+
 function LibraryMessage({
   testID,
   icon,

@@ -40,6 +40,7 @@ export const COPY = {
   tooLong: (max: number) => `Shorten this to ${max} characters`, // design §3.2
   fieldRejected: "This couldn't be saved. Check it and try again.", // R42.10, DD58
   offline: "You're offline. Try again when you're connected", // R46.3
+  forbidden: "You don't have access to that", // R14.3
   saveError: "Couldn't save this meal", // R42.10
   deleteError: "Couldn't delete this meal", // R44.4
   deletedElsewhere: 'This meal was deleted on another device', // R46.7

@@ -433,11 +433,11 @@ The spec is [`specs/meal-library/`](../specs/meal-library/). Its requirements an
 - [x] 🤖 **17.1** Terracotta tone, tag-pill colours and CHECK constraint names
 - [x] 🤖 **18.1** Browser components (search, tag filter, rows)
 - [x] 🤖 **18.2** Meal Library screen and the Library button on Meals
-- [ ] 🤖 **18.3** Meal form components
-- [ ] 🤖 **18.4** Meal form screen
+- [x] 🤖 **18.3** Meal form components
+- [x] 🤖 **18.4** Meal form screen
 - [x] 🤖 **19.1** Choose from Meal Library in the slot editor
-- [ ] 🤖 **19.2** Picker
-- [ ] 🤖 **19.3** Picker connected to Meals (closes OI-20, OI-21)
+- [x] 🤖 **19.2** Picker
+- [x] 🤖 **19.3** Picker connected to Meals (closes OI-20, OI-21)
 - [ ] 🤖 **20.1** Docs follow-through
 - [ ] ✅ **ML.1** Two-simulator check against the local stack. Run `npm run two-sims`, then sign in as **A** on one simulator and **B** on the other:
   - [ ] On A, add a meal with a new tag → it appears in B's library within about 1 second, and B can put the new tag on another meal

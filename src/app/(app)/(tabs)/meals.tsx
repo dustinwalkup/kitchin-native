@@ -1,17 +1,24 @@
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { type ComponentRef, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
-import { type LayoutChangeEvent, RefreshControl, StyleSheet } from 'react-native';
+import {
+  AccessibilityInfo,
+  type LayoutChangeEvent,
+  RefreshControl,
+  StyleSheet,
+} from 'react-native';
 
 import { useHouseholdToday } from '@/features/household/use-household-today';
+import { mealPick } from '@/features/meal-library/handoff';
 import { DayCard } from '@/features/meals/components/day-card';
 import { SkeletonWeek } from '@/features/meals/components/skeleton-week';
 import { SlotEditor } from '@/features/meals/components/slot-editor';
+import { slotName } from '@/features/meals/components/slot-row';
 import { WeekHeader } from '@/features/meals/components/week-header';
 import { LoadError, WaitingForConnection } from '@/features/meals/components/week-states';
 import { COPY } from '@/features/meals/constants';
 import type { Slot } from '@/features/meals/domain';
 import { type MealWeek, useMealWeek, useSetMeal } from '@/features/meals/hooks';
-import { addDays, type IsoDate, weekStartOf } from '@/lib/calendar';
+import { addDays, formatDay, type IsoDate, weekStartOf } from '@/lib/calendar';
 import { useIsOnline } from '@/lib/query-client';
 import { ToastProvider, useToast } from '@/lib/toast';
 import { FormScrollView } from '@/ui/form-scroll-view';
@@ -38,6 +45,7 @@ const sameSlot = (a: SlotKey | null, b: SlotKey) =>
 
 function MealsWeek() {
   const theme = useTheme();
+  const router = useRouter();
   const today = useHouseholdToday();
   // Tab screens stay mounted, so the week lasts while the app runs (R31.6), and a restart begins
   // at the current week (R31.1). A new day moves the Today pill but never the week (R34.3).
@@ -59,8 +67,65 @@ function MealsWeek() {
     scrollRef.current?.scrollTo({ y: event.nativeEvent.layout.y, animated: false });
   }, []);
 
-  // Leaving the tab closes the editor, which saves it (R32.3).
-  useFocusEffect(useCallback(() => () => setEditing(null), []));
+  // The slot the picker was opened for, and the last pick applied (meal-library §3.11, DD51).
+  const returning = useRef<SlotKey | null>(null);
+  const appliedPick = useRef<number | null>(null);
+  // The focus effect reads the loaded week without depending on it: re-running the effect would
+  // close the editor on every update.
+  const days = useRef(week.days);
+  useEffect(() => {
+    days.current = week.days;
+  });
+  // The meal just chosen for a slot, which its reopened editor starts from. The week shows the
+  // save only after `useSetMeal`'s optimistic update, which can land after the editor has opened.
+  const [chosen, setChosen] = useState<{ slot: SlotKey; text: string } | null>(null);
+
+  // Leaving the tab, or opening a screen over Meals, closes the editor, which saves it (R32.3).
+  // Back from the picker, Meals saves the meal chosen there and reopens the slot's editor, which
+  // starts from the chosen text. Closing the picker without choosing only reopens it (DD52).
+  useFocusEffect(
+    useCallback(() => {
+      const slot = returning.current;
+      if (slot !== null) {
+        returning.current = null;
+        const pick = mealPick.read();
+        if (pick !== null && pick.id !== appliedPick.current && sameSlot(slot, pick.value)) {
+          appliedPick.current = pick.id;
+          mealPick.clear();
+          const { text } = pick.value;
+          const shown = days.current
+            .find((day) => day.date === slot.date)
+            ?.slots.find((s) => s.mealType === slot.mealType)?.entry?.body;
+          if (text !== shown) {
+            setMeal({ date: slot.date, mealType: slot.mealType, body: text }); // R45.3, R45.5
+            setChosen({ slot, text });
+            // "Thursday dinner: Tacos": the meal's name, the copied text's first line (R45.3).
+            const name = slotName(formatDay(slot.date).weekday, slot.mealType);
+            AccessibilityInfo.announceForAccessibility(`${name}: ${text.split('\n')[0]}`);
+          }
+        }
+        setEditing(slot); // R45.3, R45.7
+      }
+      return () => {
+        setEditing(null);
+        setChosen(null);
+      };
+    }, [setMeal]),
+  );
+
+  // Only the slot's date and meal type travel in the route (DD51). A pick left from an earlier
+  // visit is dropped, so only one made in this visit can fill the slot (R45.7).
+  const chooseFromLibrary = useCallback(
+    (slot: SlotKey) => {
+      returning.current = slot;
+      mealPick.clear();
+      router.push({
+        pathname: '/meal-picker',
+        params: { date: slot.date, mealType: slot.mealType },
+      });
+    },
+    [router],
+  );
 
   // Changing week closes the editor too, which saves it (R32.3).
   const showWeek = (start: IsoDate, scroll: boolean) => {
@@ -70,10 +135,11 @@ function MealsWeek() {
   };
 
   // Stable, so the memoised day cards redraw only when their own day or open slot changes (N21).
-  const onEdit = useCallback(
-    (slot: Slot) => setEditing({ date: slot.date, mealType: slot.mealType }),
-    [],
-  );
+  // A tapped slot starts from its entry, never from a meal chosen earlier.
+  const onEdit = useCallback((slot: Slot) => {
+    setChosen(null);
+    setEditing({ date: slot.date, mealType: slot.mealType });
+  }, []);
   const onClear = useCallback(
     (slot: Slot) => setMeal({ date: slot.date, mealType: slot.mealType, body: null }),
     [setMeal],
@@ -86,9 +152,12 @@ function MealsWeek() {
         setMeal={setMeal}
         // Return also blurs, so this can run twice: it closes this slot only, never a newer one.
         onClose={() => setEditing((open) => (sameSlot(open, slot) ? null : open))}
+        onChooseFromLibrary={() => chooseFromLibrary({ date: slot.date, mealType: slot.mealType })}
+        initialText={chosen !== null && sameSlot(chosen.slot, slot) ? chosen.text : undefined}
       />
     ),
-    [setMeal],
+    // `chosen` changes only around a pick, so the day cards stay put as slots open and close.
+    [setMeal, chooseFromLibrary, chosen],
   );
 
   return (
