@@ -1,10 +1,11 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Profiler, type ProfilerOnRenderCallback } from 'react';
-import { AccessibilityInfo, AppState, type AppStateStatus } from 'react-native';
+import { AccessibilityInfo, AppState, type AppStateStatus, StyleSheet } from 'react-native';
 
 import type { IsoDate } from '@/lib/calendar';
 import { touchTarget } from '@/test/a11y';
 import { makeMealEntry } from '@/test/factories';
+import { themes } from '@/ui/theme';
 
 import { buildWeek, type Slot } from '../domain';
 import { DayCard } from './day-card';
@@ -14,6 +15,7 @@ import { counterLabel, SlotEditor } from './slot-editor';
 // design §3.5 table. The test plan's `onSave({ kind })` is `setMeal` here, as in 3-tasks 12.2 and
 // design §3.5: a save sends `body`, a clear sends `body: null`. 2026-10-22 is a Thursday.
 
+const theme = themes.light;
 const setMeal = jest.fn();
 const onClose = jest.fn();
 let announce: jest.SpyInstance;
@@ -385,6 +387,82 @@ describe('SlotEditor', () => {
     const drawn = onRender.mock.calls.map(([id]) => id);
     expect(drawn.length).toBeGreaterThan(0);
     expect(new Set(drawn)).toEqual(new Set([THURSDAY]));
+  });
+});
+
+// Choose from Meal Library, C-SLOT-16 to C-SLOT-18 (meal-library 4-test-plan §4.5, design §3.11).
+describe('SlotEditor with Choose from Meal Library', () => {
+  const onChooseFromLibrary = jest.fn();
+  const withChoose = (s: Slot) => (
+    <SlotEditor
+      slot={s}
+      name="Thursday dinner"
+      setMeal={setMeal}
+      onClose={onClose}
+      onChooseFromLibrary={onChooseFromLibrary}
+    />
+  );
+  const choose = () => screen.getByRole('button', { name: 'Choose from Meal Library' });
+
+  it('C-SLOT-16 has no Choose button without onChooseFromLibrary', async () => {
+    await render(ui(slot('Pasta')));
+
+    expect(screen.queryByRole('button', { name: 'Choose from Meal Library' })).toBeNull();
+    expect(screen.queryByTestId('slot-choose')).toBeNull();
+  });
+
+  it('C-SLOT-17 shows Choose before Clear, in bold terracotta, with a static test ID', async () => {
+    await render(withChoose(slot('Pasta')));
+
+    expect(screen.getAllByRole('button').map((b) => b.props.accessibilityLabel)).toEqual([
+      'Choose from Meal Library',
+      'Clear',
+    ]);
+    expect(screen.getByTestId('slot-choose')).toBe(choose());
+    // Terracotta carries text only in bold (N13).
+    expect(screen.getByText('Choose from Meal Library')).toHaveStyle({
+      color: theme.accent,
+      fontWeight: '700',
+    });
+  });
+
+  it('C-SLOT-17 Choose is at least 44 × 44 pt', async () => {
+    await render(withChoose(slot('Pasta')));
+
+    const target = touchTarget(choose());
+    expect(target.width).toBeGreaterThanOrEqual(44);
+    expect(target.height).toBeGreaterThanOrEqual(44);
+  });
+
+  it('C-SLOT-17 tapping Choose calls the prop, and the unmount that follows saves the draft', async () => {
+    await render(withChoose(slot('Pasta')));
+
+    await type('Tacos');
+    await fireEvent.press(choose());
+
+    expect(onChooseFromLibrary).toHaveBeenCalledTimes(1);
+    // The editor's saving doesn't change: the screen's navigation closes it (design §3.11).
+    expect(setMeal).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    await screen.unmount();
+    expect(setMeal).toHaveBeenCalledTimes(1);
+    expect(setMeal).toHaveBeenCalledWith(saved('Tacos'));
+  });
+
+  it('C-SLOT-18 wraps the counter, Choose and Clear at the largest text size, clipping none', async () => {
+    await render(withChoose(slot('a'.repeat(480))));
+
+    // The footer wraps its items onto new lines rather than clipping them.
+    expect(choose().parent).toHaveStyle({ flexDirection: 'row', flexWrap: 'wrap' });
+    expect(screen.getByText('20 characters left').parent).toBe(choose().parent);
+    // Choose grows with its label and shrinks to the footer's width, so its text wraps inside it.
+    expect(choose()).toHaveStyle({ flexShrink: 1 });
+    expect(StyleSheet.flatten(choose().props.style).height).toBeUndefined();
+    const label = screen.getByText('Choose from Meal Library');
+    expect(label).toHaveProp('allowFontScaling', true);
+    expect(label).toHaveProp('maxFontSizeMultiplier', 2);
+    expect(label).not.toHaveProp('numberOfLines');
   });
 });
 

@@ -134,4 +134,9 @@ describe('theme', () => {
   it.each(MEAL_TYPES)('U-THM-09 the $key icon is an ICON_PAIRS entry', ({ glyph, tint }) => {
     expect(ICON_PAIRS).toContainEqual({ fg: light[glyph], bg: light[tint] });
   });
+
+  it('U-THM-10 tag pills may carry ink on accentSoft, measured at 10.50:1', () => {
+    expect(TEXT_PAIRS).toContainEqual({ fg: light.ink, bg: light.accentSoft, min: 4.5 });
+    expect(contrast(light.ink, light.accentSoft)).toBeCloseTo(10.5, 2);
+  });
 });

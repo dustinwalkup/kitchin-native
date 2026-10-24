@@ -20,6 +20,11 @@ export interface SlotEditorProps {
    * blurs too), so it should close this slot only, never whichever slot is open by then.
    */
   onClose: () => void;
+  /**
+   * Opens the Meal Library picker for this slot (R45.1). Without it there's no Choose button
+   * (R45.13). The screen's navigation unmounts the editor, which saves the draft as usual.
+   */
+  onChooseFromLibrary?: () => void;
 }
 
 /** "49 characters left", "1 character left" or "No characters left" (R32.5). */
@@ -37,7 +42,8 @@ function announceCounter(before: number | null, after: number | null) {
 }
 
 /**
- * An open slot: a multi-line field, the characters-left counter and Clear (design §3.5, DD25). The
+ * An open slot: a multi-line field, the characters-left counter, Choose from Meal Library when the
+ * screen offers it (meal-library design §3.11), and Clear (design §3.5, DD25). The
  * draft lives here, so a keystroke re-renders only the editor (N21), and nothing from the network
  * writes into it while it's open (R35.2, DD26).
  *
@@ -46,7 +52,7 @@ function announceCounter(before: number | null, after: number | null) {
  * the text the slot had when editing began (DD27), then makes the draft the new `base`, so a second
  * save of the same text sends nothing.
  */
-export function SlotEditor({ slot, name, setMeal, onClose }: SlotEditorProps) {
+export function SlotEditor({ slot, name, setMeal, onClose, onChooseFromLibrary }: SlotEditorProps) {
   const theme = useTheme();
   const { label } = MEAL_TYPES.find((t) => t.key === slot.mealType)!;
   // Read once: a later `slot.entry`, such as the other member's save, leaves the field alone (R35.2).
@@ -149,6 +155,19 @@ export function SlotEditor({ slot, name, setMeal, onClose }: SlotEditorProps) {
               {counterLabel(left)}
             </Text>
           )}
+          {onChooseFromLibrary === undefined ? null : (
+            <Pressable
+              testID="slot-choose"
+              accessibilityRole="button"
+              accessibilityLabel="Choose from Meal Library"
+              onPress={onChooseFromLibrary}
+              style={({ pressed }) => [styles.choose, pressed && styles.pressed]}
+            >
+              <Text variant="subhead" color="accent" bold>
+                Choose from Meal Library
+              </Text>
+            </Pressable>
+          )}
           <Pressable
             testID="slot-clear"
             accessibilityRole="button"
@@ -187,6 +206,14 @@ const styles = StyleSheet.create({
   },
   // Wraps at large text sizes rather than clipping (N12).
   footer: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  // Shrinks so its label wraps inside the footer at 2× text rather than running past it (N12).
+  choose: {
+    minHeight: 44,
+    minWidth: 44,
+    flexShrink: 1,
+    paddingHorizontal: 8,
+    justifyContent: 'center',
+  },
   clear: {
     minHeight: 44,
     minWidth: 44,

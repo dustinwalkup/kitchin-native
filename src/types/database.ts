@@ -103,6 +103,78 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"library_meal_tags": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"household_id": string,"id": string,"meal_id": string,"tag_id": string,"updated_at": string,"updated_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"household_id": string,"id"?: string,"meal_id": string,"tag_id": string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"household_id"?: string,"id"?: string,"meal_id"?: string,"tag_id"?: string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "library_meal_tags_household_id_fkey"
+      columns: ["household_id"]
+isOneToOne: false
+      referencedRelation: "households"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "library_meal_tags_meal_id_household_id_fkey"
+      columns: ["meal_id","household_id"]
+isOneToOne: false
+      referencedRelation: "library_meals"
+      referencedColumns: ["id","household_id"]
+    },{
+      foreignKeyName: "library_meal_tags_tag_id_household_id_fkey"
+      columns: ["tag_id","household_id"]
+isOneToOne: false
+      referencedRelation: "library_tags"
+      referencedColumns: ["id","household_id"]
+    }
+                  ]
+                },"library_meals": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"description": string | null,"household_id": string,"id": string,"ingredients": string | null,"name": string,"updated_at": string,"updated_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"description"?: string | null,"household_id": string,"id"?: string,"ingredients"?: string | null,"name": string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"description"?: string | null,"household_id"?: string,"id"?: string,"ingredients"?: string | null,"name"?: string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "library_meals_household_id_fkey"
+      columns: ["household_id"]
+isOneToOne: false
+      referencedRelation: "households"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"library_tags": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"household_id": string,"id": string,"name": string,"name_key": string,"updated_at": string,"updated_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"household_id": string,"id"?: string,"name": string,"name_key"?: never,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"household_id"?: string,"id"?: string,"name"?: string,"name_key"?: never,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "library_tags_household_id_fkey"
+      columns: ["household_id"]
+isOneToOne: false
+      referencedRelation: "households"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"meal_entries": {
                   Row: {
                     "body": string,"created_at": string,"created_by": string | null,"household_id": string,"id": string,"meal_date": string,"meal_type": string,"updated_at": string,"updated_by": string | null

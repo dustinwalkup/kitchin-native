@@ -1,7 +1,9 @@
 -- private.provision_household, as postgres unless stated (4-test-plan §2.3, task 2.6).
 -- From task 4.2, DB-P-01 and the "nothing created" checks include the household's grocery list.
+-- Meal library task 15.1 added DB-P-08 and DB-P-09 (meal library 4-test-plan §2.4), which fail until
+-- migration meal_library_init (task 15.2) lands.
 begin;
-select plan(14);
+select plan(17);
 
 select tests.create_user('provision-x@example.com', 'provision-x-password');
 select tests.create_user('provision-y@example.com', 'provision-y-password');
@@ -92,5 +94,26 @@ select throws_ok(
   'DB-P-07 anon cannot reach provision_household');
 
 reset role;
+
+-- Starter tags (R43.8, R23.2 as amended). They come last, so that until library_tags exists, the
+-- error it raises can't stop the checks above.
+
+select bag_eq(
+  $$ select t.name, t.created_by, t.updated_by from public.library_tags t
+       join public.households h on h.id = t.household_id where h.name = 'Household Three' $$,
+  $$ select s.name, null::uuid as created_by, null::uuid as updated_by
+       from unnest(array['Quick & Easy', 'Family Favorite', 'High Protein', 'Breakfast', 'Lunch', 'Dinner',
+                         'Meal Prep']) as s(name) $$,
+  'DB-P-08 the household provisioned in DB-P-01 has exactly the seven starter tags, unattributed');
+
+create temporary table tags_before on commit drop as select count(*) as tags from public.library_tags;
+
+select throws_ok(
+  $$ select private.provision_household('Household Ten', 'UTC',
+       array['provision-x@example.com', 'nobody@example.com'], array['Member X', 'Nobody']) $$,
+  'P0001', 'no auth user for member 2', 'DB-P-09 an unknown second email raises');
+select results_eq($$ select count(*) from public.library_tags $$, $$ select tags from tags_before $$,
+  'DB-P-09 no tags are created');
+
 select * from finish();
 rollback;

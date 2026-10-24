@@ -52,4 +52,23 @@ describe('Chip', () => {
     expect(chip).toHaveStyle({ backgroundColor: light.cactus });
     expect(screen.getByText('Produce')).toHaveStyle({ color: light.onBrand, fontWeight: '700' });
   });
+
+  it('C-UI-09 renders a selected accent chip as bold onBrand text on terracotta', async () => {
+    await render(<Chip label="Dinner" tone="accent" selected onPress={() => {}} />);
+
+    const chip = screen.getByRole('button', { name: 'Dinner' });
+    expect(chip).toBeSelected();
+    expect(chip).toHaveStyle({ backgroundColor: light.accent, borderColor: light.accent });
+    expect(screen.getByText('Dinner')).toHaveStyle({ color: light.onBrand, fontWeight: '700' });
+  });
+
+  it('C-UI-09 renders an unselected accent chip as the default unselected chip', async () => {
+    await render(<Chip label="Dinner" tone="accent" onPress={() => {}} />);
+
+    expect(screen.getByRole('button', { name: 'Dinner' })).toHaveStyle({
+      backgroundColor: light.background,
+      borderColor: light.border,
+    });
+    expect(screen.getByText('Dinner')).toHaveStyle({ color: light.ink, fontWeight: '400' });
+  });
 });

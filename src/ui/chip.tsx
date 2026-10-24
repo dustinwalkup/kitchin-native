@@ -8,8 +8,10 @@ export interface ChipProps {
   /** What VoiceOver reads, when the visible label is shorter, such as an emoji alone. */
   accessibilityLabel?: string;
   onPress: () => void;
-  /** Cactus with white bold text, for the chosen category. */
+  /** White bold text on the tone's colour, for the chosen category or tag. */
   selected?: boolean;
+  /** A selected chip's colour: cactus by default, or terracotta for the meal library (DD57). */
+  tone?: 'cactus' | 'accent';
   /** Shown as ✓ in `inkMuted`, for an item that's already on the list (R6.2). */
   disabled?: boolean;
 }
@@ -23,8 +25,10 @@ export function Chip({
   onPress,
   selected = false,
   disabled = false,
+  tone = 'cactus',
 }: ChipProps) {
   const theme = useTheme();
+  const fill = theme[tone];
 
   return (
     <Pressable
@@ -37,7 +41,7 @@ export function Chip({
       style={({ pressed }) => [
         styles.chip,
         selected
-          ? { backgroundColor: theme.cactus, borderColor: theme.cactus }
+          ? { backgroundColor: fill, borderColor: fill }
           : {
               backgroundColor: pressed ? theme.secondarySoft : theme.background,
               borderColor: theme.border,

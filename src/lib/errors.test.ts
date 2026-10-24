@@ -96,6 +96,57 @@ describe('classifyError', () => {
     });
   });
 
+  // What PostgREST returns for a rejected CHECK constraint, with the row in `details`.
+  const checkError = (message: string) => ({
+    code: '23514',
+    message,
+    details: `Failing row contains (${HOUSEHOLD_TEXT}, null, null).`,
+    hint: null,
+    status: 400,
+  });
+
+  it('U-ERR-13 maps 23514 to validation with the CHECK constraint name', () => {
+    const e = checkError(
+      'new row for relation "library_meals" violates check constraint "library_meals_name_check"',
+    );
+
+    expect(classifyError(e)).toEqual(
+      expect.objectContaining({
+        category: 'validation',
+        meta: { code: '23514', status: 400, constraint: 'library_meals_name_check' },
+      }),
+    );
+  });
+
+  it('U-ERR-13 keeps only the constraint name when the message also holds row text', () => {
+    const e = checkError(
+      `new row for relation "library_meals" violates check constraint "library_meals_name_check" for "${HOUSEHOLD_TEXT}"`,
+    );
+    const error = toApiError(e, { table: 'library_meals', operation: 'upsert' });
+
+    expect(error.meta.constraint).toBe('library_meals_name_check');
+    expect(error.message).not.toContain(HOUSEHOLD_TEXT);
+    expect(JSON.stringify(error)).not.toContain(HOUSEHOLD_TEXT);
+    expect(JSON.stringify(error.meta)).not.toContain(HOUSEHOLD_TEXT);
+  });
+
+  it('keeps no constraint when a 23514 message names none', () => {
+    expect(classifyError(makePostgrestError('23514', { status: 400 })).meta).toEqual({
+      code: '23514',
+      status: 400,
+    });
+  });
+
+  it('keeps no CHECK constraint name outside validation', () => {
+    const e = {
+      ...checkError('violates check constraint "library_meals_name_check"'),
+      code: '42501',
+      status: 403,
+    };
+
+    expect(classifyError(e).meta).toEqual({ code: '42501', status: 403 });
+  });
+
   it('U-ERR-09 maps 23503 to server', () => {
     expect(classifyError(makePostgrestError('23503', { status: 409 })).category).toBe('server');
   });

@@ -9,6 +9,14 @@ import {
 } from '@supabase/supabase-js';
 
 import type { GroceryItem, GroceryItemRow } from '@/features/groceries/domain';
+import {
+  foldForSearch,
+  tagKey,
+  type Meal,
+  type MealRow,
+  type Tag,
+  type TagRow,
+} from '@/features/meal-library/domain';
 import type { MealEntry, MealEntryRow } from '@/features/meals/domain';
 import type { IsoDate } from '@/lib/calendar';
 
@@ -166,4 +174,50 @@ export function makeEntryRow(overrides: Partial<MealEntryRow> = {}): MealEntryRo
     updated_at: '2026-10-19T12:00:00+00:00',
     ...overrides,
   };
+}
+
+/** A saved meal with no tags. Its `searchKey` follows its name unless the overrides set it. */
+export function makeLibraryMeal(overrides: Partial<Meal> = {}): Meal {
+  const name = overrides.name ?? 'Tacos';
+  return {
+    id: 'meal-1',
+    name,
+    description: null,
+    ingredients: null,
+    tagIds: [],
+    searchKey: foldForSearch(name),
+    updatedAt: '2026-10-19T12:00:00+00:00',
+    ...overrides,
+  };
+}
+
+/** A household tag. Its `key` follows its name unless the overrides set it. */
+export function makeLibraryTag(overrides: Partial<Tag> = {}): Tag {
+  const name = overrides.name ?? 'Dinner';
+  return { id: 'tag-1', name, key: tagKey(name), ...overrides };
+}
+
+/**
+ * The `library_meals` row, with its links, that `makeLibraryMeal()` comes from, as `api.ts`
+ * selects it.
+ */
+export function makeMealRow(overrides: Partial<MealRow> = {}): MealRow {
+  return {
+    id: 'meal-1',
+    name: 'Tacos',
+    description: null,
+    ingredients: null,
+    updated_at: '2026-10-19T12:00:00+00:00',
+    library_meal_tags: [],
+    ...overrides,
+  };
+}
+
+/**
+ * The `library_tags` row that `makeLibraryTag()` comes from. Its `name_key` follows its name, as
+ * the generated column does.
+ */
+export function makeTagRow(overrides: Partial<TagRow> = {}): TagRow {
+  const name = overrides.name ?? 'Dinner';
+  return { id: 'tag-1', name, name_key: tagKey(name), ...overrides };
 }

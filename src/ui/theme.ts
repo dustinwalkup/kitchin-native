@@ -106,6 +106,8 @@ export const TEXT_PAIRS: readonly TextPair[] = [
   // The active Meals tab label (R36.1, DD36).
   { fg: light.accent, bg: light.background, min: 3, bold: true },
   { fg: light.accent, bg: light.screen, min: 3, bold: true },
+  // Tag pills in the meal library (DD57).
+  { fg: light.ink, bg: light.accentSoft, min: 4.5 },
   ...Object.values(light.category).map(({ fg, bg }) => ({ fg, bg, min: 4.5 as const })),
 ];
 

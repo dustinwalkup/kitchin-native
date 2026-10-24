@@ -1,6 +1,7 @@
 // Turns any failure into an ApiError with a category from specs/mvp/2-design.md §6. Server-provided
 // text (`message`, `details`, `hint`) can contain row values, so only the error code, the HTTP status
-// and a unique constraint's name survive classification (§3.8, R26.3, R26.4).
+// and a unique or CHECK constraint's name survive classification (§3.8, R26.3, R26.4; meal library
+// DD58).
 
 export type ErrorCategory =
   | 'network'
@@ -72,6 +73,8 @@ const CODE_CATEGORY = new Map<string, ErrorCategory>([
 ]);
 
 const UNIQUE_CONSTRAINT = /unique constraint "([^"]+)"/;
+// A CHECK constraint's name tells the meal form which field the server rejected (meal library DD58).
+const CHECK_CONSTRAINT = /check constraint "([^"]+)"/;
 
 /**
  * Classifies a Supabase Auth error, a PostgREST error (with the response's `status` copied on), a
@@ -104,8 +107,14 @@ export function classifyError(e: unknown): ApiError {
     category = 'server';
   }
 
-  if (category === 'conflict_duplicate' && typeof message === 'string') {
-    const constraint = UNIQUE_CONSTRAINT.exec(message)?.[1];
+  const pattern =
+    category === 'conflict_duplicate'
+      ? UNIQUE_CONSTRAINT
+      : category === 'validation'
+        ? CHECK_CONSTRAINT
+        : undefined;
+  if (pattern !== undefined && typeof message === 'string') {
+    const constraint = pattern.exec(message)?.[1];
     if (constraint !== undefined) meta.constraint = constraint;
   }
 

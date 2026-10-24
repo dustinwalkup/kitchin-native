@@ -41,7 +41,26 @@ describe('Button', () => {
       backgroundColor: light.background,
       borderColor: light.controlBorder,
     });
-    expect(screen.getByText('Sign out')).toHaveStyle({ color: light.ink });
+    expect(screen.getByText('Sign out')).toHaveStyle({ color: light.ink, fontWeight: '600' });
+  });
+
+  it('C-UI-10 renders an accent primary button as bold onBrand text on terracotta', async () => {
+    await render(<Button label="Save" tone="accent" onPress={() => {}} />);
+
+    expect(screen.getByRole('button', { name: 'Save' })).toHaveStyle({
+      backgroundColor: light.accent,
+    });
+    expect(screen.getByText('Save')).toHaveStyle({ color: light.onBrand, fontWeight: '700' });
+  });
+
+  it('C-UI-10 renders an accent secondary button as bold terracotta text inside a control border', async () => {
+    await render(<Button label="Retry" tone="accent" variant="secondary" onPress={() => {}} />);
+
+    expect(screen.getByRole('button', { name: 'Retry' })).toHaveStyle({
+      backgroundColor: light.background,
+      borderColor: light.controlBorder,
+    });
+    expect(screen.getByText('Retry')).toHaveStyle({ color: light.accent, fontWeight: '700' });
   });
 
   it('ignores presses while disabled', async () => {

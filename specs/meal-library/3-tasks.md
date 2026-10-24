@@ -42,7 +42,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
 
 ## 15. Library database (M15)
 
-- [ ] **15.1 Write the library database tests first** · L
+- [x] **15.1 Write the library database tests first** · L
   - Add the library grants to the expected-grants table in `00_structure.test.sql`: `library_meals` select, insert, update and delete; `library_tags` select, insert and update; `library_meal_tags` select, insert and delete. The existing structural checks then cover the new tables and functions without new cases: RLS, `household_id`, the household index, the audit and broadcast triggers, no `public` functions, and the private-function privileges.
   - `60_meal_library.test.sql`, acting as A–D and anon. Put fixtures in with the triggers off, backdated and attributed directly, as `50_meal_entries.test.sql` does:
     - **Isolation**, for each of the three tables:
@@ -81,7 +81,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
   - The new cases fail until 15.2 lands.
   - _Requirements: R19 and R22 through R47.1, R43.8, R46.4, R46.8, R47.2–R47.8, R23.2 (amended), R23.3_ — _Design: §4.1–§4.5, §7, §8, finding 1_
 
-- [ ] **15.2 Write the migration `meal_library_init`** · M
+- [x] **15.2 Write the migration `meal_library_init`** · M
   - Create it with `npx supabase migration new meal_library_init`. Per §4.1–§4.4, it holds:
     - the three tables, with their named CHECK constraints, unique constraints, composite foreign keys and indexes
     - `private.handle_library_tag_name()` and `private.add_starter_tags(uuid)`, with execute revoked from `public`, `anon` and `authenticated`
@@ -97,7 +97,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
 
 ## 16. Library data layer (M16)
 
-- [ ] **16.1 Write the library constants and the text, search and tag rules (TDD)** · M
+- [x] **16.1 Write the library constants and the text, search and tag rules (TDD)** · M
   - Write `src/features/meal-library/constants.ts` per §3.1.
   - Write the tests first, then this part of `domain.ts` per §3.2:
     - `charLength`, `clampTo`, `maxLengthFor` and `charactersLeft`, with emoji and pasted text over each limit
@@ -113,7 +113,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
   - The existing `./src/features/*/domain.ts` coverage group (95/90) and the `domain.ts` purity lint rule apply without changes.
   - _Requirements: R40.4, R41.1, R41.4–R41.6, R42.2–R42.4, R43.5, R45.4, R46.9, K20, K21, K23, K25, N25, N28_ — _Design: §3.1, §3.2, DD44, DD54, DD56, findings 1, 2 and 7_
 
-- [ ] **16.2 Write the form and save-plan rules (TDD)** · M
+- [x] **16.2 Write the form and save-plan rules (TDD)** · M
   - Needs 16.1.
   - Write the tests first, then the rest of `domain.ts` per §3.2:
     - `formValuesOf`: a new meal starts empty, or with the trimmed search text as its name; an edit starts from the meal, with its tags selected
@@ -124,7 +124,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
     - `constraintField` for each named CHECK constraint, and `null` for anything else
   - _Requirements: R42.4–R42.7, R42.11, R42.12, R43.4–R43.7, R46.4, R46.5_ — _Design: §3.2, DD46_
 
-- [ ] **16.3 Write the hand-offs** · S
+- [x] **16.3 Write the hand-offs** · S
   - Write `src/features/meal-library/handoff.ts` per §3.6, with `newMealName`, `lastSaved` and `mealPick`.
   - Tests: each `set` gets a new `id`; `read` doesn't consume; `clear` empties it; the three hand-offs are independent.
   - _Requirements: R42.6, R42.9, R44.3, R45.3_ — _Design: §3.6, DD51_
@@ -172,7 +172,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
 
 ## 17. Shared UI and errors (M17)
 
-- [ ] **17.1 Add the terracotta tone, the tag-pill pair and CHECK constraint names** · S
+- [x] **17.1 Add the terracotta tone, the tag-pill pair and CHECK constraint names** · S
   - `Chip` and `Button` gain `tone?: 'cactus' | 'accent'` per §3.12. The default stays cactus, so existing callers don't change. Tests: each tone's colours, bold white text on terracotta, and the default.
   - `TEXT_PAIRS` adds `ink` on `accentSoft`. `theme.test.ts` measures it (10.50, finding 6).
   - `classifyError` keeps a CHECK constraint's name in `meta.constraint` for `23514`. Tests: the name is kept; no other text from the message is; unique-constraint handling doesn't change.
@@ -240,7 +240,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
 
 ## 19. Choosing from the library (M19)
 
-- [ ] **19.1 Add Choose from Meal Library to the slot editor** · S
+- [x] **19.1 Add Choose from Meal Library to the slot editor** · S
   - Add the optional `onChooseFromLibrary` prop to `SlotEditor` per §3.11: "Choose from Meal Library" in bold terracotta before Clear, at least 44 pt, `testID="slot-choose"`.
   - Tests: no button without the prop; with it, tapping calls the prop; the footer wraps at the largest standard text size; the existing slot-editor tests still pass unchanged.
   - _Requirements: R45.1, R45.13, N11, N12, N26_ — _Design: §3.11_

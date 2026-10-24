@@ -422,20 +422,20 @@ The spec is [`specs/meals/`](../specs/meals/). Its requirements and design were 
 
 The spec is [`specs/meal-library/`](../specs/meal-library/). Its requirements and design were approved on 2026-10-19. The 🤖 lines mirror [`specs/meal-library/3-tasks.md`](../specs/meal-library/3-tasks.md) **under the same numbers**, so tick both together. Coding starts once you approve `3-tasks.md` and `4-test-plan.md`. The requirements expect Meals to be in daily use first (P2.4).
 
-- [ ] 🤖 **15.1** Library database tests (pgTAP)
-- [ ] 🤖 **15.2** Migration `meal_library_init`, seed, provisioning comment and types
-- [ ] 🤖 **16.1** Library constants and the text, search and tag rules
-- [ ] 🤖 **16.2** Form and save-plan rules
-- [ ] 🤖 **16.3** Hand-offs between screens
+- [x] 🤖 **15.1** Library database tests (pgTAP)
+- [x] 🤖 **15.2** Migration `meal_library_init`, seed, provisioning comment and types
+- [x] 🤖 **16.1** Library constants and the text, search and tag rules
+- [x] 🤖 **16.2** Form and save-plan rules
+- [x] 🤖 **16.3** Hand-offs between screens
 - [ ] 🤖 **16.4** Library API layer (closes OI-24)
 - [ ] 🤖 **16.5** Library query and the save and delete mutations
 - [ ] 🤖 **16.6** Library live updates
-- [ ] 🤖 **17.1** Terracotta tone, tag-pill colours and CHECK constraint names
+- [x] 🤖 **17.1** Terracotta tone, tag-pill colours and CHECK constraint names
 - [ ] 🤖 **18.1** Browser components (search, tag filter, rows)
 - [ ] 🤖 **18.2** Meal Library screen and the Library button on Meals
 - [ ] 🤖 **18.3** Meal form components
 - [ ] 🤖 **18.4** Meal form screen
-- [ ] 🤖 **19.1** Choose from Meal Library in the slot editor
+- [x] 🤖 **19.1** Choose from Meal Library in the slot editor
 - [ ] 🤖 **19.2** Picker
 - [ ] 🤖 **19.3** Picker connected to Meals (closes OI-20, OI-21)
 - [ ] 🤖 **20.1** Docs follow-through

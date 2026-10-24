@@ -2,7 +2,8 @@
 -- task 5.1). A and B are in Household One (H1), C is in Household Two (H2), D has no membership.
 -- These fail until migrations groceries_init (task 4.2) and realtime_household_broadcast (task 5.2) land.
 -- Meals task 9.1 added DB-R-11 to DB-R-13 (meals 4-test-plan §2.3), which fail until migration
--- meals_init (task 9.2) lands.
+-- meals_init (task 9.2) lands. Meal library task 15.1 added DB-R-14 to DB-R-18 (meal library
+-- 4-test-plan §2.3), which fail until migration meal_library_init (task 15.2) lands.
 --
 -- realtime.messages is partitioned by UTC day. The test can't create a missing partition (OI-7):
 -- postgres doesn't own the table and has no CREATE on schema realtime. The Realtime server creates
@@ -12,7 +13,7 @@
 -- realtime.send() sets realtime.topic for the rest of the transaction, so the topic checks run
 -- before any broadcast, and each section sets the topic it needs.
 begin;
-select plan(27);
+select plan(46);
 
 -- Fixtures, as postgres: a broadcast message on each household's topic, and a presence message on H1's.
 select lives_ok(
@@ -209,6 +210,139 @@ select tests.authenticate_as('member-c@example.com');
 
 select is_empty($$ select * from pg_temp.broadcasts_about_meal_slot() $$,
   'DB-R-12 C can read none of the meal broadcasts on Household One''s topic');
+
+reset role;
+
+-- Library broadcasts (R46.1, R11.2 as amended). The rows get fixed IDs, as a new meal's phone-generated
+-- ID does (DD46), so the messages about them can be told apart. Every library statement is a string
+-- that pgTAP runs, so until meal_library_init lands these fail one by one and the checks after them
+-- still run.
+--
+--   …0014  Fixture realtime meal         …0015  Fixture Realtime tag
+--   …0161  link, added then removed      …0162  link, removed with its meal
+--   …0181, …0182, …0183  C's refused meal, tag and link
+
+select tests.authenticate_as('member-a@example.com');
+
+select lives_ok(
+  $$ insert into public.library_meals (id, household_id, name)
+     values ('00000000-0000-4000-8000-000000000014', tests.household_id('Household One'), 'Fixture realtime meal') $$,
+  'DB-R-14 A adds a meal');
+select lives_ok(
+  $$ update public.library_meals set description = 'Fixture: changed'
+      where id = '00000000-0000-4000-8000-000000000014' $$,
+  'DB-R-14 A changes its description');
+-- The second upsert takes the conflict path, which updates the existing tag (DD45).
+select lives_ok(
+  $$ insert into public.library_tags (id, household_id, name)
+     values ('00000000-0000-4000-8000-000000000015', tests.household_id('Household One'), 'Fixture Realtime')
+     on conflict (household_id, name_key) do update set household_id = excluded.household_id, name = excluded.name $$,
+  'DB-R-15 A upserts a new tag');
+select lives_ok(
+  $$ insert into public.library_tags (household_id, name)
+     values (tests.household_id('Household One'), 'fixture REALTIME')
+     on conflict (household_id, name_key) do update set household_id = excluded.household_id, name = excluded.name $$,
+  'DB-R-15 A upserts the same key again');
+select lives_ok(
+  $$ insert into public.library_meal_tags (id, household_id, meal_id, tag_id)
+     values ('00000000-0000-4000-8000-000000000161', tests.household_id('Household One'),
+             '00000000-0000-4000-8000-000000000014', '00000000-0000-4000-8000-000000000015')
+     on conflict (meal_id, tag_id) do nothing $$,
+  'DB-R-16 A tags the meal');
+select lives_ok(
+  $$ delete from public.library_meal_tags
+      where meal_id = '00000000-0000-4000-8000-000000000014' and tag_id = '00000000-0000-4000-8000-000000000015' $$,
+  'DB-R-16 A removes the tag');
+select lives_ok(
+  $$ insert into public.library_meal_tags (id, household_id, meal_id, tag_id)
+     values ('00000000-0000-4000-8000-000000000162', tests.household_id('Household One'),
+             '00000000-0000-4000-8000-000000000014', '00000000-0000-4000-8000-000000000015')
+     on conflict (meal_id, tag_id) do nothing $$,
+  'DB-R-16 A tags the meal again');
+
+reset role;
+select tests.authenticate_as('member-c@example.com');
+
+select throws_ok(
+  $$ insert into public.library_meals (id, household_id, name)
+     values ('00000000-0000-4000-8000-000000000014', tests.household_id('Household Two'), 'From C')
+     on conflict (id) do update set id = excluded.id, household_id = excluded.household_id, name = excluded.name $$,
+  '42501', null, 'DB-R-18 C cannot upsert the Household One meal''s id');
+select throws_ok(
+  $$ insert into public.library_meals (id, household_id, name)
+     values ('00000000-0000-4000-8000-000000000181', tests.household_id('Household One'), 'From C') $$,
+  '42501', null, 'DB-R-18 C cannot insert a meal into Household One');
+select throws_ok(
+  $$ insert into public.library_tags (id, household_id, name)
+     values ('00000000-0000-4000-8000-000000000182', tests.household_id('Household One'), 'From C') $$,
+  '42501', null, 'DB-R-18 C cannot insert a tag into Household One');
+select throws_ok(
+  $$ insert into public.library_meal_tags (id, household_id, meal_id, tag_id)
+     values ('00000000-0000-4000-8000-000000000183', tests.household_id('Household One'),
+             '00000000-0000-4000-8000-000000000014', '00000000-0000-4000-8000-000000000015') $$,
+  '42501', null, 'DB-R-18 C cannot insert a link into Household One');
+
+reset role;
+select tests.authenticate_as('member-a@example.com');
+
+select lives_ok($$ delete from public.library_meals where id = '00000000-0000-4000-8000-000000000014' $$,
+  'DB-R-14 A deletes the meal, which removes its link');
+
+reset role;
+
+select results_eq(
+  $$ select * from pg_temp.broadcasts_about('00000000-0000-4000-8000-000000000014') $$,
+  $$ values ('household:' || tests.household_id('Household One'), 'INSERT', 'library_meals', true),
+            ('household:' || tests.household_id('Household One'), 'UPDATE', 'library_meals', true),
+            ('household:' || tests.household_id('Household One'), 'DELETE', 'library_meals', true) $$,
+  'DB-R-14 the meal''s insert, update and delete each send a private broadcast on Household One''s topic');
+select results_eq(
+  $$ select * from pg_temp.broadcasts_about('00000000-0000-4000-8000-000000000015') $$,
+  $$ values ('household:' || tests.household_id('Household One'), 'INSERT', 'library_tags', true),
+            ('household:' || tests.household_id('Household One'), 'UPDATE', 'library_tags', true) $$,
+  'DB-R-15 both tag upserts send a private broadcast on Household One''s topic');
+select results_eq(
+  $$ select * from pg_temp.broadcasts_about('00000000-0000-4000-8000-000000000161') $$,
+  $$ values ('household:' || tests.household_id('Household One'), 'INSERT', 'library_meal_tags', true),
+            ('household:' || tests.household_id('Household One'), 'DELETE', 'library_meal_tags', true) $$,
+  'DB-R-16 adding and removing a tag each send a private broadcast on Household One''s topic');
+select results_eq(
+  $$ select * from pg_temp.broadcasts_about('00000000-0000-4000-8000-000000000162') $$,
+  $$ values ('household:' || tests.household_id('Household One'), 'INSERT', 'library_meal_tags', true),
+            ('household:' || tests.household_id('Household One'), 'DELETE', 'library_meal_tags', true) $$,
+  'DB-R-16 a link removed with its meal sends a delete broadcast too');
+select is_empty(
+  $$ select 1 from realtime.messages m
+      where m.inserted_at >= pg_catalog.timezone('utc', pg_catalog.now())
+        and ('From C' in (m.payload->'record'->>'name', m.payload->'old_record'->>'name')
+             or m.payload->'record'->>'id' in ('00000000-0000-4000-8000-000000000181',
+                                               '00000000-0000-4000-8000-000000000182',
+                                               '00000000-0000-4000-8000-000000000183')) $$,
+  'DB-R-18 C''s refused upsert and inserts sent no broadcast');
+
+-- Reading them on Household One's topic (R22.1, R22.2): A can, as the control, and C can't.
+
+-- Every library broadcast above that the current role can read.
+create function pg_temp.library_broadcasts()
+returns table (topic text, event text, table_name text, is_private boolean) language sql as $$
+  select b.* from unnest(array['00000000-0000-4000-8000-000000000014', '00000000-0000-4000-8000-000000000015',
+                               '00000000-0000-4000-8000-000000000161',
+                               '00000000-0000-4000-8000-000000000162']::uuid[]) as r(id)
+   cross join lateral pg_temp.broadcasts_about(r.id) as b
+$$;
+
+select tests.set_topic(tests.household_id('Household One'));
+select tests.authenticate_as('member-a@example.com');
+
+select results_eq($$ select count(*)::int from pg_temp.library_broadcasts() $$, array[9],
+  'DB-R-17 control: A can read the nine library broadcasts on Household One''s topic');
+
+reset role;
+select tests.set_topic(tests.household_id('Household One'));
+select tests.authenticate_as('member-c@example.com');
+
+select is_empty($$ select * from pg_temp.library_broadcasts() $$,
+  'DB-R-17 C can read none of the library broadcasts on Household One''s topic');
 
 reset role;
 
