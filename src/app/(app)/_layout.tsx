@@ -25,8 +25,11 @@ export default function AppLayout() {
   useHouseholdRealtime(TABLE_HANDLERS);
   useRealtimeDegradedReport();
 
+  // Every header is opaque. iOS 26's glass header is transparent, so content runs under it, and
+  // only a screen whose first child is its list gets inset below it. The form and the picker start
+  // with a field or a line of text inside `Screen`, which would sit behind the header.
   return (
-    <Stack>
+    <Stack screenOptions={{ headerTransparent: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       {/* A native sheet, with its own title and Done (§3.4, DD10). */}
       <Stack.Screen
@@ -40,12 +43,10 @@ export default function AppLayout() {
       />
       {/* Full screen, so only Cancel can close it; the screen sets its title and buttons (§3.9). */}
       <Stack.Screen name="meal-form" options={{ presentation: 'fullScreenModal' }} />
-      {/* A page sheet over Meals; a swipe down cancels, as Cancel does (§3.10, R45.7). The header
-          is opaque: iOS 26's glass header lets content run under it, and only a screen whose first
-          child is its list gets inset below it. The picker's slot name comes first (R45.2). */}
+      {/* A page sheet over Meals; a swipe down cancels, as Cancel does (§3.10, R45.7). */}
       <Stack.Screen
         name="meal-picker"
-        options={{ presentation: 'modal', title: 'Choose a meal', headerTransparent: false }}
+        options={{ presentation: 'modal', title: 'Choose a meal' }}
       />
       {/* The production variant has no theme preview (R15.4). */}
       <Stack.Protected guard={env.variant === 'development'}>

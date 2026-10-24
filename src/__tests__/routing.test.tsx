@@ -532,7 +532,10 @@ describe('meal library routes (C-RTE-11)', () => {
     expect(app.getPathname()).toBe('/meal-form');
     expect(await screen.findByLabelText('Description (optional)')).toBeOnTheScreen();
     expect(stackPresentations().at(-1)).toBe('fullScreenModal');
-    expect(nativeHeaders()).toContainEqual(expect.objectContaining({ title: 'New meal' }));
+    // Opaque, so the Name field isn't under iOS 26's glass header.
+    expect(nativeHeaders()).toContainEqual(
+      expect.objectContaining({ title: 'New meal', translucent: false }),
+    );
   });
 
   it('opens /meal-picker under (app) as a page sheet, titled "Choose a meal" (§3.10)', async () => {
@@ -545,7 +548,9 @@ describe('meal library routes (C-RTE-11)', () => {
     expect(app.getPathname()).toBe('/meal-picker');
     expect(await screen.findByText('For Thursday dinner')).toBeOnTheScreen();
     expect(stackPresentations().at(-1)).toBe('modal');
-    expect(nativeHeaders()).toContainEqual(expect.objectContaining({ title: 'Choose a meal' }));
+    expect(nativeHeaders()).toContainEqual(
+      expect.objectContaining({ title: 'Choose a meal', translucent: false }),
+    );
   });
 
   it("doesn't open /meal-picker while signed out (R1.2)", async () => {
