@@ -1,6 +1,8 @@
 // Pure library rules (design §3.2, N28): no React, React Native, Supabase or TanStack imports.
 // charLength, clampTo, trimField and the counter rule repeat the meals helpers instead of importing
 // across features.
+import type { Tables } from '@/types/database';
+
 import { COPY, LIMITS } from './constants';
 
 export interface Tag {
@@ -29,22 +31,12 @@ export interface Library {
 }
 
 // Rows as `api.ts` selects them (design §3.2). `buildLibrary` checks them at runtime (R14.8).
-// Written out until task 15.2 generates the library tables; then they become
-// `Pick<Tables<'library_meals'>, …>` and `Pick<Tables<'library_tags'>, …>`, as §3.2 has them.
-export interface MealRow {
-  id: string;
-  name: string;
-  description: string | null;
-  ingredients: string | null;
-  updated_at: string;
-  library_meal_tags: { tag_id: string }[];
-}
+export type MealRow = Pick<
+  Tables<'library_meals'>,
+  'id' | 'name' | 'description' | 'ingredients' | 'updated_at'
+> & { library_meal_tags: Pick<Tables<'library_meal_tags'>, 'tag_id'>[] };
 
-export interface TagRow {
-  id: string;
-  name: string;
-  name_key: string;
-}
+export type TagRow = Pick<Tables<'library_tags'>, 'id' | 'name' | 'name_key'>;
 
 type RowCheck<Row> = [field: keyof Row & string, valid: (value: unknown) => boolean];
 

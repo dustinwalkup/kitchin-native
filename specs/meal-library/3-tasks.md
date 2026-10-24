@@ -129,7 +129,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
   - Tests: each `set` gets a new `id`; `read` doesn't consume; `clear` empties it; the three hand-offs are independent.
   - _Requirements: R42.6, R42.9, R44.3, R45.3_ — _Design: §3.6, DD51_
 
-- [ ] **16.4 Write the library API layer** · M
+- [x] **16.4 Write the library API layer** · M
   - Needs 15.2's generated types and 16.2.
   - Write `src/features/meal-library/api.ts` per §3.3, including `runSavePlan`, with every failure wrapped by `toApiError`.
   - Tests with a stub client:
@@ -180,7 +180,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
 
 ## 18. Library screens (M18)
 
-- [ ] **18.1 Build the browser components** · L
+- [x] **18.1 Build the browser components** · L
   - Needs 16.1 and 17.1.
   - Build `SearchField`, `TagFilter`, `TagPill`, `TagChip`, `MealRow`, `LibraryStates` and `MealBrowser` per §3.7.
   - Component tests:

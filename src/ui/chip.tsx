@@ -14,6 +14,8 @@ export interface ChipProps {
   tone?: 'cactus' | 'accent';
   /** Shown as ✓ in `inkMuted`, for an item that's already on the list (R6.2). */
   disabled?: boolean;
+  /** Static parts and IDs only, never household text (R26.7). */
+  testID?: string;
 }
 
 // Chips are 32 pt tall; the slop brings the touch target to 44 pt (N11).
@@ -26,12 +28,14 @@ export function Chip({
   selected = false,
   disabled = false,
   tone = 'cactus',
+  testID,
 }: ChipProps) {
   const theme = useTheme();
   const fill = theme[tone];
 
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel={disabled ? `${accessibilityLabel}, already added` : accessibilityLabel}
       accessibilityState={{ selected, disabled }}
