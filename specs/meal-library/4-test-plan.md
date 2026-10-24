@@ -2,6 +2,7 @@
 
 > **Phase 4 of 4** in the EARS spec-driven process: 1-requirements → 2-design → 3-tasks → **4-test-plan**.
 > **Status:** Draft for owner review, 2026-10-19, to be approved together with [3-tasks.md](./3-tasks.md). Requirements and design were approved 2026-10-19.
+> **Amended at the owner's request, 2026-10-24** (the Library tab, task 21.1): C-LIB-01–03, C-LIB-09, C-RTE-11 and MT-18-01 changed; C-LIB-11–14, C-RTE-06 (amended again), C-RTE-12 and MT-18-14 added.
 
 ## 1. Requirements Traceability
 
@@ -286,21 +287,27 @@ These run with a real `QueryClient`, a mocked `api.ts` and a controllable `onlin
 | C-LBR-13 | `testID`s hold only static parts and IDs; none contains a meal name or tag name | R26.7 |
 | C-LBR-14 | A new `MealBrowser` starts with an empty search and no tags | R41.9, R45.11 |
 
-### 4.2 Meal Library Screen and the Library Button — `meal-library.test.tsx`, `meals.test.tsx` (task 18.2)
+### 4.2 Meal Library Screen and the Library Tab — `meal-library.test.tsx`, `meals.test.tsx`, `routing.test.tsx` (tasks 18.2, 21.1)
 
 | ID | Test | Req |
 |---|---|---|
-| C-LIB-01 | The Meals header shows "Library", at least 44 pt, labelled "Meal Library". Tapping it opens the Meal Library, titled "Meal Library" | R40.1, R40.2 |
-| C-LIB-02 | Back shows Meals at the same week | R40.2 |
-| C-LIB-03 | An open slot editor saves when the library opens | R32.3 |
+| C-LIB-01 | The Meals header has no Library button. The Library tab opens the Meal Library, titled "Meal Library", with the tab selected *(changed 2026-10-24)* | R40.1, R40.2 |
+| C-LIB-02 | Back on the Meals tab, Meals shows the same week *(changed 2026-10-24)* | R40.2 |
+| C-LIB-03 | An open slot editor saves when the Library tab opens | R32.3 |
 | C-LIB-04 | With "lasag" in the search, Add meal sets `newMealName` to "lasag" and opens `/meal-form`. With an empty search, it clears `newMealName` | R40.6, R42.6 |
 | C-LIB-05 | Tapping a row opens `/meal-form` with only the meal's `id` as a param | R40.7, DD51 |
 | C-LIB-06 | Each state in the §3.8 table, including an error over a cached list: the list stays, and a "Couldn't load meals" toast with Retry shows at the top | R40.8–R40.10, DD60 |
 | C-LIB-07 | Pull to refresh calls `refetch` | R40.11 |
 | C-LIB-08 | On focus with `lastSaved` set to a save, "Meal saved" shows with the Just saved row; set to a delete, "Meal deleted" shows. A second focus doesn't repeat either | R42.9, R44.3, DD51 |
-| C-LIB-09 | The library opens with an empty search and no tags, and keeps both after the form closes | R41.9 |
+| C-LIB-09 | The library starts with an empty search and no tags, and keeps both after the form closes | R41.9 |
 | C-LIB-10 | Offline, the banner shows and the cached list stays | R46.3, R13.1 |
-| C-RTE-11 | `meal-library`, `meal-form` and `meal-picker` are registered under `(app)` with the §3.8–§3.10 options, and are unreachable while signed out | DD50, R1.2 |
+| C-LIB-11 | Every library row ends with a chevron, has Delete behind a swipe, hidden from VoiceOver, and has a Delete accessibility action. With `onDelete` the card's edge is on the swipeable; picker rows have none of these *(added 2026-10-24)* | R40.7, R44.8, R45.10, N10 |
+| C-LIB-12 | Delete, by swipe or by the VoiceOver action, asks "Delete “Tacos”?" with the plans message. Cancel deletes nothing; Delete calls `useDeleteMeal` with the meal's ID and shows "Meal deleted" *(added 2026-10-24)* | R44.2, R44.3, R44.8 |
+| C-LIB-13 | A failed delete keeps the meal listed. Offline and other failures show their message with Retry, which deletes again without asking; forbidden shows no Retry *(added 2026-10-24)* | R44.4, R44.8, R46.3, K24 |
+| C-LIB-14 | The search and selected tags stay while the member visits another tab *(added 2026-10-24)* | R40.2, R41.9 |
+| C-RTE-06 (amended again) | Exactly four tabs, in the order Groceries, Meals, Library, Settings. The app still opens on Groceries *(2026-10-24)* | R1.5 (amended) |
+| C-RTE-11 | `meal-library` is the Library tab under `(tabs)`, titled "Meal Library", with nothing pushed over the tabs; `meal-form` and `meal-picker` are registered under `(app)` with the §3.9–§3.10 options; none is reachable while signed out *(changed 2026-10-24)* | DD50, R1.2 |
+| C-RTE-12 | The active Library tab is terracotta, in bold *(added 2026-10-24)* | R40.12, N13 |
 
 ### 4.3 Meal Form Components — `meal-form.test.tsx`, `tag-picker.test.tsx`, `form-error.test.tsx` (task 18.3)
 
@@ -394,7 +401,7 @@ As in the MVP and meals plans, tick each box when it passes. If one fails, recor
 
 ### 6.1 M18 — One Simulator, the Library (after task 18.4)
 
-- [ ] **MT-18-01** On Meals, tap Library. The Meal Library lists the seeded meals in alphabetical order with their tags. Back returns to the same week. (R40.1–R40.4)
+- [ ] **MT-18-01** On Meals, go to a later week, then tap the Library tab. The Meal Library lists the seeded meals in alphabetical order with their tags, each with a chevron. The Meals tab shows the same week. *(Changed 2026-10-24.)* (R40.1–R40.4, R40.7)
 - [ ] **MT-18-02** Search "jalapeno". "Jalapeño poppers" shows. Search "TACO": "Chicken tacos" shows. (R41.1)
 - [ ] **MT-18-03** Open Filter by tags; all tags show. Pick Dinner and Quick & Easy, then collapse it: only "Chicken tacos" shows, and the filter shows "2" and both names. Clear filters brings everything back. (R41)
 - [ ] **MT-18-04** Add meal with only the name "Toast". It's saved, "Meal saved" shows, and it's under Just saved and in its place in the list. (R42, SC1)
@@ -407,6 +414,7 @@ As in the MVP and meals plans, tick each box when it passes. If one fails, recor
 - [ ] **MT-18-11** Use the largest standard text size. Rows, tag pills, chips, the filter, the form and its counters wrap without clipping. (N12)
 - [ ] **MT-18-12** VoiceOver, through the Accessibility Inspector or a device. A row reads "Tacos. Tags: Dinner, Quick & Easy". The filter reads "Filter by tags, 2 selected". Chips say "selected". Counters are announced. (N10, N27)
 - [ ] **MT-18-13** Run the Accessibility Inspector's contrast audit on the library, the form and a selected chip. It finds no failures. (N13)
+- [ ] **MT-18-14** In the Library tab, swipe a meal left: Delete shows inside the card's rounded edge. Tap it: the confirmation names the meal. Cancel leaves the row closed and the meal listed. Swipe again and Delete: the meal goes and "Meal deleted" shows. With the Mac's Wi-Fi off, the same delete fails with "You're offline…" and Retry, and the meal stays. In the picker, swiping a meal does nothing. *(Added 2026-10-24.)* (R44.8, R45.10)
 
 ### 6.2 M19 — One Simulator, Choosing (after task 19.3)
 
@@ -596,11 +604,11 @@ The MVP and meals strategies apply. These are added:
 
 | Requirement | Automated | Manual |
 |---|---|---|
-| R40 Library screen | U-LDOM-11, U-LDOM-13, U-LAPI-01, U-LMUT-12, U-THM-10, C-UI-09–10, C-LBR-07–08, C-LBR-11, C-LIB-01–07, C-LIB-10 | MT-18-01, MT-18-13 |
-| R41 Search and filter by tags | U-LDOM-07–10, C-LBR-01–07, C-LBR-14, C-LIB-09 | MT-18-02, MT-18-03, MT-20-12 |
+| R40 Library screen | U-LDOM-11, U-LDOM-13, U-LAPI-01, U-LMUT-12, U-THM-10, C-UI-09–10, C-LBR-07–08, C-LBR-11, C-LIB-01–07, C-LIB-10–11, C-LIB-14, C-RTE-06, C-RTE-12 | MT-18-01, MT-18-13 |
+| R41 Search and filter by tags | U-LDOM-07–10, C-LBR-01–07, C-LBR-14, C-LIB-09, C-LIB-14 | MT-18-02, MT-18-03, MT-20-12 |
 | R42 Add or edit a meal | U-LDOM-01–05, U-LDOM-15, U-LDOM-17–19, U-LDOM-22, U-LDOM-25, U-LMUT-05, U-LMUT-08, U-ERR-13, C-LIB-04, C-LIB-08, C-LFM-01–05, C-LFM-09–10, C-LFS-01–06, C-LFS-08–09, C-LFS-11 | MT-18-04–07, MT-18-09 |
 | R43 Tags | DB-L-10–18, DB-P-08, U-LDOM-06, U-LDOM-16, U-LDOM-23, C-LBR-03, C-LBR-09, C-LFM-06–08 | MT-18-05, MT-20-01, MT-20-02 |
-| R44 Delete a meal | DB-L-25, DB-L-32–33, U-LAPI-07, U-LMUT-09, C-LIB-08, C-LFM-11, C-LFS-10 | MT-18-08, MT-19-07 |
+| R44 Delete a meal | DB-L-25, DB-L-32–33, U-LAPI-07, U-LMUT-09, C-LIB-08, C-LIB-11–13, C-LFM-11, C-LFS-10 | MT-18-08, MT-18-14, MT-19-07 |
 | R45 Choose from the Meal Library | DB-L-33, U-LDOM-12, U-LMUT-13, C-LBR-10, C-SLOT-16–18, C-PICK-01–10, C-MEAL-15–21 | MT-19-01–09, MT-20-06, MT-20-14 |
 | R46 Library sync, conflicts and offline | DB-L-13, DB-L-19–21, DB-L-24, DB-R-14–16, U-LDOM-14, U-LDOM-20–21, U-LDOM-24, U-LAPI-05, U-LAPI-08–10, U-LMUT-01–03, U-LMUT-07, U-LMUT-10–11, U-LMUT-14–15, U-LRT-01–03, C-LFS-06–07, C-LFS-13 | MT-18-09, MT-19-08, MT-20-01–07, MT-20-15 |
 | R47 Library data integrity | DB-S-06, DB-L-01–38, DB-R-17–18, U-LAPI-02–04, U-LAPI-06 | MT-20-08–10 |

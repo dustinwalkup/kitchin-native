@@ -22,7 +22,7 @@ export const STARTER_TAGS = [
 
 export const COPY = {
   title: 'Meal Library', // R40.2
-  libraryButton: 'Library', // R40.1
+  tabLabel: 'Library', // R40.1
   search: 'Search meals', // R41.1
   filter: 'Filter by tags', // R41.2
   clearFilters: 'Clear filters', // R41.7

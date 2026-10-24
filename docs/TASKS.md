@@ -439,6 +439,7 @@ The spec is [`specs/meal-library/`](../specs/meal-library/). Its requirements an
 - [x] 🤖 **19.2** Picker
 - [x] 🤖 **19.3** Picker connected to Meals (closes OI-20, OI-21)
 - [ ] 🤖 **20.1** Docs follow-through
+- [x] 🤖 **21.1** Library tab, and deleting a meal from the list (owner request, 2026-10-24)
 - [ ] ✅ **ML.1** Two-simulator check against the local stack. Run `npm run two-sims`, then sign in as **A** on one simulator and **B** on the other:
   - [ ] On A, add a meal with a new tag → it appears in B's library within about 1 second, and B can put the new tag on another meal
   - [ ] Both type the same new tag, in different capitals, on two new meals and save at about the same time → one tag, on both meals
@@ -446,6 +447,7 @@ The spec is [`specs/meal-library/`](../specs/meal-library/). Its requirements an
   - [ ] B deletes a meal while A has it open. A taps Save → "This meal was deleted on another device"; **Save as new meal** brings it back
   - [ ] Open a slot on A, tap **Choose from Meal Library**, and pick a meal → the slot shows its name and description on both simulators. Then edit or delete that meal in the library → the planned slot doesn't change
   - [ ] In the picker, tap **+ Add new meal**, save it → you're back in the picker with it under **Just saved**, ready to choose
+  - [ ] On A, open the **Library** tab, swipe a meal left, tap **Delete** and confirm → it leaves both libraries
   - [ ] Turn the Mac's Wi-Fi off. Saving a library meal fails at once and keeps what you typed. Choosing a meal for a slot still works and sends when you're back online
   - [ ] Sign in as **C** → sees only Household Two's library, with none of Household One's meals or custom tags
 - [ ] 👤 **ML.2** Review and commit the changes on `main`.

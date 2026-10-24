@@ -40,7 +40,7 @@ describe('COPY', () => {
   it('has the wording the requirements give', () => {
     expect(COPY).toMatchObject({
       title: 'Meal Library',
-      libraryButton: 'Library',
+      tabLabel: 'Library',
       search: 'Search meals',
       filter: 'Filter by tags',
       clearFilters: 'Clear filters',

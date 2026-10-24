@@ -464,4 +464,33 @@ describe('MealBrowser', () => {
     expect(filter()).toHaveProp('accessibilityLabel', 'Filter by tags, 1 selected');
     expect(listed()).toEqual(['meal-5', TACOS]);
   });
+
+  it('R44.8 gives every row, the Just saved row too, Delete and a chevron when asked', async () => {
+    const onDeleteMeal = jest.fn();
+    await render(
+      <MealBrowser
+        {...props({ onDeleteMeal, rowDisclosure: true, justSaved: { id: 1, mealId: TACOS } })}
+      />,
+    );
+
+    const deletes = screen.getAllByTestId(/^meal-delete-/, { includeHiddenElements: true });
+    // Four rows, and the Just saved copy of Tacos.
+    expect(deletes).toHaveLength(5);
+    await fireEvent.press(deletes[0]);
+    expect(onDeleteMeal).toHaveBeenCalledWith(expect.objectContaining({ id: TACOS }));
+    for (const row of screen.getAllByTestId(/^meal-row-/)) {
+      expect(row.children.at(-1)).toHaveProp('name', 'chevron.right');
+    }
+  });
+
+  it('R45.10 offers no Delete and no chevron by default, as in the picker', async () => {
+    await render(<MealBrowser {...props()} />);
+
+    expect(screen.queryAllByTestId(/^meal-delete-/, { includeHiddenElements: true })).toHaveLength(
+      0,
+    );
+    for (const row of screen.getAllByTestId(/^meal-row-/)) {
+      expect(row.props.accessibilityActions).toBeUndefined();
+    }
+  });
 });

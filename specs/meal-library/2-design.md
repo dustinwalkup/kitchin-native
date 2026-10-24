@@ -2,10 +2,11 @@
 
 > **Phase 2 of 4** in the EARS spec-driven process: 1-requirements → **2-design** → 3-tasks → 4-test-plan.
 > **Status:** Approved by the owner, 2026-10-19, including DD43–DD60 and the 45.7 amendment. Implements [1-requirements.md](./1-requirements.md), also approved 2026-10-19.
+> **Amended at the owner's request, 2026-10-24** (the Library tab): DD50, §1.5, §2.1, §2.2, §3.7, §3.8 and §3.11 changed, and DD61 added, for requirements K18, 40.1, 40.2, 40.7, 41.9 and 44.8 as amended ([Amendments after Approval](./1-requirements.md#amendments-after-approval)).
 
 ## 1. Overview
 
-The Meal Library adds three tables, one feature module, three routes and two buttons in Meals. It reuses everything else in [`specs/mvp/2-design.md`](../mvp/2-design.md) and [`specs/meals/2-design.md`](../meals/2-design.md) unchanged:
+The Meal Library adds three tables, one feature module, three routes (one of them a tab) and a button in Meals' slot editor. It reuses everything else in [`specs/mvp/2-design.md`](../mvp/2-design.md) and [`specs/meals/2-design.md`](../meals/2-design.md) unchanged:
 
 - household isolation through grants, RLS and the shared triggers (MVP §4.1–§4.4)
 - the generic broadcast trigger and the household channel (MVP §3.6, §4.5)
@@ -40,7 +41,7 @@ This table settles the requirements' Open Items for Design Phase. **Approving th
 | DD47 (OI 4) | Starter tags | `private.add_starter_tags(uuid)` adds the seven tags, skipping any that exist. The migration runs it for every household, and `provision_household` calls it for new ones | `groceries_init` replaced `provision_household` the same way to add the grocery list. No trigger on a core table | 43.8, amends R23.2 |
 | DD48 | Grants | Meals: `select, insert, update, delete`. Tags: `select, insert, update`, with no `delete`. Links: `select, insert, delete`, with no `update` | Least privilege: the app never deletes a tag (43.11) and never changes a link | 47.1, 47.6 |
 | DD49 (OI 10) | Library mutations | Not optimistic. `networkMode: 'always'`, `retry: false`, and a check of the online manager before anything is sent, so an offline save fails at once. One mutation scope per household, `library:<hid>` | K24 and 46.2–46.3. The scope keeps two saves in the order they were made | 42.8, 46.2, 46.3 |
-| DD50 (OI 1) | Routes | `meal-library`, a pushed card with Back to Meals. `meal-form`, a full-screen modal. `meal-picker`, a page-sheet modal over Meals. The form presents over the picker when opened from it | Native presentations, no custom navigator. The form is full screen as 42.1 asks, so only Cancel can close it | 40.2, 42.1, 45.2, 45.8 |
+| DD50 (OI 1) | Routes | `meal-library`, the Library tab in `(tabs)`, between Meals and Settings *(changed 2026-10-24: it was a card pushed over Meals, with Back to Meals)*. `meal-form`, a full-screen modal. `meal-picker`, a page-sheet modal over Meals. The form presents over the picker when opened from it | Native presentations, no custom navigator. The form is full screen as 42.1 asks, so only Cancel can close it | 40.2, 42.1, 45.2, 45.8 |
 | DD51 | Hand-offs between screens | `handoff.ts` holds three in-memory values: the name to start a new meal with, the meal just saved or deleted, and the meal chosen for a slot. Each carries a one-time ID so it's applied once | Route params never carry household content (idea 4). Toasts and the Just saved row show on the screen the member returns to | 42.6, 42.9, 44.3, 45.3 |
 | DD52 (OI 2) | Choosing a meal | Opening the picker closes the slot's editor, which saves its draft (32.3), as opening Add to groceries does. When Meals regains focus, it saves the chosen text with `useSetMeal` and reopens that slot's editor. Closing the picker without choosing reopens the editor too | Uses the existing editor and save path unchanged. Meals stays mounted, so its toasts can report a failed save (35.5) | 45.3–45.7 |
 | DD53 (OI 7) | Browser and filter | One `MealBrowser`: a search field, a collapsed Filter by tags row that expands in place to chips, Clear filters, and a virtualized list | No sheet and no state to pass back. Compact until opened (41.3) | 41, 45.2, N29 |
@@ -51,6 +52,7 @@ This table settles the requirements' Open Items for Design Phase. **Approving th
 | DD58 | Rejected values | `classifyError` also keeps a CHECK constraint's name for `23514`, as it already does for a unique constraint's name for `23505`. The form maps the constraint to its field | 42.10 asks for the message at the field. A constraint name holds no row content | 42.10, 14.4 |
 | DD59 | Loading | One query, `['household', hid, 'library']`, fetches tags and meals in parallel, each meal with its link tag IDs embedded, in pages of 1,000. `gcTime: Infinity` | A list under the API's 1,000-row cap could otherwise be cut short without warning (finding 5). The picker shows a library loaded earlier immediately (45.11) | 40.3, 45.11, 46.1 |
 | DD60 (OI 8) | Toasts | The library and the picker each have their own `ToastProvider placement="top"`, as Meals does (meals DD35). The form shows failures in an inline box with Retry instead of a toast | Both screens have a search field, so a bottom toast would sit under the keyboard. A failure in the form must stay until the member acts (42.10) | 42.9, 42.10, 44.3 |
+| DD61 | Managing from the list *(added 2026-10-24)* | The library's rows end with a chevron, and sit in `ReanimatedSwipeable` as grocery rows do (MVP DD11): swiping left reveals Delete, and the row carries a VoiceOver Delete action. Delete asks with the form's alert (44.2), calls `useDeleteMeal`, and reports through the library's top toast: "Meal deleted", or `describeProblem`'s message with Retry where it offers one. The picker passes no delete handler, so its rows have neither | One gesture the members already know from Groceries. The form's delete path and copy are reused, so K24 and 44.4–44.7 hold unchanged | 40.7, 44.8, 45.10 |
 
 ### 1.3 Research Findings
 
@@ -97,12 +99,12 @@ The amendments listed in 1-requirements (the MVP glossary, 11.2, 13.2, 14.1, 23.
 
 ### 1.5 Changes to Existing Files
 
-N30 allows changes to existing features only for the Library button, the Choose button and provisioning. These are the existing files that change. None is a core table, a policy or grocery code.
+N30 allows changes to existing features only for the Library tab, the Choose button and provisioning. These are the existing files that change. None is a core table, a policy or grocery code.
 
 | File | Change | Why |
 |---|---|---|
 | `src/app/(app)/_layout.tsx` | Add the three routes (§3.8–§3.10). `TABLE_HANDLERS` adds `libraryTableHandlers` | DD50, 46.1 |
-| `src/app/(app)/(tabs)/_layout.tsx` | Meals gets `headerLeft`: the Library button | 40.1 |
+| `src/app/(app)/(tabs)/_layout.tsx` | Adds the Library tab, `meal-library`, between Meals and Settings. *(Changed 2026-10-24: Meals' `headerLeft` Library button is removed.)* | 40.1, 1.5 |
 | `src/app/(app)/(tabs)/meals.tsx` | Pass the Choose action to the editor, push the picker, and apply a chosen meal when Meals regains focus | DD52, 45 |
 | `src/features/meals/components/slot-editor.tsx` | An optional `onChooseFromLibrary` prop, which shows "Choose from Meal Library" beside Clear | 45.1 |
 | `src/ui/chip.tsx`, `src/ui/button.tsx` and their tests | An optional `tone: 'accent'`. The default stays cactus | DD57 |
@@ -127,7 +129,7 @@ N30 allows changes to existing features only for the Library button, the Choose 
 ```mermaid
 flowchart LR
   subgraph PhoneA[Phone A]
-    MS[Meals screen] -- Library --> LS[meal-library]
+    TB[Tab bar] -- Library --> LS[meal-library tab]
     MS -- Choose from Meal Library --> PK[meal-picker]
     LS --> MF[meal-form]
     PK --> MF
@@ -160,12 +162,12 @@ src/
       realtime.ts realtime.test.ts    # table handler (§3.5)
       handoff.ts  handoff.test.ts     # in-memory hand-offs between screens (§3.6)
       components/
-        library-button.tsx  meal-browser.tsx  search-field.tsx  tag-filter.tsx
+        meal-browser.tsx  search-field.tsx  tag-filter.tsx
         meal-row.tsx  tag-pill.tsx  tag-chip.tsx  tag-picker.tsx  meal-form.tsx
         form-error.tsx  library-states.tsx
         *.test.tsx
   app/(app)/
-    meal-library.tsx                  # the Meal Library (§3.8)
+    (tabs)/meal-library.tsx           # the Meal Library, the Library tab (§3.8)
     meal-form.tsx                     # add or edit a meal (§3.9)
     meal-picker.tsx                   # choose a meal for a slot (§3.10)
   __tests__/meal-library.test.tsx     # route tests for all three
@@ -482,11 +484,10 @@ Each `set` gets a new `id`. A reader remembers the last `id` it applied in a ref
 
 | Component | Renders | Notes |
 |---|---|---|
-| `LibraryButton` | "Library", bold terracotta, in the Meals header | 44 × 44 pt. VoiceOver label "Meal Library" (40.1) |
 | `MealBrowser` | `SearchField`, `TagFilter`, Clear filters, the list and its states, and an optional header slot | Used by the library and the picker (N29). Holds the search and selected tags in local state (41.9) |
 | `SearchField` | A field with a magnifying glass, placeholder "Search meals" and the native clear button | `accessibilityLabel` "Search meals". Return dismisses the keyboard |
 | `TagFilter` | Collapsed: "Filter by tags" with the count, then the selected names. Expanded: every tag as a `TagChip`, and Done | `accessibilityState.expanded`. Read as "Filter by tags, 2 selected" (N27) |
-| `MealRow` | The name, then the tags as `TagPill`s | A `Pressable` of at least 44 pt. Read as "Tacos. Tags: Dinner, Quick & Easy" (N27). Memoised |
+| `MealRow` | The name, then the tags as `TagPill`s. In the library, a chevron at the end, and Delete behind a swipe left (DD61) | A `Pressable` of at least 44 pt. Read as "Tacos. Tags: Dinner, Quick & Easy" (N27). Memoised. With `onDelete`, the card's edge moves to the swipeable, which clips the row as it slides, and the row gets a Delete accessibility action; the swipe action itself is hidden from VoiceOver (N10) |
 | `TagPill` | A tag name, `ink` on `accentSoft` | Not interactive. Wraps (40.5) |
 | `TagChip` | `Chip` with `tone: 'accent'`, and "✓ " before the name when selected | VoiceOver reads the name without the ✓, plus "selected" from `accessibilityState` (43.1) |
 | `TagPicker` | The form's tag chips, then "＋ New tag", which opens an inline field and Add | 43.1–43.6. Announces "Added Taco Night" or "Selected Dinner" |
@@ -494,13 +495,13 @@ Each `set` gets a new `id`. A reader remembers the last `id` it applied in a ref
 | `FormError` | A message, with Retry or Save as new meal when they apply | `accessibilityLiveRegion`, and announced when it appears |
 | `LibraryStates` | `SkeletonRows`, `LoadError`, `WaitingForConnection`, `EmptyLibrary` and `NoMatch` | The grocery and meals states' layout with library copy |
 
-None of them touches Supabase. `testID`s hold only static parts and IDs: `library-search`, `library-filter`, `library-clear-filters`, `library-list`, `library-just-saved`, `meal-row-<id>`, `tag-chip-<id>`, `meal-form-name`, `meal-form-save`, `meal-form-delete`, `slot-choose`. None contains household text (26.7).
+None of them touches Supabase. `testID`s hold only static parts and IDs: `library-search`, `library-filter`, `library-clear-filters`, `library-list`, `library-just-saved`, `meal-row-<id>`, `meal-delete-<id>`, `tag-chip-<id>`, `meal-form-name`, `meal-form-save`, `meal-form-delete`, `slot-choose`. None contains household text (26.7).
 
-### 3.8 Meal Library Screen (`src/app/(app)/meal-library.tsx`)
+### 3.8 Meal Library Screen (`src/app/(app)/(tabs)/meal-library.tsx`)
 
 ```
 ┌──────────────────────────────────────┐
-│ ‹ Meals       Meal Library  Add meal │  native header; Add meal bold terracotta (40.6)
+│               Meal Library  Add meal │  tab header; Add meal bold terracotta (40.6)
 ├──────────────────────────────────────┤
 │ Offline — changes will send when …   │  banner only while offline (13.1)
 │ ┌🔍 Search meals ─────────────────┐  │  41.1
@@ -508,19 +509,22 @@ None of them touches Supabase. `testID`s hold only static parts and IDs: `librar
 │ Filter by tags · 2 ▾   Clear filters │  41.2, 41.3, 41.7
 │ Dinner, Quick & Easy                 │  which tags (41.3)
 │ JUST SAVED                           │  DD55, after a save only
-│ ┌ Chicken tacos ──────────────────┐  │
-│ │ [Dinner] [Quick & Easy]         │  │
-│ └─────────────────────────────────┘  │
-│ ┌ Beef stew ──────────────────────┐  │  alphabetical (40.4)
-│ │ [Dinner] [Family Favorite]      │  │
-│ └─────────────────────────────────┘  │
+│ ┌ Chicken tacos ────────────────┐ ›  │
+│ │ [Dinner] [Quick & Easy]       │    │  chevron: the row opens (40.7)
+│ └───────────────────────────────┘    │
+│ ┌ Beef stew ────────────┐┌────────┐  │  swiped left: Delete (44.8, DD61)
+│ │ [Dinner] [Family Fav… ││ Delete │  │
+│ └───────────────────────┘└────────┘  │
+├──────────────────────────────────────┤
+│ Groceries   Meals   Library  Settings│  tab bar; Library terracotta while active (40.1, 40.12)
 └──────────────────────────────────────┘
 ```
 
-- **Route options.** In `(app)/_layout.tsx`: `{ title: 'Meal Library', headerBackTitle: 'Meals' }`. The screen sets `headerRight` to Add meal. Meals stays mounted underneath, so Back returns to the same week and scroll position (40.2).
-- **Structure.** `<ToastProvider placement="top"><Screen edges={['left', 'right', 'bottom']}><MealBrowser … /></Screen></ToastProvider>` (DD60). Tapping a row pushes `/meal-form?id=<id>` (40.7). Add meal sets `newMealName` from the search, or clears it, and pushes `/meal-form` (42.6).
+- **Route options.** In `(tabs)/_layout.tsx`, between Meals and Settings: `{ title: 'Meal Library', tabBarLabel: 'Library', tabBarActiveTintColor: accent, tabBarIcon: book.fill }`. The screen sets `headerRight` through `Tabs.Screen` to the Reconnecting pill and Add meal, as Meals' header has the pill and Add to groceries. Like every tab, it stays mounted, so it keeps its search and tags while the member is on another tab, and Meals keeps its week (40.2, 41.9). *(Changed 2026-10-24: it was a card pushed over Meals in `(app)/_layout.tsx`, with Back to Meals.)*
+- **Structure.** `<ToastProvider placement="top"><Screen edges={['left', 'right']}><MealBrowser … /></Screen></ToastProvider>` (DD60); the tab bar takes the bottom edge. Tapping a row pushes `/meal-form?id=<id>` (40.7). Add meal sets `newMealName` from the search, or clears it, and pushes `/meal-form` (42.6).
+- **Delete from the list (44.8, DD61).** `MealBrowser` gets `onDeleteMeal` and `rowDisclosure`, and passes them to every `MealRow`, the Just saved row too. Delete closes the swipe, then shows the alert with `deleteTitle(name)`, `deleteBody`, Cancel and a destructive Delete. On Delete, `useDeleteMeal(id)`: `ok` shows "Meal deleted", and the meal leaves the list when the mutation puts the library without it (K24). Not `ok`: `describeProblem({ kind: 'delete', outcome })` gives the toast's message, with Retry when it offers one. Retry deletes again without asking. The handler is a stable `useCallback`, so the memoised rows don't redraw as the member types (N25).
 - **List.** A `FlatList` keyed by ID, with memoised rows, `keyboardShouldPersistTaps="handled"`, `keyboardDismissMode="on-drag"` and a `RefreshControl` (40.11). The root keyboard toolbar shows over it, as on the other card screens.
-- **Focus.** On focus, the screen reads `lastSaved`: "Meal saved" with the Just saved row, or "Meal deleted" (42.9, 44.3).
+- **Focus.** On focus, the screen reads `lastSaved`: "Meal saved" with the Just saved row, or "Meal deleted" (42.9, 44.3). Leaving it, for the form or another tab, ends the Just saved row.
 - **States.**
 
   | Library state | Shows | Requirement |
@@ -605,7 +609,7 @@ None of them touches Supabase. `testID`s hold only static parts and IDs: `librar
 
 ### 3.11 Changes to Meals
 
-**Header (40.1).** The Meals tab's options add `headerLeft: () => <LibraryButton onPress={() => router.push('/meal-library')} />` and `headerLeftContainerStyle: { paddingLeft: 8 }`. Opening the library takes focus from Meals, so an open slot closes and saves (32.3).
+**Header (40.1).** *(Changed 2026-10-24.)* Meals' header no longer has a Library button: the library is its own tab (§3.8). Switching to it takes focus from Meals, so an open slot closes and saves (32.3), as switching to any tab does.
 
 **Slot editor (45.1).** `SlotEditor` takes an optional `onChooseFromLibrary`. When it's given, the footer shows a "Choose from Meal Library" button before Clear: bold terracotta text, at least 44 pt, `testID="slot-choose"`. The footer already wraps, so the counter, Choose and Clear stack at large text sizes (N12). The editor's own save behaviour doesn't change.
 
@@ -877,11 +881,11 @@ The MVP controls (§8 of the MVP design) apply to the three tables unchanged. Th
 
 | Requirement | Design sections |
 |---|---|
-| 40 Library screen | DD50, DD57, DD59, §3.7, §3.8, §3.11 |
+| 40 Library screen | DD50, DD57, DD59, DD61, §3.7, §3.8, §3.11 |
 | 41 Search and filter by tags | DD53, DD54, §3.2, §3.7 |
 | 42 Add or edit a meal | DD46, DD49, DD51, DD55, DD56, DD58, §3.2–§3.4, §3.9 |
 | 43 Tags | DD44, DD45, DD47, DD57, §3.2, §3.7, §4.1, §4.2, §4.4 |
-| 44 Delete a meal | DD48, DD49, §3.3, §3.9, §4.1 |
+| 44 Delete a meal | DD48, DD49, DD61, §3.3, §3.8, §3.9, §4.1 |
 | 45 Choose from the Meal Library | DD50–DD52, DD55, §2.3, §3.6, §3.10, §3.11 |
 | 46 Library sync, conflicts and offline | DD45, DD46, DD49, §3.3–§3.5, §6 |
 | 47 Library data integrity | DD43–DD48, §4, §8 |

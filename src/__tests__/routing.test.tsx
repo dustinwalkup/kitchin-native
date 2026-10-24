@@ -88,7 +88,7 @@ afterEach(() => {
 
 const { light } = themes;
 
-function tab(name: 'Groceries' | 'Meals' | 'Settings') {
+function tab(name: 'Groceries' | 'Meals' | 'Library' | 'Settings') {
   return screen.getByRole('button', { name: new RegExp(`^${name}, tab`) });
 }
 
@@ -302,15 +302,16 @@ describe('guards (§2.4)', () => {
 });
 
 describe('main tabs', () => {
-  it('has exactly three tabs, Groceries, Meals and Settings (C-RTE-06, R1.5 amended)', async () => {
+  it('has exactly four tabs, Groceries, Meals, Library and Settings (C-RTE-06, R1.5 amended)', async () => {
     const app = await renderApp();
 
     // On iOS, React Navigation gives tab buttons the button role and labels them "…, tab, n of m".
     const tabs = screen.getAllByRole('button', { name: /, tab, \d+ of \d+$/ });
     expect(tabs.map((element) => element.props.accessibilityLabel)).toEqual([
-      'Groceries, tab, 1 of 3',
-      'Meals, tab, 2 of 3',
-      'Settings, tab, 3 of 3',
+      'Groceries, tab, 1 of 4',
+      'Meals, tab, 2 of 4',
+      'Library, tab, 3 of 4',
+      'Settings, tab, 4 of 4',
     ]);
     // Still opens on Groceries (C-RTE-04, K16).
     expect(app.getPathname()).toBe('/groceries');
@@ -324,7 +325,7 @@ describe('main tabs', () => {
       color: light.cactus,
       fontWeight: '700',
     });
-    for (const name of ['Meals', 'Settings'] as const) {
+    for (const name of ['Meals', 'Library', 'Settings'] as const) {
       expect(within(tab(name)).getByText(name)).toHaveStyle({
         color: light.inkMuted,
         fontWeight: '700',
@@ -351,6 +352,19 @@ describe('main tabs', () => {
 
     expect(within(tab('Groceries')).getByText('Groceries')).toHaveStyle({ color: light.cactus });
     expect(within(tab('Meals')).getByText('Meals')).toHaveStyle({ color: light.inkMuted });
+  });
+
+  it('C-RTE-12 turns the active Library tab terracotta, in bold (R40.12)', async () => {
+    const app = await renderApp();
+
+    await fireEvent.press(tab('Library'));
+
+    expect(app.getPathname()).toBe('/meal-library');
+    expect(tab('Library')).toBeSelected();
+    expect(within(tab('Library')).getByText('Library')).toHaveStyle({
+      color: light.accent,
+      fontWeight: '700',
+    });
   });
 
   it('switches to Settings', async () => {
@@ -490,13 +504,14 @@ describe('add-item sheet (§3.4, DD10)', () => {
 });
 
 describe('meal library routes (C-RTE-11)', () => {
-  it('opens /meal-library under (app), titled "Meal Library" with Back to Meals (§3.8)', async () => {
+  it('opens /meal-library as the Library tab, titled "Meal Library" (§3.8)', async () => {
     const app = await renderApp('/meal-library', 'No saved meals yet');
 
     expect(app.getPathname()).toBe('/meal-library');
-    expect(nativeHeaders()).toContainEqual(
-      expect.objectContaining({ title: 'Meal Library', backTitle: 'Meals' }),
-    );
+    expect(tab('Library')).toBeSelected();
+    expect(screen.getByRole('heading', { name: 'Meal Library' })).toBeOnTheScreen();
+    // A tab, not a card pushed over Meals: only the root's (app) and the (app) stack's (tabs).
+    expect(stackPresentations()).toEqual(['push', 'push']);
   });
 
   it("isn't reachable while signed out (R1.2)", async () => {

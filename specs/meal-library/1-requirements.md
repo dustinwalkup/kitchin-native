@@ -3,6 +3,7 @@
 > **Phase 1 of 4** in the EARS spec-driven process: **1-requirements** → 2-design → 3-tasks → 4-test-plan.
 > **Status:** Approved by the owner, 2026-10-19, including decisions K18–K27. Written from the owner's [brief](./brief.md), the meals spec and the code as built.
 > **Amendment proposed during design** (approved together with `2-design.md`): 45.7 changed. See [2-design.md §1.4](./2-design.md#14-requirement-amendments).
+> **Amended at the owner's request, 2026-10-24** (the Library tab): K18, 40.1, 40.2, 40.7, 41.9, N30, edge case 19 and MVP 1.5 changed, and 44.8 added. See [Amendments after Approval](#amendments-after-approval).
 
 ## Introduction
 
@@ -35,7 +36,7 @@ These terms add to the [MVP glossary](../mvp/1-requirements.md#glossary) and the
 
 **In scope:**
 
-- A Meal Library screen, separate from the planner and opened from Meals. It lists saved meals with their tags in alphabetical order, with loading, empty, no-results and error states.
+- A Meal Library screen, separate from the planner, with its own tab. It lists saved meals with their tags in alphabetical order, with loading, empty, no-results and error states.
 - Search by name, and a compact Filter by tags control that shows only meals having every selected tag. Search and tags combine.
 - One full-screen form for adding and editing a meal: a required name, and an optional description, ingredients and tags.
 - Tags as household records: seven starter tags, custom tags created from the form, and no duplicates within a household.
@@ -51,7 +52,7 @@ The requirements below depend on these decisions. Each is a recommendation drawn
 
 | # | Decision | Assumed here | Source |
 |---|---|---|---|
-| K18 | Where the library lives | A separate screen, opened from a Library button with a text label in the Meals header, with Back to Meals. Not a fourth tab: Chores and Notes are each expected to add a tab (`docs/TASKS.md`), and a sixth tab would push one behind iOS's "More" | Brief §1, §8; K16 |
+| K18 | Where the library lives | Its own tab, "Library", between Meals and Settings. *(Changed 2026-10-24 at the owner's request. It was a Library button in the Meals header, which proved easy to miss: the library was reached only through the picker, where meals can't be edited or deleted. Chores and Notes are each expected to add a tab too (`docs/TASKS.md`); how six tabs fit is settled when they're specified.)* | Brief §1, §8; K16 |
 | K19 | Copy, don't link | Choosing a meal copies its text into the slot. The entry stores no reference to the meal, so editing or deleting the meal never changes a plan, and editing the entry never changes the meal | Brief §6 |
 | K20 | Copied text | The meal's name, then, if it has a description, a line break and the description. Ingredients and tags aren't copied | Brief §6; R32.2 |
 | K21 | Field limits | Name: 1–100 characters, one line. Description: up to 300. Ingredients: up to 2,000. Tag name: 1–30 characters, one line. A full name and description, 401 characters with the line break, always fit a slot's 500 (K12), so choosing a meal never cuts its text | Brief §2; K12 |
@@ -79,13 +80,13 @@ The requirements below depend on these decisions. Each is a recommendation drawn
 
 #### Acceptance Criteria
 
-1. The Meals screen SHALL offer a button with a visible text label, such as "Library", that opens the Meal Library (K18). Its VoiceOver label SHALL be "Meal Library".
-2. WHEN the member uses it THEN the app SHALL show the Meal Library as its own full screen, titled "Meal Library", with a Back control. WHEN the member goes back THEN the app SHALL show Meals at the week and scroll position they left.
+1. The app SHALL offer the Meal Library as a main tab labelled "Library", between Meals and Settings (K18, R1.5). *(Changed 2026-10-24: it was a button in the Meals header.)*
+2. WHEN the member opens the tab THEN the app SHALL show the Meal Library, titled "Meal Library". WHEN the member moves to another tab and back THEN each SHALL be as they left it: Meals at the same week and scroll position, and the library with the same search and tags (41.9). *(Changed 2026-10-24: it was a full screen over Meals, with a Back control.)*
 3. The Meal Library SHALL list the household's meals. Each SHALL show its name and its tags. A meal with no tags SHALL show only its name.
 4. Meals SHALL be listed in alphabetical order of name, and each meal's tags in alphabetical order (K25).
 5. Long names SHALL wrap rather than be truncated, and tags that don't fit on one line SHALL continue on the next (N12).
 6. The screen SHALL offer an Add meal action that's visible without scrolling, whether or not the library has meals.
-7. WHEN the member taps a meal THEN the app SHALL open it in the meal form ([Requirement 42](#requirement-42-meal-library--add-or-edit-a-meal)).
+7. WHEN the member taps a meal THEN the app SHALL open it in the meal form ([Requirement 42](#requirement-42-meal-library--add-or-edit-a-meal)), where they can edit or delete it. Each meal SHALL end with a chevron, so that it reads as something that opens. *(Chevron added 2026-10-24.)*
 8. WHILE the library loads for the first time in a session, the app SHALL show placeholder (skeleton) rows, not a blank screen or a full-screen spinner.
 9. IF the household has no meals THEN the app SHALL show "No saved meals yet", a sentence saying what the library is for, and Add meal.
 10. IF loading the library fails THEN the app SHALL show "Couldn't load meals" with Retry, and SHALL keep showing the meals it loaded earlier, if any.
@@ -106,7 +107,7 @@ The requirements below depend on these decisions. Each is a recommendation drawn
 6. WHILE the search field holds text and tags are selected, the list SHALL show only meals that match the search and have every selected tag.
 7. WHILE the search field holds text or any tag is selected, the screen SHALL offer Clear filters. WHEN the member uses it THEN the app SHALL empty the search field and deselect every tag.
 8. IF no meals match the search and tags THEN the app SHALL show "No meals match" with Clear filters. This state SHALL look different from the empty library (40.9), so that the member can tell meals exist.
-9. The Meal Library SHALL open with an empty search and no tags selected. Returning to it from the meal form SHALL keep the search and the selected tags.
+9. The Meal Library SHALL start with an empty search and no tags selected. Returning to it from the meal form or another tab SHALL keep the search and the selected tags. *(Changed 2026-10-24 for the tab.)*
 
 ### Requirement 42: Meal Library — Add or Edit a Meal
 
@@ -163,6 +164,7 @@ The requirements below depend on these decisions. Each is a recommendation drawn
 5. IF the other member has already deleted the meal THEN the app SHALL treat the deletion as successful and SHALL NOT show an error (as 33.3).
 6. Deleting a meal SHALL NOT change any entry, including entries whose text was copied from it (K19).
 7. Deleting a meal SHALL remove its tag links, and SHALL NOT delete any tag.
+8. The Meal Library SHALL also let the member delete a meal without opening it. Swiping a meal left SHALL reveal Delete, and VoiceOver SHALL offer Delete as an action on the meal (N10). Delete SHALL ask for confirmation as in 44.2. WHEN the member confirms and the backend confirms the deletion THEN the meal SHALL leave the list and the app SHALL show "Meal deleted". IF the deletion fails THEN the meal SHALL stay listed, and the app SHALL say why with Retry, unless retrying would fail the same way (14.3); Retry SHALL NOT ask again. 44.5–44.7 SHALL apply. The picker SHALL NOT offer this (45.10). *(Added 2026-10-24 at the owner's request.)*
 
 ### Requirement 45: Meals — Choose from the Meal Library
 
@@ -234,7 +236,21 @@ Approving this document approves these changes. They were written into those fil
 | MVP 23.2 | Only if design chooses to change provisioning for the starter tags (Open Item 4): provisioning also creates them |
 | Meals Out of Scope, "Saved, favourite, pinned or template meals" | Saved meals move into scope under this document. Favourites, pinned meals and suggestions drawn from past entries stay out |
 | Meals Out of Scope, "Recipes: ingredients, …" | Free-text ingredients on library meals move into scope. The rest of that line stays out |
-| Meals N24 | The meals feature gains the Library button in its header and the Choose from Meal Library button in the slot editor (N30) |
+| Meals N24 | The meals feature gains the Choose from Meal Library button in the slot editor (N30). *(Changed 2026-10-24: the Library button it also gained in its header was replaced by the Library tab.)* |
+| MVP 1.5 | The main tabs are Groceries, Meals, Library and Settings, in that order (K18, 40.1). *(Added 2026-10-24.)* |
+
+## Amendments after Approval
+
+The owner asked for these on 2026-10-24, after the library had shipped to the local stack: the library had no entry point that was easy to find, and so no way in practice to edit or remove a meal. They're written into the items above, each marked with its date.
+
+| Item | Change | Reason |
+|---|---|---|
+| K18, 40.1, 40.2 | The library is its own tab, "Library", between Meals and Settings. The Library button in the Meals header is removed | The header button was easy to miss, so members reached the library only through the picker, which can't edit or delete (45.10) |
+| 40.7 | Each meal in the library ends with a chevron | Shows that a meal opens, for editing and Delete meal (44.1) |
+| 41.9 | The search and tags also last while the member visits another tab | Tabs keep their state, as Meals keeps its week (R31.6) |
+| 44.8 | Added: swipe a meal left, or use VoiceOver's Delete action, to delete it from the list, after the same confirmation | Removing a meal shouldn't need opening it first. Groceries already deletes by swiping (R9.1) |
+| N30, edge case 19 | The library's change to existing features is the tab, not a header button | Follows K18 |
+| MVP 1.5 | Four tabs: Groceries, Meals, Library, Settings | Follows K18 |
 
 ---
 
@@ -255,7 +271,7 @@ N1–N24 apply to the Meal Library unchanged. These add to them.
 
 - **N28.** Search matching, tag filtering, ordering, tag normalization, duplicate-tag detection, building the copied text and field validation SHALL be pure functions with unit tests (N17).
 - **N29.** The meal form SHALL be one component, used for adding and editing from both the library and the picker. The picker SHALL reuse the library's list, search and filter.
-- **N30.** The library SHALL be additive (N16, N24): new tables, a new feature module and new screens. The only changes to existing features SHALL be the Library button in the Meals header, the Choose from Meal Library button in the slot editor, and whatever the starter tags need at provisioning (Open Item 4). No grocery code, and no core table or policy, SHALL change.
+- **N30.** The library SHALL be additive (N16, N24): new tables, a new feature module and new screens. The only changes to existing features SHALL be the Library tab in the tab list (1.5, 40.1), the Choose from Meal Library button in the slot editor, and whatever the starter tags need at provisioning (Open Item 4). No grocery code, and no core table or policy, SHALL change.
 - **N31.** Ingredients SHALL stay plain text that the app neither parses nor rewrites, so that a later release can turn them into structured ingredients, or generate grocery lists from them, with an additive change.
 
 ---
@@ -295,7 +311,7 @@ N1–N24 apply to the Meal Library unchanged. These add to them.
 16. **A member filters by a tag that no meal has.** The library shows "No meals match" with Clear filters (41.8).
 17. **A member chooses a meal with a 100-character name and a 300-character description.** The copied text is 401 characters and fits the slot uncut (K21).
 18. **Pasted text is longer than a field's limit.** The field keeps the first characters up to the limit, and the database rejects anything longer (42.3, 47.2).
-19. **One phone runs a build or update without the library.** That member sees no Library or Choose from Meal Library button until they update. Entries filled from the library are ordinary entries and show on both phones (Constraint 2).
+19. **One phone runs a build or update without the library.** That member sees no Library tab or Choose from Meal Library button until they update. Entries filled from the library are ordinary entries and show on both phones (Constraint 2).
 20. **The household's last meal is deleted.** The library shows its empty state (40.9).
 
 ## Out of Scope (Meal Library)
@@ -335,7 +351,7 @@ These are deferred and SHALL NOT appear in this feature's design, tasks or imple
 
 | Topic | Brief | This document |
 |---|---|---|
-| Where the library opens | §1: a dedicated screen, separate from the planner | A Library button in the Meals header opens it. It isn't a new tab (K18) |
+| Where the library opens | §1: a dedicated screen, separate from the planner | Its own tab, Library (K18, changed 2026-10-24) |
 | Copied text | §6: the name and description | The name, then a line break and the description. Nothing else is copied (K20) |
 | Field limits | Not given | Name 100, description 300, ingredients 2,000, tag 30 (K21) |
 | Duplicate tags | §7: differences of case or surrounding whitespace | Also runs of whitespace inside the name (glossary) |
@@ -343,7 +359,7 @@ These are deferred and SHALL NOT appear in this feature's design, tasks or imple
 | Saving and offline | §2: keep what was entered if saving fails | Saves wait for the backend and need a connection (K24) |
 | Clear filters | §5: a clear-filters action | Also empties the search (41.7) |
 | The picker | §6: shows saved meals | Also has search and Filter by tags (K27) |
-| Delete | §4: a delete action | In the meal form, while editing (44.1) |
+| Delete | §4: a delete action | In the meal form, while editing (44.1), and by swiping a meal in the library (44.8) |
 | Duplicate meal names | Not given | Allowed (K26) |
 | Additions | — | The name starts from the search text (42.6). Save as new meal when the meal was deleted meanwhile (46.7). "Discard changes?" on cancel (42.12) |
 | Implementation instructions | §11: inspect, migrate, test and report | Carried into 2-design, 3-tasks and 4-test-plan |

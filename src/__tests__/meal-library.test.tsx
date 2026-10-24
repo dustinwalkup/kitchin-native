@@ -6,9 +6,10 @@ import { renderRouter } from 'expo-router/testing-library';
 import { useSyncExternalStore } from 'react';
 import { Alert, type AlertButton, Text } from 'react-native';
 
+import TabsLayout from '@/app/(app)/(tabs)/_layout';
+import MealLibrary from '@/app/(app)/(tabs)/meal-library';
 import AppLayout from '@/app/(app)/_layout';
 import MealForm from '@/app/(app)/meal-form';
-import MealLibrary from '@/app/(app)/meal-library';
 import MealPicker from '@/app/(app)/meal-picker';
 import { COPY } from '@/features/meal-library/constants';
 import { buildLibrary, type Library } from '@/features/meal-library/domain';
@@ -24,10 +25,10 @@ import { touchTarget } from '@/test/a11y';
 import { makeMealRow, makeTagRow } from '@/test/factories';
 import { nativeHeaders, stackPresentations } from '@/test/native-header';
 
-// Meal Library screen tests C-LIB-04 to C-LIB-10 (4-test-plan §4.2), the meal form's C-LFS-01 to
+// Meal Library screen tests C-LIB-04 to C-LIB-14 (4-test-plan §4.2), the meal form's C-LFS-01 to
 // C-LFS-13 (§4.4) and the picker's C-PICK-01 to C-PICK-10 (§4.6). C-LIB-01 to C-LIB-03, which start
-// on Meals, are in meals.test.tsx. The real screens run under the real (app) layout, so focus, the
-// header and discard prevention behave as in the app. The hooks are mocked (§8.4): the library
+// on Meals, are in meals.test.tsx. The real screens run under the real (app) and tabs layouts, so
+// focus, the header, the tab bar and discard prevention behave as in the app. The hooks are mocked (§8.4): the library
 // comes from the real buildLibrary, and the save and delete are spies that return the outcome a
 // test chooses.
 
@@ -107,6 +108,7 @@ jest.mock('@/features/household/use-household-realtime', () => ({
   useHouseholdRealtime: () => {},
 }));
 jest.mock('@/features/household/use-connection-state', () => ({
+  useReconnectingIndicator: () => false,
   useRealtimeDegradedReport: () => {},
 }));
 jest.mock('@/lib/env', () => ({ env: { variant: 'production', sentryDsn: null } }));
@@ -123,10 +125,18 @@ function MealsStub() {
   return <Text>Meals screen</Text>;
 }
 
+// Tabs these tests never open.
+function UnusedStub() {
+  return null;
+}
+
 const ROUTES = {
   '(app)/_layout': AppLayout,
+  '(app)/(tabs)/_layout': TabsLayout,
+  '(app)/(tabs)/groceries': UnusedStub,
   '(app)/(tabs)/meals': MealsStub,
-  '(app)/meal-library': MealLibrary,
+  '(app)/(tabs)/meal-library': MealLibrary,
+  '(app)/(tabs)/settings': UnusedStub,
   '(app)/meal-form': MealForm,
   '(app)/meal-picker': MealPicker,
 };
@@ -154,12 +164,15 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-/** Opens Meals, then the library over it, as the Library button does. */
+/** Opens Meals, then the Library tab. */
 async function renderLibrary() {
   const app = await renderRouter(ROUTES, { initialUrl: '/meals' });
-  await act(() => router.push('/meal-library'));
+  await fireEvent.press(tab('Library'));
   return app;
 }
+
+const tab = (name: 'Meals' | 'Library') =>
+  screen.getByRole('button', { name: new RegExp(`^${name}, tab`) });
 
 /** Leaves the form without changes, as Cancel does, and returns to the library. */
 const closeForm = () => act(() => router.back());
@@ -220,12 +233,12 @@ describe('Meal Library screen', () => {
     expect(row(TACOS)).toHaveProp('accessibilityHint', 'Edits this meal');
   });
 
-  it('C-LIB-01 is titled "Meal Library", with Back to Meals', async () => {
-    await renderLibrary();
+  it('C-LIB-01 is its own tab, titled "Meal Library"', async () => {
+    const app = await renderLibrary();
 
-    expect(nativeHeaders()).toContainEqual(
-      expect.objectContaining({ title: 'Meal Library', backTitle: 'Meals' }),
-    );
+    expect(app.getPathname()).toBe('/meal-library');
+    expect(tab('Library')).toBeSelected();
+    expect(screen.getByRole('heading', { name: 'Meal Library' })).toBeOnTheScreen();
   });
 
   it('R40.6 shows Add meal in the header, labelled and at least 44 pt', async () => {
@@ -297,6 +310,111 @@ describe('Meal Library screen', () => {
     expect(screen.getAllByTestId(/^meal-row-/).map((r) => r.props.testID)).toEqual([
       `meal-row-${TACOS}`,
     ]);
+  });
+
+  it('C-LIB-14 keeps the search and tags while the member visits another tab', async () => {
+    await renderLibrary();
+    await fireEvent.changeText(search(), 'ta');
+    await fireEvent.press(screen.getByTestId('library-filter'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Dinner' }));
+
+    await fireEvent.press(tab('Meals'));
+    expect(screen.getByText('Meals screen')).toBeOnTheScreen();
+    await fireEvent.press(tab('Library'));
+
+    expect(search()).toHaveDisplayValue('ta');
+    expect(screen.getByTestId('library-filter')).toHaveProp(
+      'accessibilityLabel',
+      'Filter by tags, 1 selected',
+    );
+  });
+});
+
+describe('deleting from the list (C-LIB-11 to C-LIB-13)', () => {
+  /** Presses a row's Delete, as if swiped open (jest-setup.ts draws it beside the row). */
+  const swipeDelete = (id: string) =>
+    fireEvent.press(screen.getByTestId(`meal-delete-${id}`, { includeHiddenElements: true }));
+
+  it('C-LIB-11 every row has a chevron, and Delete behind a swipe that VoiceOver reaches as an action', async () => {
+    await renderLibrary();
+
+    expect(row(TACOS).children.at(-1)).toHaveProp('name', 'chevron.right');
+    expect(row(TACOS).props.accessibilityActions).toEqual([{ name: 'delete', label: 'Delete' }]);
+    expect(screen.queryByTestId(`meal-delete-${TACOS}`)).toBeNull();
+    expect(
+      screen.getByTestId(`meal-delete-${TACOS}`, { includeHiddenElements: true }),
+    ).toHaveTextContent('Delete');
+  });
+
+  it('C-LIB-12 Delete asks first, with the name and the plans message, and Cancel keeps the meal', async () => {
+    await renderLibrary();
+
+    await swipeDelete(TACOS);
+
+    expect(alert).toHaveBeenCalledWith('Delete “Tacos”?', COPY.deleteBody, expect.any(Array));
+    await pressAlert('Cancel');
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(row(TACOS)).toBeOnTheScreen();
+  });
+
+  it('C-LIB-12 a confirmed delete deletes the meal by its ID and shows "Meal deleted"', async () => {
+    const app = await renderLibrary();
+
+    await swipeDelete(TACOS);
+    await pressAlert('Delete');
+
+    expect(mockDelete.mock.calls).toEqual([[TACOS]]);
+    expect(within(toast()!).getByText('Meal deleted')).toBeOnTheScreen();
+    expect(app.getPathname()).toBe('/meal-library');
+  });
+
+  it("C-LIB-12 VoiceOver's Delete action asks first too", async () => {
+    await renderLibrary();
+
+    await fireEvent(row(STEW), 'accessibilityAction', { nativeEvent: { actionName: 'delete' } });
+
+    expect(alert).toHaveBeenCalledWith('Delete “Beef stew”?', COPY.deleteBody, expect.any(Array));
+    await pressAlert('Delete');
+    expect(mockDelete.mock.calls).toEqual([[STEW]]);
+  });
+
+  it("C-LIB-13 offline keeps the meal, and the toast's Retry deletes without asking again", async () => {
+    mockDelete.mockResolvedValueOnce({ ok: false, reason: 'offline' });
+    await renderLibrary();
+
+    await swipeDelete(TACOS);
+    await pressAlert('Delete');
+
+    expect(row(TACOS)).toBeOnTheScreen();
+    expect(within(toast()!).getByText(COPY.offline)).toBeOnTheScreen();
+    alert.mockClear();
+    await fireEvent.press(within(toast()!).getByRole('button', { name: 'Retry' }));
+
+    expect(alert).not.toHaveBeenCalled();
+    expect(mockDelete.mock.calls).toEqual([[TACOS], [TACOS]]);
+    expect(within(toast()!).getByText('Meal deleted')).toBeOnTheScreen();
+  });
+
+  it('C-LIB-13 any other failure says "Couldn\'t delete this meal", with Retry', async () => {
+    mockDelete.mockResolvedValueOnce({ ok: false, reason: 'failed' });
+    await renderLibrary();
+
+    await swipeDelete(TACOS);
+    await pressAlert('Delete');
+
+    expect(within(toast()!).getByText(COPY.deleteError)).toBeOnTheScreen();
+    expect(within(toast()!).getByRole('button', { name: 'Retry' })).toBeOnTheScreen();
+  });
+
+  it('C-LIB-13 a forbidden delete says so, with no Retry', async () => {
+    mockDelete.mockResolvedValueOnce({ ok: false, reason: 'forbidden' });
+    await renderLibrary();
+
+    await swipeDelete(TACOS);
+    await pressAlert('Delete');
+
+    expect(within(toast()!).getByText(COPY.forbidden)).toBeOnTheScreen();
+    expect(within(toast()!).queryByRole('button', { name: 'Retry' })).toBeNull();
   });
 });
 
@@ -463,7 +581,7 @@ describe('Meal form screen', () => {
   it('C-LFS-02 presents full screen, with Cancel and Save in the header', async () => {
     await openNewMeal();
 
-    expect(stackPresentations()).toEqual(['push', 'push', 'fullScreenModal']);
+    expect(stackPresentations()).toEqual(['push', 'fullScreenModal']);
     for (const name of ['Cancel', 'Save']) {
       const button = screen.getByRole('button', { name });
       expect(touchTarget(button).width).toBeGreaterThanOrEqual(44);
@@ -1046,6 +1164,12 @@ describe('picker', () => {
     expect(row(TACOS)).toHaveProp('accessibilityHint', 'Chooses this meal');
     expect(screen.queryByTestId('library-add-meal')).toBeNull();
     expect(screen.queryByRole('button', { name: /edit|delete/i })).toBeNull();
+    // No swipe to delete, no Delete action and no chevron (R45.10).
+    expect(screen.queryAllByTestId(/^meal-delete-/, { includeHiddenElements: true })).toHaveLength(
+      0,
+    );
+    expect(row(TACOS).props.accessibilityActions).toBeUndefined();
+    expect(row(TACOS).children.at(-1)).not.toHaveProp('name', 'chevron.right');
     expect(screen.getByTestId('library-list').props.refreshControl).toBeUndefined();
     await fireEvent.press(row(STEW));
     expect(app.getPathname()).toBe('/meals');

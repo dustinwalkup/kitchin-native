@@ -3,6 +3,7 @@
 > **Phase 3 of 4** in the EARS spec-driven process: 1-requirements → 2-design → **3-tasks** → 4-test-plan.
 > **Status:** Draft for owner review, 2026-10-19. Implements [2-design.md](./2-design.md) and [1-requirements.md](./1-requirements.md), both approved 2026-10-19. Implementation waits until the owner approves this document and [4-test-plan.md](./4-test-plan.md), which cites every task by number.
 > **Amended during test planning:** task 15.1 adds DB-L-33 and DB-R-18 (4-test-plan §12).
+> **Amended at the owner's request, 2026-10-24:** section 21 adds the Library tab and deleting from the list ([requirements, Amendments after Approval](./1-requirements.md#amendments-after-approval)).
 
 The tasks are ordered by dependency. Numbering continues from [`specs/meals/3-tasks.md`](../meals/3-tasks.md) (sections 9–13) and [`specs/app-deploy/spec.md`](../app-deploy/spec.md) (section 14): sections start at **15** and owner gates at **G14**, so "task 15.1" means one thing anywhere in the project. Each task fits in one focused session. Tests are written with the code, or before it where a task is marked **TDD**. A task is done when its tests pass locally and the CI `app` and `database` checks pass (CLAUDE.md, Commands).
 
@@ -281,17 +282,28 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
   - Check that every task here and its 🤖 line in `docs/TASKS.md` are ticked, and list any that weren't done.
   - _Requirements: none directly; it keeps the spec and the code in step_ — _Design: §10_
 
+## 21. Library tab (owner request, 2026-10-24)
+
+- [x] **21.1 Move the library into its own tab, and delete from the list** · M
+  - Move the screen to `src/app/(app)/(tabs)/meal-library.tsx`, and register it in `src/app/(app)/(tabs)/_layout.tsx` between Meals and Settings, with `title: 'Meal Library'`, `tabBarLabel: 'Library'`, terracotta while active and `book.fill`. The screen sets `headerRight` to the Reconnecting pill and Add meal (§3.8).
+  - Remove the `meal-library` card from `src/app/(app)/_layout.tsx`, and the Library button from Meals' header, with `library-button.tsx`. `COPY.libraryButton` becomes `COPY.tabLabel`.
+  - `MealRow` gets `onDelete` (Delete behind a swipe left, and a VoiceOver Delete action) and `disclosure` (a chevron). `MealBrowser` passes `onDeleteMeal` and `rowDisclosure` to every row. The library passes both; the picker neither (DD61).
+  - The library's Delete asks with the form's alert, calls `useDeleteMeal`, and shows "Meal deleted", or the failure with Retry, in its top toast.
+  - Tests: C-LIB-01–03 and C-RTE-11 changed for the tab; C-LIB-11–14, C-RTE-06 (four tabs) and C-RTE-12 added; C-PICK-09 also checks that picker rows have no Delete or chevron; row and browser component tests for both props.
+  - In the Simulator: the tab bar shows Groceries, Meals, Library and Settings. Swiping and the rest of MT-18-14 are left for the owner, as the Simulator couldn't be driven from the agent's session.
+  - _Requirements: K18, R1.5 (amended), R40.1, R40.2, R40.7, R40.12, R41.9, R44.8, R45.10, N30_ — _Design: DD50, DD61, §3.7, §3.8, §3.11_
+
 ---
 
 ## Requirements coverage matrix
 
 | Requirement | Tasks |
 |---|---|
-| R40 Library screen | 16.1, 16.5, 17.1, 18.1, 18.2 |
-| R41 Search and filter by tags | 16.1, 18.1, 18.2 |
+| R40 Library screen | 16.1, 16.5, 17.1, 18.1, 18.2, 21.1 |
+| R41 Search and filter by tags | 16.1, 18.1, 18.2, 21.1 |
 | R42 Add or edit a meal | 16.1, 16.2, 16.3, 16.5, 17.1, 18.3, 18.4 |
 | R43 Tags | 15.1, 15.2, 16.1, 16.2, 17.1, 18.3 |
-| R44 Delete a meal | 15.1, 16.4, 16.5, 18.3, 18.4 |
+| R44 Delete a meal | 15.1, 16.4, 16.5, 18.3, 18.4, 21.1 |
 | R45 Choose from the Meal Library | 16.1, 16.3, 18.1, 19.1, 19.2, 19.3 |
 | R46 Library sync, conflicts and offline | 15.1, 16.2, 16.4, 16.5, 16.6, 18.4; the two-device checks are owner step ML.1 |
 | R47 Library data integrity | 15.1, 15.2 |
@@ -300,7 +312,8 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
 | Amendments: R13.2, R14.1 | 16.5 |
 | Amendments: R23.2 | 15.1, 15.2 |
 | Amendments: R26.4 | 16.4, 17.1 |
-| Amendments: meals N24 and Out of Scope | 15.2, 18.2, 19.1 |
+| Amendments: meals N24 and Out of Scope | 15.2, 18.2, 19.1, 21.1 |
+| Amendments: R1.5 (2026-10-24) | 21.1 |
 | N25 Performance | 16.1, 18.1, 18.2 |
 | N26, N27 Labels and VoiceOver | 18.1, 18.2, 18.3, 19.1 |
 | N28 Pure rules | 16.1, 16.2 |

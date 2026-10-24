@@ -38,11 +38,6 @@ export default function AppLayout() {
           headerShown: false,
         }}
       />
-      {/* A pushed card over Meals, with Back to it (§3.8, DD50). */}
-      <Stack.Screen
-        name="meal-library"
-        options={{ title: 'Meal Library', headerBackTitle: 'Meals' }}
-      />
       {/* Full screen, so only Cancel can close it; the screen sets its title and buttons (§3.9). */}
       <Stack.Screen name="meal-form" options={{ presentation: 'fullScreenModal' }} />
       {/* A page sheet over Meals; a swipe down cancels, as Cancel does (§3.10, R45.7). The header

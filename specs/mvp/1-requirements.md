@@ -5,7 +5,7 @@
 > **Amendments proposed during design** (approved together with `2-design.md`): 1.7 added, 2.2 changed, 3.9 added, edge cases 20–21 added. See [2-design.md §1.4](./2-design.md#14-requirement-amendments).
 > **Amendment proposed during test planning** (approved together with `4-test-plan.md`): edge case 22 added.
 > **Amended for meal planning** (approved with `specs/meals/2-design.md`, 2026-10-19): the glossary, 1.5, 11.2, 26.4 and Out of Scope. See [specs/meals/1-requirements.md](../meals/1-requirements.md#amendments-to-the-mvp-requirements).
-> **Amended for the meal library** (approved with `specs/meal-library/2-design.md`, 2026-10-19): the glossary, 11.2, 13.2, 14.1, 23.2 and 26.4. See [specs/meal-library/1-requirements.md](../meal-library/1-requirements.md#amendments-to-earlier-requirements).
+> **Amended for the meal library** (approved with `specs/meal-library/2-design.md`, 2026-10-19): the glossary, 11.2, 13.2, 14.1, 23.2 and 26.4. 1.5 at the owner's request, 2026-10-24. See [specs/meal-library/1-requirements.md](../meal-library/1-requirements.md#amendments-to-earlier-requirements).
 > **Amended for app deploys** (proposed with `specs/app-deploy/spec.md`, 2026-10-19, awaiting approval): 25.4, 26.9 and Out of Scope. See [specs/app-deploy/spec.md](../app-deploy/spec.md#amendments-to-the-mvp-requirements).
 
 ## Introduction
@@ -92,7 +92,7 @@ The requirements below depend on these decisions. Each one is a SPEC §16 recomm
 2. WHEN there is no valid session THEN the app SHALL show the sign-in screen.
 3. WHEN a member is signed in but has no household membership THEN the app SHALL show a "No household access" screen that explains the account isn't linked to a household and offers Sign out, and SHALL NOT request any household data.
 4. WHEN a member is signed in and has a household membership THEN the app SHALL show the main tabs, opening on Groceries.
-5. The main tabs SHALL be **Groceries**, **Meals** and **Settings**, in that order. *(Amended for meal planning.)*
+5. The main tabs SHALL be **Groceries**, **Meals**, **Library** and **Settings**, in that order. *(Amended for meal planning, and for the meal library on 2026-10-24.)*
 6. IF a signed-in account has more than one household membership THEN the app SHALL use the oldest membership and SHALL report a warning that contains no personal data ([Requirement 26](#requirement-26-delivery--error-reporting-and-privacy)).
 7. IF a member is signed in but the app can't load their membership because the device is offline or the backend can't be reached THEN the app SHALL show a screen saying it can't reach Kitchin, with Retry, and SHALL try again automatically when connectivity returns. *(Added during design.)*
 

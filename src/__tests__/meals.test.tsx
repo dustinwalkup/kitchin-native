@@ -21,7 +21,7 @@ import { touchTarget } from '@/test/a11y';
 import { makeItem, makeMealEntry } from '@/test/factories';
 
 // Meals screen tests C-MEAL-01 to C-MEAL-14 and Add to groceries C-AGR-01 to C-AGR-05 (meals
-// 4-test-plan §4.3, §4.4), and the Library and Choose additions (meal-library 4-test-plan §4.2,
+// 4-test-plan §4.3, §4.4), and the Library tab and Choose additions (meal-library 4-test-plan §4.2,
 // §4.7). The real Meals screen and add-item sheet run inside the real (app) and tabs layouts, so tab
 // focus, the header, the tab bar and the sheet behave as in the app. The hooks are mocked (§8.4):
 // the week comes from the real buildWeek over each test's entries, today is whatever the test sets,
@@ -172,9 +172,9 @@ const ROUTES = {
   '(app)/(tabs)/_layout': TabsLayout,
   '(app)/(tabs)/groceries': GroceriesStub,
   '(app)/(tabs)/meals': Meals,
+  '(app)/(tabs)/meal-library': MealLibraryStub,
   '(app)/(tabs)/settings': SettingsStub,
   '(app)/add-item': AddItem,
-  '(app)/meal-library': MealLibraryStub,
   '(app)/meal-form': UnusedStub,
   '(app)/meal-picker': MealPickerStub,
   '(app)/theme': UnusedStub,
@@ -226,7 +226,8 @@ afterEach(() => {
 const renderMeals = () => renderRouter(ROUTES, { initialUrl: '/meals' });
 
 const press = (name: string | RegExp) => fireEvent.press(screen.getByRole('button', { name }));
-const tab = (name: 'Groceries' | 'Meals' | 'Settings') => press(new RegExp(`^${name}, tab`));
+const tab = (name: 'Groceries' | 'Meals' | 'Library' | 'Settings') =>
+  press(new RegExp(`^${name}, tab`));
 /** The week's date range, the one header with a dash. */
 const range = () => screen.getByRole('header', { name: /–/ });
 const dayHeaders = () =>
@@ -634,37 +635,27 @@ describe('Add to groceries', () => {
   });
 });
 
-// The Library button, meal-library 4-test-plan §4.2. The library is a stub here.
-describe('Library button', () => {
-  const library = () => screen.getByRole('button', { name: 'Meal Library' });
-
-  it('C-LIB-01 is "Library" in the Meals header, at least 44 pt, labelled "Meal Library"', async () => {
-    await renderMeals();
-
-    expect(library()).toHaveProp('testID', 'library-button');
-    expect(within(library()).getByText('Library')).toBeOnTheScreen();
-    expect(touchTarget(library()).width).toBeGreaterThanOrEqual(44);
-    expect(touchTarget(library()).height).toBeGreaterThanOrEqual(44);
-  });
-
-  it('C-LIB-01 opens the Meal Library over Meals', async () => {
+// The Library tab, meal-library 4-test-plan §4.2. The library is a stub here.
+describe('Library tab', () => {
+  it('C-LIB-01 the Meals header has no Library button; the Library tab opens the Meal Library', async () => {
     const app = await renderMeals();
+    expect(screen.queryByTestId('library-button')).toBeNull();
 
-    await fireEvent.press(library());
+    await tab('Library');
 
     expect(app.getPathname()).toBe('/meal-library');
     expect(app.getSearchParams()).toEqual({});
     expect(screen.getByText('Meal Library screen')).toBeOnTheScreen();
-    // Meals stays mounted underneath (R40.2).
+    // Meals stays mounted beside it, as every tab does (R40.2).
     expect(screen.getByTestId('meals-week', { includeHiddenElements: true })).toBeOnTheScreen();
   });
 
-  it('C-LIB-02 Back shows Meals at the same week', async () => {
+  it('C-LIB-02 the Meals tab shows the same week afterwards', async () => {
     const app = await renderMeals();
     await press('Next week');
-    await fireEvent.press(library());
+    await tab('Library');
 
-    await act(() => router.back());
+    await tab('Meals');
 
     expect(app.getPathname()).toBe('/meals');
     expect(range()).toHaveTextContent('Oct 26 – Nov 1');
@@ -676,7 +667,7 @@ describe('Library button', () => {
     await fireEvent.press(screen.getByTestId('slot-thu-lunch'));
     await typeInEditor('Soup');
 
-    await fireEvent.press(library());
+    await tab('Library');
 
     expect(mockSetMeal.mock.calls).toEqual([[{ date: THURSDAY, mealType: 'lunch', body: 'Soup' }]]);
   });

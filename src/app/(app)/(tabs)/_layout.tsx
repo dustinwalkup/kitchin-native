@@ -4,13 +4,13 @@ import { SymbolView } from 'expo-symbols';
 import { StyleSheet, View } from 'react-native';
 
 import { ReconnectingPill } from '@/features/household/components/reconnecting-pill';
-import { LibraryButton } from '@/features/meal-library/components/library-button';
+import { COPY as LIBRARY_COPY } from '@/features/meal-library/constants';
 import { AddToGroceriesButton } from '@/features/meals/components/add-to-groceries-button';
 import { useTheme } from '@/ui/use-theme';
 
-// The main tabs are Groceries, Meals and Settings, and the app opens on Groceries (R1.5, K16). The
-// active tab's colour comes from the focused screen: cactus, or terracotta on Meals (DD36). Both
-// carry text only in bold (N13), so the labels are bold.
+// The main tabs are Groceries, Meals, Library and Settings, and the app opens on Groceries (R1.5,
+// K16, meal-library K18). The active tab's colour comes from the focused screen: cactus, or terracotta on Meals
+// and the library (DD36, R40.12). Both carry text only in bold (N13), so the labels are bold.
 export default function TabsLayout() {
   const theme = useTheme();
   const router = useRouter();
@@ -40,9 +40,6 @@ export default function TabsLayout() {
         options={{
           title: 'Meals',
           tabBarActiveTintColor: theme.accent,
-          // The library opens over Meals, which keeps its week and scroll position (R40.1, R40.2).
-          headerLeft: () => <LibraryButton onPress={() => router.push('/meal-library')} />,
-          headerLeftContainerStyle: { paddingLeft: 8 },
           // The sheet opens over Meals, which keeps its week and scroll position (R37.1, R37.3).
           headerRight: () => (
             <View style={styles.headerRight}>
@@ -54,6 +51,20 @@ export default function TabsLayout() {
           headerRightContainerStyle: { paddingRight: 8 },
           tabBarIcon: ({ color, size }) => (
             <SymbolView name="fork.knife" tintColor={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="meal-library"
+        options={{
+          // "Meal Library" in the header, "Library" under the icon (R40.1, R40.2).
+          title: LIBRARY_COPY.title,
+          tabBarLabel: LIBRARY_COPY.tabLabel,
+          tabBarActiveTintColor: theme.accent,
+          // The screen sets Add meal beside the Reconnecting pill; Add meal's 44 pt target pads it.
+          headerRightContainerStyle: { paddingRight: 8 },
+          tabBarIcon: ({ color, size }) => (
+            <SymbolView name="book.fill" tintColor={color} size={size} />
           ),
         }}
       />

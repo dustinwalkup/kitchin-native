@@ -1,22 +1,25 @@
-import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { Tabs } from 'expo-router/js-tabs';
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
-import { RefreshControl } from 'react-native';
+import { Alert, RefreshControl, StyleSheet, View } from 'react-native';
 
+import { ReconnectingPill } from '@/features/household/components/reconnecting-pill';
+import { describeProblem } from '@/features/meal-library/components/form-error';
 import { HeaderAction } from '@/features/meal-library/components/header-action';
 import { MealBrowser } from '@/features/meal-library/components/meal-browser';
 import { COPY } from '@/features/meal-library/constants';
 import type { Meal } from '@/features/meal-library/domain';
 import { lastSaved, newMealName } from '@/features/meal-library/handoff';
-import { type LibraryView, useLibrary } from '@/features/meal-library/hooks';
+import { type LibraryView, useDeleteMeal, useLibrary } from '@/features/meal-library/hooks';
 import { useIsOnline } from '@/lib/query-client';
 import { ToastProvider, useToast } from '@/lib/toast';
 import { Screen } from '@/ui/screen';
 import { useTheme } from '@/ui/use-theme';
 
 /**
- * The household's meals, to search, filter and open (§3.8). It has a search field, so its toasts
- * show at the top, where the keyboard can't cover them (DD60). Meals stays mounted underneath, so
- * Back returns to the same week and scroll position (R40.2).
+ * The household's meals, to search, filter, open and delete (§3.8). Its own tab, so it keeps its
+ * search and tags while the member visits the other tabs (R40.1, R41.9). It has a search field, so
+ * its toasts show at the top, where the keyboard can't cover them (DD60).
  */
 export default function MealLibrary() {
   return (
@@ -33,6 +36,7 @@ function LibraryScreen() {
   const { refreshing, onRefresh } = usePullToRefresh(library.refetch);
   useRefreshFailedToast(library);
   const justSaved = useLastSaved();
+  const confirmDelete = useDeleteFromList();
   // The browser holds the search. This follows it, for Add meal to start the name from (R42.6).
   const search = useRef('');
 
@@ -51,11 +55,15 @@ function LibraryScreen() {
   );
 
   return (
-    <Screen edges={['left', 'right', 'bottom']}>
-      <Stack.Screen
+    <Screen edges={['left', 'right']}>
+      <Tabs.Screen
         options={{
+          // Beside Add meal, where it doesn't cover the list (R13.4).
           headerRight: () => (
-            <HeaderAction testID="library-add-meal" label={COPY.addMeal} onPress={addMeal} />
+            <View style={styles.headerRight}>
+              <ReconnectingPill />
+              <HeaderAction testID="library-add-meal" label={COPY.addMeal} onPress={addMeal} />
+            </View>
           ),
         }}
       />
@@ -65,6 +73,8 @@ function LibraryScreen() {
         onRetry={library.refetch}
         onPressMeal={openMeal}
         rowHint="Edits this meal"
+        onDeleteMeal={confirmDelete}
+        rowDisclosure
         emptyAction={{ label: COPY.addMeal, onPress: addMeal }}
         justSaved={justSaved}
         onSearchChange={(text) => (search.current = text)}
@@ -81,9 +91,43 @@ function LibraryScreen() {
 }
 
 /**
+ * Deleting from the list, by swiping a row or with VoiceOver's Delete action (R44.8). It asks first,
+ * as the form does (R44.2). The meal stays listed until the backend confirms (K24), and a failure
+ * says why with Retry, which deletes without asking again (R44.4).
+ */
+function useDeleteFromList() {
+  const toast = useToast();
+  const deleteMeal = useDeleteMeal();
+
+  // Stable, so the memoised rows don't redraw as the member types (N25).
+  return useCallback(
+    (meal: Meal) => {
+      async function remove() {
+        const outcome = await deleteMeal(meal.id);
+        if (outcome.ok) {
+          toast.show({ message: COPY.deleted }); // R44.3
+          return;
+        }
+        const { message, action } = describeProblem({ kind: 'delete', outcome });
+        toast.show({
+          message,
+          action: action === 'retry' ? { label: 'Retry', onPress: () => void remove() } : undefined,
+        });
+      }
+
+      Alert.alert(COPY.deleteTitle(meal.name), COPY.deleteBody, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => void remove() },
+      ]);
+    },
+    [deleteMeal, toast],
+  );
+}
+
+/**
  * On focus, says what the form just did: "Meal saved" with the Just saved row, or "Meal deleted"
  * (R42.9, R44.3, DD55). The hand-off is applied once, so a second focus repeats neither (DD51).
- * Leaving the screen ends the Just saved row.
+ * Leaving the screen, for the form or another tab, ends the Just saved row.
  */
 function useLastSaved() {
   const toast = useToast();
@@ -145,3 +189,7 @@ function useRefreshFailedToast({ refreshFailedAt, refetch }: LibraryView) {
     if (refreshFailedAt !== null) showToast();
   }, [refreshFailedAt]);
 }
+
+const styles = StyleSheet.create({
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+});

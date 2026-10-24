@@ -227,7 +227,7 @@ N1–N20 apply to meal planning unchanged. These add to them.
 ### Maintainability & Extensibility
 
 - **N23.** Date rules SHALL be pure functions with unit tests (N17). They include today in a given time zone, the dates of a week, the current week across daylight-saving changes and year ends, and the planned count.
-- **N24.** Meal planning SHALL be additive (N16): new tables, a new feature module and a new tab. No core table or policy, and no grocery code, SHALL need to change, apart from the tab list in 1.5. The meal library adds a Library button to the Meals header and a Choose from Meal Library button to the slot editor (meal library N30). *(Amended for the meal library.)*
+- **N24.** Meal planning SHALL be additive (N16): new tables, a new feature module and a new tab. No core table or policy, and no grocery code, SHALL need to change, apart from the tab list in 1.5. The meal library adds a Library tab and a Choose from Meal Library button to the slot editor (meal library N30). *(Amended for the meal library; the tab replaced a Library button in the Meals header on 2026-10-24.)*
 
 ---
 

@@ -35,6 +35,10 @@ export interface MealBrowserProps {
   onPressMeal: (meal: Meal) => void;
   /** What a tap does, for VoiceOver, such as "Chooses this meal". */
   rowHint: string;
+  /** Swipe to delete on every row, in the library only (R44.8). The picker never deletes (R45.10). */
+  onDeleteMeal?: (meal: Meal) => void;
+  /** A chevron on every row, where a tap opens the meal (R40.7). */
+  rowDisclosure?: boolean;
   /** The empty library's action: Add meal, or "+ Add new meal" in the picker (R40.9, R45.12). */
   emptyAction: { label: string; onPress: () => void };
   /**
@@ -65,6 +69,8 @@ export function MealBrowser({
   onRetry,
   onPressMeal,
   rowHint,
+  onDeleteMeal,
+  rowDisclosure = false,
   emptyAction,
   justSaved = null,
   onSearchChange,
@@ -104,9 +110,16 @@ export function MealBrowser({
 
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<Meal>) => (
-      <MealRow meal={item} tagsById={tagsById} hint={rowHint} onPress={onPressMeal} />
+      <MealRow
+        meal={item}
+        tagsById={tagsById}
+        hint={rowHint}
+        onPress={onPressMeal}
+        onDelete={onDeleteMeal}
+        disclosure={rowDisclosure}
+      />
     ),
-    [tagsById, rowHint, onPressMeal],
+    [tagsById, rowHint, onPressMeal, onDeleteMeal, rowDisclosure],
   );
 
   const empty = status === 'ready' && meals.length === 0;
@@ -141,6 +154,8 @@ export function MealBrowser({
                     tagsById={tagsById}
                     hint={rowHint}
                     onPress={onPressMeal}
+                    onDelete={onDeleteMeal}
+                    disclosure={rowDisclosure}
                   />
                 ) : null}
               </>

@@ -5,9 +5,11 @@ import { makeLibraryMeal, makeLibraryTag } from '@/test/factories';
 import { themes } from '@/ui/theme';
 
 import type { Meal } from '../domain';
-import { mealLabel, MealRow } from './meal-row';
+import { mealLabel, MealRow, type MealRowProps } from './meal-row';
 
-// Browser components C-LBR-08, 12 and 13 for rows (4-test-plan §4.1).
+// Browser components C-LBR-08, 12 and 13 for rows (4-test-plan §4.1), and the library's swipe to
+// delete and chevron (C-LIB-11). jest-setup.ts draws the swipeable's Delete beside the row, as if
+// swiped open.
 
 const theme = themes.light;
 const onPress = jest.fn();
@@ -18,8 +20,10 @@ const tagsById = new Map([DINNER, QUICK].map((tag) => [tag.id, tag]));
 
 const TACOS = makeLibraryMeal({ id: 'meal-tacos', name: 'Tacos', tagIds: [DINNER.id, QUICK.id] });
 
-const ui = (meal: Meal) => (
-  <MealRow meal={meal} tagsById={tagsById} hint="Edits this meal" onPress={onPress} />
+const onDelete = jest.fn();
+
+const ui = (meal: Meal, manage: Partial<MealRowProps> = {}) => (
+  <MealRow meal={meal} tagsById={tagsById} hint="Edits this meal" onPress={onPress} {...manage} />
 );
 
 const row = () => screen.getByRole('button');
@@ -92,5 +96,68 @@ describe('MealRow', () => {
     await render(ui(TACOS));
 
     expect(row()).toHaveProp('testID', 'meal-row-meal-tacos');
+  });
+});
+
+describe('MealRow in the library (C-LIB-11)', () => {
+  const deleteAction = () =>
+    screen.getByTestId('meal-delete-meal-tacos', { includeHiddenElements: true });
+
+  it('R44.8 Delete behind the swipe passes the meal to onDelete, without opening it', async () => {
+    await render(ui(TACOS, { onDelete }));
+
+    await fireEvent.press(deleteAction());
+
+    expect(onDelete).toHaveBeenCalledWith(TACOS);
+    expect(onPress).not.toHaveBeenCalled();
+  });
+
+  it('N10 hides the swipe action from VoiceOver, which has the row action instead', async () => {
+    await render(ui(TACOS, { onDelete }));
+
+    expect(screen.queryByTestId('meal-delete-meal-tacos')).toBeNull();
+    expect(deleteAction()).toHaveTextContent('Delete');
+    expect(row().props.accessibilityActions).toEqual([{ name: 'delete', label: 'Delete' }]);
+
+    await fireEvent(row(), 'accessibilityAction', { nativeEvent: { actionName: 'delete' } });
+
+    expect(onDelete).toHaveBeenCalledWith(TACOS);
+  });
+
+  it('N13 draws Delete in bold white on the destructive colour', async () => {
+    await render(ui(TACOS, { onDelete }));
+
+    expect(deleteAction()).toHaveStyle({ backgroundColor: theme.destructive });
+    expect(within(deleteAction()).getByText('Delete', { includeHiddenElements: true })).toHaveStyle(
+      {
+        color: theme.onBrand,
+        fontWeight: '700',
+      },
+    );
+  });
+
+  it('keeps the card edge on the swipeable, so the row slides inside it', async () => {
+    await render(ui(TACOS, { onDelete }));
+
+    expect(row()).not.toHaveStyle({ borderWidth: 1 });
+    expect(row().parent).toHaveStyle({ borderWidth: 1, borderColor: theme.tertiary });
+  });
+
+  it('R40.7 shows a chevron when the row opens the meal, and none otherwise', async () => {
+    await render(ui(TACOS, { disclosure: true }));
+    expect(row().children.at(-1)).toHaveProp('name', 'chevron.right');
+
+    await screen.rerender(ui(TACOS));
+    expect(row().children.at(-1)).not.toHaveProp('name', 'chevron.right');
+  });
+
+  it('R45.10 offers no Delete without onDelete, as in the picker', async () => {
+    await render(ui(TACOS));
+
+    expect(
+      screen.queryByTestId('meal-delete-meal-tacos', { includeHiddenElements: true }),
+    ).toBeNull();
+    expect(row().props.accessibilityActions).toBeUndefined();
+    expect(row()).toHaveStyle({ borderWidth: 1, borderColor: theme.tertiary });
   });
 });
