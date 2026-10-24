@@ -438,14 +438,14 @@ describe('buildLibrary', () => {
     const { library, reportKeys } = buildLibrary([bad, good], []);
 
     expect(library.meals.map((m) => m.id)).toEqual(['meal-good']);
-    expect(reportKeys).toEqual([`invalid_row:library_meals:meal-bad:${field}`]);
+    expect(reportKeys).toEqual([`invalid_library_row:library_meals:meal-bad:${field}`]);
   });
 
   it('U-LDOM-14 leaves out a meal without library_meal_tags', () => {
     const { library_meal_tags: _, ...row } = makeMealRow({ id: 'meal-bad' });
     expect(buildLibrary([row as MealRow], [])).toEqual({
       library: EMPTY,
-      reportKeys: ['invalid_row:library_meals:meal-bad:library_meal_tags'],
+      reportKeys: ['invalid_library_row:library_meals:meal-bad:library_meal_tags'],
     });
   });
 
@@ -460,7 +460,7 @@ describe('buildLibrary', () => {
     const { library, reportKeys } = buildLibrary([], [bad, good]);
 
     expect(library.tags.map((t) => t.id)).toEqual(['tag-good']);
-    expect(reportKeys).toEqual([`invalid_row:library_tags:tag-bad:${field}`]);
+    expect(reportKeys).toEqual([`invalid_library_row:library_tags:tag-bad:${field}`]);
   });
 
   it('U-LDOM-14 reports a row with no ID as null, and drops links to a tag it left out', () => {
@@ -475,8 +475,8 @@ describe('buildLibrary', () => {
     expect(library.tags.map((t) => t.id)).toEqual(['tag-1']);
     expect(library.meals.map((m) => [m.id, m.tagIds])).toEqual([['meal-1', ['tag-1']]]);
     expect(reportKeys).toEqual([
-      'invalid_row:library_tags:tag-bad:name',
-      'invalid_row:library_meals:null:id',
+      'invalid_library_row:library_tags:tag-bad:name',
+      'invalid_library_row:library_meals:null:id',
     ]);
   });
 });

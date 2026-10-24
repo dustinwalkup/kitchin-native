@@ -29,6 +29,8 @@ const thresholdGroups = [
       './src/features/groceries/hooks.ts',
       // specs/meals/4-test-plan.md §9.
       './src/features/meals/hooks.ts',
+      // specs/meal-library/4-test-plan.md §9.
+      './src/features/meal-library/hooks.ts',
       './src/features/*/api.ts',
       './src/features/auth/*',
       './src/features/household/*',

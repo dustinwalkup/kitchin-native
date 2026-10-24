@@ -1,5 +1,6 @@
 import { onlineManager } from '@tanstack/react-query';
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import { renderRouter } from 'expo-router/testing-library';
 import { useCallback, useSyncExternalStore } from 'react';
 import { ScrollView, Text } from 'react-native';
@@ -117,7 +118,8 @@ jest.mock('@/features/groceries/hooks', () => ({
   useAddItem: () => mockAddItem,
 }));
 
-// The (app) layout's channel and variant, which these tests don't use.
+// The (app) layout's channel, library handlers and variant, which these tests don't use.
+jest.mock('@/features/meal-library/realtime', () => ({ libraryTableHandlers: {} }));
 jest.mock('@/features/household/use-household-realtime', () => ({
   useHouseholdRealtime: () => {},
 }));
@@ -135,6 +137,11 @@ function ThemeStub() {
   return null;
 }
 
+// The library's own tests are in meal-library.test.tsx.
+function MealLibraryStub() {
+  return <Text>Meal Library screen</Text>;
+}
+
 const ROUTES = {
   '(app)/_layout': AppLayout,
   '(app)/(tabs)/_layout': TabsLayout,
@@ -142,6 +149,7 @@ const ROUTES = {
   '(app)/(tabs)/meals': Meals,
   '(app)/(tabs)/settings': SettingsStub,
   '(app)/add-item': AddItem,
+  '(app)/meal-library': MealLibraryStub,
   '(app)/theme': ThemeStub,
 };
 
@@ -595,5 +603,53 @@ describe('Add to groceries', () => {
     expect(screen.getByText('Milk is already on the list.')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
     expect(mockAddItem).toHaveBeenCalledTimes(1);
+  });
+});
+
+// The Library button, meal-library 4-test-plan §4.2. The library is a stub here.
+describe('Library button', () => {
+  const library = () => screen.getByRole('button', { name: 'Meal Library' });
+
+  it('C-LIB-01 is "Library" in the Meals header, at least 44 pt, labelled "Meal Library"', async () => {
+    await renderMeals();
+
+    expect(library()).toHaveProp('testID', 'library-button');
+    expect(within(library()).getByText('Library')).toBeOnTheScreen();
+    expect(touchTarget(library()).width).toBeGreaterThanOrEqual(44);
+    expect(touchTarget(library()).height).toBeGreaterThanOrEqual(44);
+  });
+
+  it('C-LIB-01 opens the Meal Library over Meals', async () => {
+    const app = await renderMeals();
+
+    await fireEvent.press(library());
+
+    expect(app.getPathname()).toBe('/meal-library');
+    expect(app.getSearchParams()).toEqual({});
+    expect(screen.getByText('Meal Library screen')).toBeOnTheScreen();
+    // Meals stays mounted underneath (R40.2).
+    expect(screen.getByTestId('meals-week', { includeHiddenElements: true })).toBeOnTheScreen();
+  });
+
+  it('C-LIB-02 Back shows Meals at the same week', async () => {
+    const app = await renderMeals();
+    await press('Next week');
+    await fireEvent.press(library());
+
+    await act(() => router.back());
+
+    expect(app.getPathname()).toBe('/meals');
+    expect(range()).toHaveTextContent('Oct 26 – Nov 1');
+    expect(mockWeekStarts.at(-1)).toBe('2026-10-26');
+  });
+
+  it('C-LIB-03 saves an open slot when the library opens', async () => {
+    await renderMeals();
+    await fireEvent.press(screen.getByTestId('slot-thu-lunch'));
+    await typeInEditor('Soup');
+
+    await fireEvent.press(library());
+
+    expect(mockSetMeal.mock.calls).toEqual([[{ date: THURSDAY, mealType: 'lunch', body: 'Soup' }]]);
   });
 });

@@ -144,7 +144,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
   - Close OI-24: with the local stack running and signed in as member A, run a throwaway script (in a scratch folder, not committed) that calls `upsertTags` with an existing tag in other spelling and `fetchLibrary`. Check that the existing row comes back and that each meal's `library_meal_tags` is embedded. Record the result in design §10.
   - _Requirements: R40.3, R44.5, R46.4, R46.7, R26.4_ — _Design: §3.3, DD45, DD46, DD59, findings 1 and 5, OI-24_
 
-- [ ] **16.5 Write the library query and the save and delete mutations (TDD)** · L
+- [x] **16.5 Write the library query and the save and delete mutations (TDD)** · L
   - Needs 16.4.
   - Write the tests first, with a real `QueryClient` and a mocked `api.ts`:
     - while `onlineManager` is offline, a save or delete returns `offline` and calls nothing
@@ -161,7 +161,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
   - In `jest.config.js`, put `src/features/meal-library/hooks.ts` in the 90/85 coverage group.
   - _Requirements: R40.8–R40.11, R42.8–R42.10, R44.3–R44.5, R45.11, R46.2–R46.7, R46.9, K24_ — _Design: §3.4, DD49, DD59_
 
-- [ ] **16.6 Handle library events** · S
+- [x] **16.6 Handle library events** · S
   - Needs 16.5's `libraryKeys`.
   - Write `src/features/meal-library/realtime.ts` per §3.5, and merge `libraryTableHandlers` into `TABLE_HANDLERS` in `src/app/(app)/_layout.tsx`.
   - Tests:
@@ -195,7 +195,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
     - every touch target is at least 44 pt, and `testID`s hold no household text
   - _Requirements: R40.3–R40.5, R40.8–R40.10, R41, R42.9, R45.9, N25–N27, N29_ — _Design: §3.7, DD53–DD55, DD57_
 
-- [ ] **18.2 Build the Meal Library screen and the Library button** · M
+- [x] **18.2 Build the Meal Library screen and the Library button** · M
   - Needs 16.3, 16.5 and 18.1.
   - Write `src/app/(app)/meal-library.tsx` per §3.8, and register it in `src/app/(app)/_layout.tsx` with `title: 'Meal Library'` and `headerBackTitle: 'Meals'`.
   - Build `LibraryButton`, and add it to the Meals tab's `headerLeft` in `src/app/(app)/(tabs)/_layout.tsx` (§3.11).

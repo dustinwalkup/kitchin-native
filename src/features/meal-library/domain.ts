@@ -79,7 +79,9 @@ export function buildLibrary(
     return rows.filter((row) => {
       const invalid = checks.find(([field, check]) => !check(row[field]));
       if (invalid) {
-        reportKeys.push(`invalid_row:${table}:${isString(row.id) ? row.id : null}:${invalid[0]}`);
+        reportKeys.push(
+          `invalid_library_row:${table}:${isString(row.id) ? row.id : null}:${invalid[0]}`,
+        );
       }
       return !invalid;
     });

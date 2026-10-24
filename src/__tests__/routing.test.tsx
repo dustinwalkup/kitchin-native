@@ -19,6 +19,7 @@ import {
   SESSION,
 } from '@/test/mock-backend';
 import { makeAuthError } from '@/test/factories';
+import { nativeHeaders } from '@/test/native-header';
 import { type ColourToken, type Theme, themes } from '@/ui/theme';
 
 // Route tests from specs/mvp/4-test-plan.md §4.2. Tests live outside src/app, where Expo Router
@@ -49,6 +50,12 @@ jest.mock('@/features/meals/api', () => ({
   fetchWeek: jest.fn(async () => []),
   saveEntry: jest.fn(),
   clearEntry: jest.fn(),
+}));
+// The Meal Library loads an empty library.
+jest.mock('@/features/meal-library/api', () => ({
+  fetchLibrary: jest.fn(async () => ({ meals: [], tags: [] })),
+  runSavePlan: jest.fn(),
+  deleteMeal: jest.fn(),
 }));
 // The root layout's auto-refresh hook would create the real Supabase client.
 jest.mock('@/lib/auto-refresh', () => ({ useForegroundAutoRefresh: () => {} }));
@@ -479,5 +486,26 @@ describe('add-item sheet (§3.4, DD10)', () => {
     expect(app.getPathname()).toBe('/add-item');
     await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() => expect(app.getPathname()).toBe('/groceries'));
+  });
+});
+
+describe('meal library routes (C-RTE-11)', () => {
+  it('opens /meal-library under (app), titled "Meal Library" with Back to Meals (§3.8)', async () => {
+    const app = await renderApp('/meal-library', 'No saved meals yet');
+
+    expect(app.getPathname()).toBe('/meal-library');
+    expect(nativeHeaders()).toContainEqual(
+      expect.objectContaining({ title: 'Meal Library', backTitle: 'Meals' }),
+    );
+  });
+
+  it("isn't reachable while signed out (R1.2)", async () => {
+    resetBackend({ session: null });
+    const app = await renderApp('/settings', 'Kitchin');
+
+    await act(() => router.push('/meal-library'));
+
+    expect(app.getPathname()).toBe('/sign-in');
+    expect(screen.queryByText('No saved meals yet')).not.toBeOnTheScreen();
   });
 });

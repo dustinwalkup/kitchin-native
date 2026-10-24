@@ -6,6 +6,7 @@ import {
   type TableHandlers,
   useHouseholdRealtime,
 } from '@/features/household/use-household-realtime';
+import { libraryTableHandlers } from '@/features/meal-library/realtime';
 import { mealTableHandlers } from '@/features/meals/realtime';
 import { env } from '@/lib/env';
 
@@ -13,7 +14,11 @@ import { env } from '@/lib/env';
 export { ErrorBoundary } from '@/ui/crash-screen';
 
 // Which feature updates the cache for each table's live events (§3.6).
-const TABLE_HANDLERS: TableHandlers = { ...groceryTableHandlers, ...mealTableHandlers };
+const TABLE_HANDLERS: TableHandlers = {
+  ...groceryTableHandlers,
+  ...mealTableHandlers,
+  ...libraryTableHandlers,
+};
 
 export default function AppLayout() {
   // Every household screen sits under this layout, so the channel runs while the household is open.
@@ -32,6 +37,11 @@ export default function AppLayout() {
           sheetGrabberVisible: true,
           headerShown: false,
         }}
+      />
+      {/* A pushed card over Meals, with Back to it (§3.8, DD50). */}
+      <Stack.Screen
+        name="meal-library"
+        options={{ title: 'Meal Library', headerBackTitle: 'Meals' }}
       />
       {/* The production variant has no theme preview (R15.4). */}
       <Stack.Protected guard={env.variant === 'development'}>

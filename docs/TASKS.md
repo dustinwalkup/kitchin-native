@@ -428,11 +428,11 @@ The spec is [`specs/meal-library/`](../specs/meal-library/). Its requirements an
 - [x] 🤖 **16.2** Form and save-plan rules
 - [x] 🤖 **16.3** Hand-offs between screens
 - [x] 🤖 **16.4** Library API layer (closes OI-24)
-- [ ] 🤖 **16.5** Library query and the save and delete mutations
-- [ ] 🤖 **16.6** Library live updates
+- [x] 🤖 **16.5** Library query and the save and delete mutations
+- [x] 🤖 **16.6** Library live updates
 - [x] 🤖 **17.1** Terracotta tone, tag-pill colours and CHECK constraint names
 - [x] 🤖 **18.1** Browser components (search, tag filter, rows)
-- [ ] 🤖 **18.2** Meal Library screen and the Library button on Meals
+- [x] 🤖 **18.2** Meal Library screen and the Library button on Meals
 - [ ] 🤖 **18.3** Meal form components
 - [ ] 🤖 **18.4** Meal form screen
 - [x] 🤖 **19.1** Choose from Meal Library in the slot editor

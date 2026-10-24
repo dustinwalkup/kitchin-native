@@ -4,6 +4,7 @@ import { SymbolView } from 'expo-symbols';
 import { StyleSheet, View } from 'react-native';
 
 import { ReconnectingPill } from '@/features/household/components/reconnecting-pill';
+import { LibraryButton } from '@/features/meal-library/components/library-button';
 import { AddToGroceriesButton } from '@/features/meals/components/add-to-groceries-button';
 import { useTheme } from '@/ui/use-theme';
 
@@ -39,6 +40,9 @@ export default function TabsLayout() {
         options={{
           title: 'Meals',
           tabBarActiveTintColor: theme.accent,
+          // The library opens over Meals, which keeps its week and scroll position (R40.1, R40.2).
+          headerLeft: () => <LibraryButton onPress={() => router.push('/meal-library')} />,
+          headerLeftContainerStyle: { paddingLeft: 8 },
           // The sheet opens over Meals, which keeps its week and scroll position (R37.1, R37.3).
           headerRight: () => (
             <View style={styles.headerRight}>
