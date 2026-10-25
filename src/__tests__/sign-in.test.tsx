@@ -7,6 +7,7 @@ import {
   type SignInResult,
   useAuth,
 } from '@/features/auth/auth-provider';
+import { themes } from '@/ui/theme';
 
 // Sign-in tests C-SIGN-01–08 (4-test-plan §4.3), with the auth provider mocked.
 
@@ -42,11 +43,23 @@ async function submitWith(result: SignInResult) {
 }
 
 describe('sign-in screen', () => {
-  it('C-SIGN-08 shows the logo tile and the Kitchin title', async () => {
+  it('C-SIGN-08 shows the logo tile, the Kitchin title and the tagline', async () => {
     await render(<SignIn />);
 
     expect(screen.getByRole('image', { name: 'Kitchin' })).toBeOnTheScreen();
-    expect(screen.getByRole('header', { name: 'Kitchin' })).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Kitchin' })).toHaveStyle({ fontSize: 34 });
+    expect(screen.getByText('Groceries and meals, together')).toHaveStyle({
+      color: themes.light.inkMuted,
+    });
+  });
+
+  it('draws Sign in as a full-width primary button', async () => {
+    await render(<SignIn />);
+
+    expect(submitButton()).toHaveStyle({
+      alignSelf: 'stretch',
+      backgroundColor: themes.light.accent,
+    });
   });
 
   it('C-SIGN-01 gives both fields the autofill attributes', async () => {

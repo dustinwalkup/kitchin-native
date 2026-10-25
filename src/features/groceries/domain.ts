@@ -1,7 +1,7 @@
 // Pure grocery rules (design §3.5.1, N17): no React, React Native, Supabase or TanStack imports.
 import type { Tables } from '@/types/database';
 
-import { CATEGORIES, COMMON_ITEMS, type CategoryKey } from './constants';
+import { CATEGORIES, COMMON_ITEMS, type CategoryKey, POPULAR_ITEMS } from './constants';
 
 export interface GroceryItem {
   id: string;
@@ -32,9 +32,11 @@ export interface Progress {
   percent: number | null;
 }
 
-export interface QuickAddGroup {
+export interface QuickAddChip {
+  name: string;
   category: CategoryKey;
-  chips: { name: string; disabled: boolean }[];
+  /** An open item already has this name (R6.2). */
+  disabled: boolean;
 }
 
 export type ItemInputResult =
@@ -109,6 +111,29 @@ export function findOpenItemNamed(items: GroceryItem[], name: string): GroceryIt
   return items.find((i) => !i.isChecked && normalizeName(i.name) === normalized);
 }
 
+/** A section as the list draws it: its rows, or none while collapsed. */
+export interface VisibleSection extends Section {
+  data: GroceryItem[];
+  collapsed: boolean;
+}
+
+/**
+ * The sections the list draws (specs/redesign/design.md §4.1). Hiding checked items leaves them out
+ * of the rows, and a section whose items are all checked goes too; a collapsed section keeps its
+ * header with no rows. Counts and progress still come from every item, so neither changes.
+ */
+export function visibleSections(
+  sections: Section[],
+  { hideChecked, collapsed }: { hideChecked: boolean; collapsed: ReadonlySet<CategoryKey> },
+): VisibleSection[] {
+  return sections.flatMap((section) => {
+    const shown = hideChecked ? section.items.filter((i) => !i.isChecked) : section.items;
+    if (shown.length === 0) return [];
+    const isCollapsed = collapsed.has(section.category);
+    return [{ ...section, data: isCollapsed ? [] : shown, collapsed: isCollapsed }];
+  });
+}
+
 // Open before checked, then oldest first, then by id so the order is stable (R4.4). createdAt values
 // are compared as strings: in PostgREST's ISO format that's time order, whatever the number of
 // fractional digits, because '+' sorts before '.' and both sort before the digits.
@@ -159,13 +184,69 @@ export function planUncheckAll(items: GroceryItem[]): { uncheckIds: string[]; ke
   return { uncheckIds, keepIds };
 }
 
-/** Every common item by category; a chip is disabled while an open item has its name (R6.1, R6.2). */
-export function quickAddGroups(items: GroceryItem[]): QuickAddGroup[] {
+// The common items in catalogue order, each with its category.
+const CATALOGUE = CATEGORIES.flatMap(({ key }) =>
+  COMMON_ITEMS[key].map((name) => ({ name, category: key, key: normalizeName(name) })),
+);
+
+/** How many suggestions a typed name gets, so the chips stay one or two rows above the keyboard. */
+export const SUGGESTION_LIMIT = 8;
+
+/**
+ * The add sheet's quick-add chips (R6.1 as redesigned, specs/redesign/design.md §4.2). While a name
+ * is typed, the common items that contain it, those that start with it first. Otherwise the picked
+ * category's common items, or with none picked the popular staples. A chip is disabled while an open
+ * item has its name (R6.2).
+ */
+export function quickAddChips(
+  items: GroceryItem[],
+  { query, category }: { query: string; category: CategoryKey | null },
+): QuickAddChip[] {
   const open = openNames(items);
-  return CATEGORIES.map(({ key }) => ({
+  const typed = normalizeName(query);
+  let entries: typeof CATALOGUE;
+  if (typed !== '') {
+    const matches = CATALOGUE.filter((entry) => entry.key.includes(typed));
+    entries = [
+      ...matches.filter((entry) => entry.key.startsWith(typed)),
+      ...matches.filter((entry) => !entry.key.startsWith(typed)),
+    ].slice(0, SUGGESTION_LIMIT);
+  } else if (category !== null) {
+    entries = CATALOGUE.filter((entry) => entry.category === category);
+  } else {
+    const popular = new Set(POPULAR_ITEMS.map(normalizeName));
+    entries = CATALOGUE.filter((entry) => popular.has(entry.key));
+  }
+  return entries.map(({ name, category: key }) => ({
+    name,
     category: key,
-    chips: COMMON_ITEMS[key].map((name) => ({ name, disabled: open.has(normalizeName(name)) })),
+    disabled: open.has(normalizeName(name)),
   }));
+}
+
+// A whole number at the start, not part of a decimal, fraction or range: "2", "2 lbs", "12 pack".
+const LEADING_COUNT = /^(\d{1,3})(?![\d.,/-])(.*)$/s;
+
+/** Quantities stop at 999, so a step never adds a digit past what the row has room for. */
+export const STEP_MAX = 999;
+
+/**
+ * The quantity one step up or down (specs/redesign/design.md §4.1). Only a leading whole number
+ * moves, so "2 lbs" becomes "3 lbs" and the unit stays as typed. No quantity counts as one, so + makes
+ * it "2". Undefined when the quantity can't step that way: below 1, past `STEP_MAX`, or text with no
+ * leading count, such as "a bunch" or "1.5 kg", which only the editor changes.
+ */
+export function stepQuantity(quantity: string | null, delta: 1 | -1): string | undefined {
+  const match = LEADING_COUNT.exec(quantity ?? '1');
+  if (match === null) return undefined;
+  const next = Number(match[1]) + delta;
+  if (next < 1 || next > STEP_MAX) return undefined;
+  return `${next}${match[2]}`;
+}
+
+/** Whether a row shows − and + for its quantity: it has one, and it starts with a count. */
+export function isSteppable(quantity: string | null): boolean {
+  return quantity !== null && LEADING_COUNT.test(quantity);
 }
 
 const CATEGORY_KEYS = new Set<string>(CATEGORIES.map((c) => c.key));

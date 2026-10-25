@@ -18,11 +18,11 @@ export function AddItemButton({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor: theme.cactus, shadowColor: theme.ink },
+        { backgroundColor: theme.accent, shadowColor: theme.accentInk },
         pressed && styles.pressed,
       ]}
     >
-      <SymbolView name="plus" weight="bold" tintColor={theme.onBrand} size={24} />
+      <SymbolView name="plus" weight="semibold" tintColor={theme.onBrand} size={24} />
     </Pressable>
   );
 }
@@ -37,9 +37,10 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    // A soft, warm lift, the one shadow in the app: it floats over the list.
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
   },
   pressed: { opacity: 0.8 },
 });

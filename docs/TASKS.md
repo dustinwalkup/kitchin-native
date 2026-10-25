@@ -483,6 +483,27 @@ You asked on 2026-10-25 for the household to choose the day its week starts on. 
 
 ---
 
+## Redesign
+
+You asked on 2026-10-25 for an app-wide UX/UI redesign, built straight away rather than through the four spec phases. What was built, and why, is in [`specs/redesign/design.md`](../specs/redesign/design.md). The 🤖 lines mirror its §10 tasks **under the same numbers**, so tick both together.
+
+- [x] 🤖 **R1** Tokens, type scale and shared components
+- [x] 🤖 **R2** Navigation chrome and sheet headers
+- [x] 🤖 **R3** Migration `redesign_meal_types_images`, types, seed and pgTAP
+- [x] 🤖 **R4** Groceries list, add and edit sheets
+- [x] 🤖 **R5** Weekly planner and plan sheet
+- [x] 🤖 **R6** Library, filters, photos and the meal form
+- [x] 🤖 **R7** Settings, week start, theme preview and sign-in
+- [x] 🤖 **R8** Jest suites updated for the redesign, CI checks green
+- [ ] 👤 **RD.1** Refresh the local database once no simulator is signed in: `npx supabase db reset`. It reseeds the four starter tags, meal types and a linked planned meal; until then, `supabase test db` reports DB-L-10 against the old seed.
+- [ ] 👤 **RD.2** Review and commit the changes on `main`.
+- [ ] 👤 **RD.3** Deploy the migration. Actions → "Deploy database" → **Run workflow** on `main`. Check that the dry run lists only `redesign_meal_types_images`. Afterwards, Dashboard → Storage should show a private bucket `meal-images`.
+- [ ] 👤 **RD.4** Ship a new build, not an OTA update: the photo picker adds native modules (`expo-image-picker`, `expo-image-manipulator`), so the runtime fingerprint changes. Actions → **EAS Deploy** → `build-and-submit`, only after RD.3. Locally, `npm run ios` rebuilds the development app.
+- [ ] ✅ **RD.5** Two-phone check: add an item from a quick-add suggestion, step a quantity, plan a dinner from the library and another by typing, add a meal with a photo on one phone and see its photo on the other.
+- [ ] 🎉 **Redesign done.**
+
+---
+
 ## Recurring maintenance
 
 - [ ] 👤 **Every ~80 days:** ship a new TestFlight build. Builds expire after 90 days, and an expired build stops opening. OTA updates don't reset that clock. Run Actions → **EAS Deploy** → `build-and-submit` (or `eas build --platform ios --profile production --auto-submit`).

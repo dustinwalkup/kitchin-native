@@ -8,8 +8,8 @@ export function Pill({ label }: { label: string }) {
   const theme = useTheme();
 
   return (
-    <View style={[styles.pill, { backgroundColor: theme.background, borderColor: theme.border }]}>
-      <View style={[styles.dot, { backgroundColor: theme.cactus }]} />
+    <View style={[styles.pill, { backgroundColor: theme.sunken }]}>
+      <View style={[styles.dot, { backgroundColor: theme.accent }]} />
       <Text variant="footnote" color="inkMuted">
         {label}
       </Text>
@@ -25,8 +25,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 999,
   },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  dot: { width: 7, height: 7, borderRadius: 4 },
 });

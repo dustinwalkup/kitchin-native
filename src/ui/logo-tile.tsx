@@ -3,7 +3,7 @@ import { View } from 'react-native';
 
 import { useTheme } from './use-theme';
 
-/** The Kitchin chef-hat mark on a desert-teal tile (R16.5). */
+/** The Kitchin chef-hat mark on a terracotta tile (R16.5 as redesigned). */
 export function LogoTile({ size = 72 }: { size?: number }) {
   const theme = useTheme();
 
@@ -16,7 +16,7 @@ export function LogoTile({ size = 72 }: { size?: number }) {
         width: size,
         height: size,
         borderRadius: Math.round(size * 0.22),
-        backgroundColor: theme.primary,
+        backgroundColor: theme.accent,
         alignItems: 'center',
         justifyContent: 'center',
       }}

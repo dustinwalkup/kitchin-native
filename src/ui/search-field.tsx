@@ -1,43 +1,37 @@
 import { SymbolView } from 'expo-symbols';
 import { StyleSheet, TextInput, View } from 'react-native';
 
-import { useTheme } from '@/ui/use-theme';
+import { useTheme } from './use-theme';
 
-import { COPY } from '../constants';
-
-/**
- * "Search meals", with a magnifying glass and the native clear button (R41.1). The list follows
- * each keystroke, so there's no Search button, and Return only closes the keyboard.
- */
-export function SearchField({
-  value,
-  onChangeText,
-}: {
+export interface SearchFieldProps {
   value: string;
   onChangeText: (text: string) => void;
-}) {
+  /** The placeholder, which VoiceOver also reads as the field's name. */
+  label: string;
+  testID?: string;
+}
+
+/**
+ * A search field: a magnifying glass, the placeholder and the native clear button, on the sunken
+ * track. The list follows each keystroke, so there's no Search button, and Return only closes the
+ * keyboard.
+ */
+export function SearchField({ value, onChangeText, label, testID }: SearchFieldProps) {
   const theme = useTheme();
 
   return (
     <View
-      style={[
-        styles.field,
-        {
-          backgroundColor: theme.background,
-          borderColor: theme.controlBorder,
-          borderRadius: theme.radius.base,
-        },
-      ]}
+      style={[styles.field, { backgroundColor: theme.sunken, borderRadius: theme.radius.base }]}
     >
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        <SymbolView name="magnifyingglass" tintColor={theme.inkMuted} size={17} />
+        <SymbolView name="magnifyingglass" tintColor={theme.inkMuted} size={16} />
       </View>
       <TextInput
-        testID="library-search"
-        accessibilityLabel={COPY.search}
+        testID={testID}
+        accessibilityLabel={label}
         value={value}
         onChangeText={onChangeText}
-        placeholder={COPY.search}
+        placeholder={label}
         placeholderTextColor={theme.inkMuted}
         clearButtonMode="while-editing"
         returnKeyType="done"
@@ -59,7 +53,6 @@ const styles = StyleSheet.create({
     gap: 8,
     minHeight: 44,
     paddingLeft: 12,
-    borderWidth: 1,
   },
   input: { flex: 1, minHeight: 44, paddingVertical: 10, paddingRight: 8, fontSize: 17 },
 });

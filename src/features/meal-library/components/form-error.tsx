@@ -68,7 +68,7 @@ export function FormError({ message, action }: FormErrorProps) {
         {
           backgroundColor: theme.background,
           borderColor: theme.destructive,
-          borderRadius: theme.radius.base,
+          borderRadius: theme.radius.card,
         },
       ]}
     >
@@ -90,8 +90,7 @@ export function FormError({ message, action }: FormErrorProps) {
           onPress={action.onPress}
           style={({ pressed }) => [styles.action, pressed && styles.pressed]}
         >
-          {/* Terracotta carries text only in bold (N13). */}
-          <Text variant="subhead" color="accent" bold>
+          <Text variant="subhead" color="accentInk" weight="semibold">
             {action.label}
           </Text>
         </Pressable>

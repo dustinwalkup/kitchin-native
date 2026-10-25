@@ -9,7 +9,7 @@ import { HeaderAction } from '@/features/meal-library/components/header-action';
 import { MealBrowser } from '@/features/meal-library/components/meal-browser';
 import { COPY } from '@/features/meal-library/constants';
 import type { Meal } from '@/features/meal-library/domain';
-import { lastSaved, newMealName } from '@/features/meal-library/handoff';
+import { lastSaved, newMealName, newMealType } from '@/features/meal-library/handoff';
 import { type LibraryView, useDeleteMeal, useLibrary } from '@/features/meal-library/hooks';
 import { useIsOnline } from '@/lib/query-client';
 import { ToastProvider, useToast } from '@/lib/toast';
@@ -17,9 +17,10 @@ import { Screen } from '@/ui/screen';
 import { useTheme } from '@/ui/use-theme';
 
 /**
- * The household's meals, to search, filter, open and delete (§3.8). Its own tab, so it keeps its
- * search and tags while the member visits the other tabs (R40.1, R41.9). It has a search field, so
- * its toasts show at the top, where the keyboard can't cover them (DD60).
+ * The household's meals, to search, filter, open and delete (§3.8, specs/redesign/design.md §5.2).
+ * Its own tab, so it keeps its search and filters while the member visits the other tabs (R40.1,
+ * R41.9). It has a search field, so its toasts show at the top, where the keyboard can't cover them
+ * (DD60).
  */
 export default function MealLibrary() {
   return (
@@ -44,6 +45,8 @@ function LibraryScreen() {
   const addMeal = () => {
     if (search.current === '') newMealName.clear();
     else newMealName.set(search.current);
+    // A type the plan sheet left for its own new meal isn't this one's (DD-R6).
+    newMealType.clear();
     router.push('/meal-form');
   };
 
@@ -103,7 +106,7 @@ function useDeleteFromList() {
   return useCallback(
     (meal: Meal) => {
       async function remove() {
-        const outcome = await deleteMeal(meal.id);
+        const outcome = await deleteMeal(meal.id, meal.imagePath);
         if (outcome.ok) {
           toast.show({ message: COPY.deleted }); // R44.3
           return;

@@ -9,15 +9,16 @@ import { queryClient as appQueryClient } from '@/lib/query-client';
 import { report } from '@/lib/reporting';
 import { makeEntryRow } from '@/test/factories';
 
-import { clearEntry, fetchWeek, saveEntry } from './api';
+import { clearEntry, fetchRecentLibraryMealIds, fetchWeek, saveEntry } from './api';
 import type { MealType } from './constants';
 import type { MealEntryRow } from './domain';
-import { mealKeys, useMealWeek, useSetMeal } from './hooks';
+import { mealKeys, useMealWeek, useRecentLibraryMealIds, useSetMeal } from './hooks';
 
 jest.mock('./api', () => ({
   fetchWeek: jest.fn(),
   saveEntry: jest.fn(),
   clearEntry: jest.fn(),
+  fetchRecentLibraryMealIds: jest.fn(),
 }));
 
 const mockShowToast = jest.fn();
@@ -86,14 +87,27 @@ beforeEach(() => {
     .mockImplementation(async (_, from, to) =>
       server.filter((r) => r.meal_date >= from && r.meal_date <= to).map((r) => ({ ...r })),
     );
-  jest.mocked(saveEntry).mockImplementation(async ({ date, mealType, body }) => {
+  jest.mocked(saveEntry).mockImplementation(async ({ date, mealType, body, libraryMealId }) => {
     apiCalls.push(`save ${date} ${mealType} ${body}`);
     const id = server.find(inSlot(date, mealType))?.id ?? `saved-${date}-${mealType}`;
     server = [
       ...server.filter((r) => !inSlot(date, mealType)(r)),
-      makeEntryRow({ id, meal_date: date, meal_type: mealType, body, updated_at: T }),
+      makeEntryRow({
+        id,
+        meal_date: date,
+        meal_type: mealType,
+        body,
+        library_meal_id: libraryMealId,
+        updated_at: T,
+      }),
     ];
   });
+  jest.mocked(fetchRecentLibraryMealIds).mockImplementation(async () =>
+    server
+      .slice()
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+      .flatMap((r) => (r.library_meal_id === null ? [] : [r.library_meal_id])),
+  );
   jest.mocked(clearEntry).mockImplementation(async ({ date, mealType }) => {
     apiCalls.push(`clear ${date} ${mealType}`);
     server = server.filter((r) => !inSlot(date, mealType)(r));
@@ -413,10 +427,78 @@ describe('useSetMeal', () => {
       date: MON,
       mealType: 'dinner',
       body: 'Pizza',
+      libraryMealId: null,
     });
     save.resolve();
     await settle();
     expect(body(hook, MON, 'dinner')).toBe('Pizza');
+  });
+
+  it('U-MMUT-01 shows a meal chosen from the library with its link, and saves the link (DD-R10)', async () => {
+    const save = deferred();
+    const serverSave = jest.mocked(saveEntry).getMockImplementation()!;
+    jest.mocked(saveEntry).mockImplementationOnce(async (v) => {
+      await save.promise;
+      await serverSave(v);
+    });
+    const hook = await renderMeals();
+
+    await act(() =>
+      hook.result.current.setMeal({
+        date: iso(MON),
+        mealType: 'dinner',
+        body: 'Lasagne',
+        libraryMealId: 'meal-3',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(entry(hook, MON, 'dinner')).toMatchObject({
+        id: 'mon-dinner',
+        body: 'Lasagne',
+        libraryMealId: 'meal-3',
+      }),
+    );
+    expect(saveEntry).toHaveBeenCalledWith({
+      householdId: 'household-1',
+      date: MON,
+      mealType: 'dinner',
+      body: 'Lasagne',
+      libraryMealId: 'meal-3',
+    });
+    save.resolve();
+    await settle();
+    expect(entry(hook, MON, 'dinner')?.libraryMealId).toBe('meal-3');
+  });
+
+  it('U-MMUT-01 drops the link at once when typed text replaces a library meal (DD-R10)', async () => {
+    server = [
+      makeEntryRow({
+        id: 'mon-dinner',
+        meal_date: MON,
+        body: 'Lasagne',
+        library_meal_id: 'meal-3',
+      }),
+    ];
+    const save = deferred();
+    const serverSave = jest.mocked(saveEntry).getMockImplementation()!;
+    jest.mocked(saveEntry).mockImplementationOnce(async (v) => {
+      await save.promise;
+      await serverSave(v);
+    });
+    const hook = await renderMeals();
+    expect(entry(hook, MON, 'dinner')?.libraryMealId).toBe('meal-3');
+
+    await act(() =>
+      hook.result.current.setMeal({ date: iso(MON), mealType: 'dinner', body: 'Leftovers' }),
+    );
+
+    await waitFor(() =>
+      expect(entry(hook, MON, 'dinner')).toMatchObject({ body: 'Leftovers', libraryMealId: null }),
+    );
+    expect(saveEntry).toHaveBeenCalledWith(expect.objectContaining({ libraryMealId: null }));
+    save.resolve();
+    await settle();
   });
 
   it('U-MMUT-02 fills an empty slot with a placeholder row, which the refetch replaces', async () => {
@@ -442,6 +524,7 @@ describe('useSetMeal', () => {
       expect(entry(hook, TUE, 'breakfast')).toMatchObject({
         id: `pending:${TUE}:breakfast`,
         body: 'Porridge',
+        libraryMealId: null,
       }),
     );
     expect(day(hook, TUE)?.planned).toBe(1);
@@ -745,6 +828,7 @@ describe('useSetMeal', () => {
       date: '2026-12-02',
       mealType: 'lunch',
       body: 'Soup',
+      libraryMealId: null,
     });
     expect(queryClient.getQueryData(otherWeek)).toBeUndefined();
     expect(mockShowToast).not.toHaveBeenCalled();
@@ -759,5 +843,111 @@ describe('useSetMeal', () => {
 
     expect(saveEntry).not.toHaveBeenCalled();
     expect(queryClient.isMutating()).toBe(0);
+  });
+});
+
+describe('useRecentLibraryMealIds', () => {
+  const LINKED: MealEntryRow[] = [
+    makeEntryRow({
+      id: 'a',
+      meal_date: MON,
+      library_meal_id: 'meal-1',
+      updated_at: '2026-10-19T09:00:00+00:00',
+    }),
+    makeEntryRow({
+      id: 'b',
+      meal_date: TUE,
+      body: 'Typed',
+      updated_at: '2026-10-20T09:00:00+00:00',
+    }),
+    makeEntryRow({
+      id: 'c',
+      meal_date: WED,
+      library_meal_id: 'meal-2',
+      updated_at: '2026-10-21T09:00:00+00:00',
+    }),
+  ];
+
+  function useRecentAndSave() {
+    return { recent: useRecentLibraryMealIds(), setMeal: useSetMeal(0) };
+  }
+
+  async function renderRecent() {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    return renderHook(useRecentAndSave, { wrapper });
+  }
+
+  it('is empty until loaded, then gives the linked meals, newest first', async () => {
+    server = LINKED.map((r) => ({ ...r }));
+    const loaded = deferred();
+    const serverFetch = jest.mocked(fetchRecentLibraryMealIds).getMockImplementation()!;
+    jest.mocked(fetchRecentLibraryMealIds).mockImplementationOnce(async (hid) => {
+      await loaded.promise;
+      return serverFetch(hid);
+    });
+    const { result } = await renderRecent();
+
+    expect(result.current.recent).toEqual([]);
+    await act(() => loaded.resolve());
+
+    await waitFor(() => expect(result.current.recent).toEqual(['meal-2', 'meal-1']));
+    expect(fetchRecentLibraryMealIds).toHaveBeenCalledWith('household-1');
+    expect(queryClient.getQueryData(mealKeys.recent('household-1'))).toEqual(['meal-2', 'meal-1']);
+  });
+
+  it('runs no query until the household is ready', async () => {
+    mockHousehold = { status: 'loading' };
+    const { result } = await renderRecent();
+    await flush();
+
+    expect(result.current.recent).toEqual([]);
+    expect(fetchRecentLibraryMealIds).not.toHaveBeenCalled();
+  });
+
+  it('stays empty, with no toast, when the fetch fails', async () => {
+    jest.mocked(fetchRecentLibraryMealIds).mockRejectedValue(fail('forbidden'));
+    const { result } = await renderRecent();
+
+    await waitFor(() => expect(fetchRecentLibraryMealIds).toHaveBeenCalled());
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+    await flush();
+
+    expect(result.current.recent).toEqual([]);
+    expect(mockShowToast).not.toHaveBeenCalled();
+  });
+
+  it('refreshes after a plan is saved, since it sits under the meals key', async () => {
+    server = LINKED.map((r) => ({ ...r }));
+    queryClient.setQueryData(mealKeys.week('household-1', WEEK), server);
+    const { result } = await renderRecent();
+    await waitFor(() => expect(result.current.recent).toEqual(['meal-2', 'meal-1']));
+
+    jest
+      .mocked(saveEntry)
+      .mockImplementationOnce(async ({ date, mealType, body, libraryMealId }) => {
+        server.push(
+          makeEntryRow({
+            id: 'd',
+            meal_date: date,
+            meal_type: mealType,
+            body,
+            library_meal_id: libraryMealId,
+            updated_at: '2026-10-22T09:00:00+00:00',
+          }),
+        );
+      });
+    await act(() =>
+      result.current.setMeal({
+        date: iso(THU),
+        mealType: 'lunch',
+        body: 'Ramen',
+        libraryMealId: 'meal-4',
+      }),
+    );
+    await settle();
+
+    expect(result.current.recent).toEqual(['meal-4', 'meal-2', 'meal-1']);
   });
 });

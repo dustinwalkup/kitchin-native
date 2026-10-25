@@ -48,7 +48,7 @@ export function QuantityEditor({ initial, onDone }: QuantityEditorProps) {
         styles.input,
         {
           backgroundColor: theme.background,
-          borderColor: theme.controlBorder,
+          borderColor: theme.accent,
           borderRadius: theme.radius.base,
           color: theme.ink,
         },

@@ -3,7 +3,11 @@ import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { useTheme } from './use-theme';
 
-/** A rounded white card with a thin sage border, set on the sand screen (R16.2). */
+/**
+ * A white surface on the ivory page, with no border or shadow: the difference in fill is the edge
+ * (specs/redesign/design.md DD-R2). For content that belongs together, such as a day's meals or a
+ * category's items. Lists of rows use `Group`, which adds dividers.
+ */
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const theme = useTheme();
 
@@ -11,11 +15,7 @@ export function Card({ children, style }: { children: ReactNode; style?: StylePr
     <View
       style={[
         styles.card,
-        {
-          backgroundColor: theme.background,
-          borderColor: theme.tertiary,
-          borderRadius: theme.radius.card,
-        },
+        { backgroundColor: theme.background, borderRadius: theme.radius.card },
         style,
       ]}
     >
@@ -25,5 +25,5 @@ export function Card({ children, style }: { children: ReactNode; style?: StylePr
 }
 
 const styles = StyleSheet.create({
-  card: { borderWidth: 1, padding: 16 },
+  card: { padding: 16 },
 });

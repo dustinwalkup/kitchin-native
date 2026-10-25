@@ -1,10 +1,11 @@
 import { SymbolView } from 'expo-symbols';
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
 import { useSetWeekStart, useWeekStart } from '@/features/household/use-week-start';
 import { WEEK_START_VALUES } from '@/features/household/week-start';
 import { type Weekday, weekdayName } from '@/lib/calendar';
-import { Card } from '@/ui/card';
+import { Group } from '@/ui/group';
+import { ListRow } from '@/ui/list-row';
 import { Screen } from '@/ui/screen';
 import { Text } from '@/ui/text';
 import { useTheme } from '@/ui/use-theme';
@@ -24,41 +25,38 @@ export default function WeekStart() {
   return (
     <Screen edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Card style={styles.list}>
+        <Group footer="Meals lays out each week from this day, on both phones.">
           {DAYS.map((day) => {
             const selected = day === weekStart;
             return (
-              <Pressable
+              <ListRow
                 key={day}
                 // "week-start-sun": static, like the Meals day IDs.
                 testID={`week-start-${WEEK_START_VALUES[day].slice(0, 3)}`}
-                accessibilityRole="button"
+                label={weekdayName(day)}
+                chevron={false}
                 accessibilityState={{ selected }}
                 onPress={() => {
                   if (!selected) setWeekStart(day);
                 }}
-                style={({ pressed }) => [
-                  styles.row,
-                  { backgroundColor: pressed ? theme.screen : theme.background },
-                ]}
-              >
-                <Text>{weekdayName(day)}</Text>
-                {selected ? (
-                  // Terracotta on white, an ICON_PAIRS pair (3.53:1, N13).
-                  <SymbolView
-                    name="checkmark"
-                    weight="semibold"
-                    tintColor={theme.accent}
-                    size={17}
-                  />
-                ) : null}
-              </Pressable>
+                accessory={
+                  selected ? (
+                    // Terracotta on white, an ICON_PAIRS pair (N13).
+                    <SymbolView
+                      name="checkmark"
+                      weight="semibold"
+                      tintColor={theme.accent}
+                      size={17}
+                    />
+                  ) : undefined
+                }
+              />
             );
           })}
-        </Card>
+        </Group>
         {/* The checkmark is already back on the earlier day (R48.10). */}
         {failed ? (
-          <Text testID="week-start-error" variant="footnote" color="destructive" bold>
+          <Text testID="week-start-error" variant="footnote" color="destructive" weight="semibold">
             Couldn&apos;t change the start of the week
           </Text>
         ) : null}
@@ -69,12 +67,4 @@ export default function WeekStart() {
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 12 },
-  list: { paddingVertical: 4 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 16,
-    minHeight: 44,
-  },
 });

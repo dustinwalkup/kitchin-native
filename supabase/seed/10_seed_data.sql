@@ -62,32 +62,35 @@ begin
   insert into public.meal_entries (household_id, meal_date, meal_type, body) values
     (v_h2, v_week + 1, 'dinner', 'Fish and chips');
 
-  -- The meal library (meal library design §4.6). Provisioning gave both households the starter tags, with
-  -- no creator. Household One's meals and its own tag, Taco Night, are A's. Chicken tacos has a
-  -- description, so choosing it copies two lines (MT-19-02). Jalapeño poppers has no tags; it's there to
-  -- check that search ignores accents (OI-22).
+  -- The meal library (meal library design §4.6, as redesigned in specs/redesign/design.md §6.5).
+  -- Provisioning gave both households the four starter tags, with no creator. Household One's meals and
+  -- its own tag, Taco Night, are A's. Chicken tacos has a description, so choosing it copies two lines
+  -- (MT-19-02). Jalapeño poppers has no type or tags; it's there to check that search ignores accents
+  -- (OI-22). No meal has a photo: the app shows each meal type's placeholder until one is added.
   perform set_config('request.jwt.claims', json_build_object('sub', tests.user_id('member-a@example.com'))::text, true);
   insert into public.library_tags (household_id, name) values (v_h1, 'Taco Night');
-  insert into public.library_meals (household_id, name, description, ingredients) values
-    (v_h1, 'Chicken tacos',    'Corn tortillas, salsa verde', null),
-    (v_h1, 'Beef stew',        null, E'Beef chuck\nCarrots and potatoes\nBeef stock'),
-    (v_h1, 'Overnight oats',   null, null),
-    (v_h1, 'Jalapeño poppers', null, null);
+  insert into public.library_meals (household_id, name, description, ingredients, meal_type) values
+    (v_h1, 'Chicken tacos',    'Corn tortillas, salsa verde', null, 'dinner'),
+    (v_h1, 'Beef stew',        null, E'Beef chuck\nCarrots and potatoes\nBeef stock', 'dinner'),
+    (v_h1, 'Overnight oats',   null, null, 'breakfast'),
+    (v_h1, 'Jalapeño poppers', null, null, null);
   insert into public.library_meal_tags (household_id, meal_id, tag_id)
   select v_h1, m.id, t.id
-    from (values ('Chicken tacos',  'Dinner'), ('Chicken tacos', 'Quick & Easy'), ('Chicken tacos', 'Taco Night'),
-                 ('Beef stew',      'Dinner'), ('Beef stew',     'Family Favorite'),
-                 ('Overnight oats', 'Breakfast'), ('Overnight oats', 'Meal Prep')) as l(meal, tag)
+    from (values ('Chicken tacos',  'Quick & Easy'), ('Chicken tacos', 'Taco Night'),
+                 ('Beef stew',      'Family Favorite'),
+                 ('Overnight oats', 'Meal Prep')) as l(meal, tag)
     join public.library_meals m on m.household_id = v_h1 and m.name = l.meal
     join public.library_tags t on t.household_id = v_h1 and t.name = l.tag;
 
-  perform set_config('request.jwt.claims', json_build_object('sub', tests.user_id('member-c@example.com'))::text, true);
-  insert into public.library_meals (household_id, name) values (v_h2, 'Shepherd''s pie');
-  insert into public.library_meal_tags (household_id, meal_id, tag_id)
-  select v_h2, m.id, t.id
+  -- Monday's Chicken tacos was chosen from the library, so it carries the link (design §6.3).
+  update public.meal_entries e
+     set library_meal_id = m.id
     from public.library_meals m
-    join public.library_tags t on t.household_id = v_h2 and t.name = 'Dinner'
-   where m.household_id = v_h2 and m.name = 'Shepherd''s pie';
+   where e.household_id = v_h1 and e.meal_date = v_week and e.meal_type = 'dinner'
+     and m.household_id = v_h1 and m.name = 'Chicken tacos';
+
+  perform set_config('request.jwt.claims', json_build_object('sub', tests.user_id('member-c@example.com'))::text, true);
+  insert into public.library_meals (household_id, name, meal_type) values (v_h2, 'Shepherd''s pie', 'dinner');
 
   -- In case the seed runs in one transaction: anything after this runs as plain postgres again.
   perform set_config('request.jwt.claims', '', true);

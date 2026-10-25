@@ -45,18 +45,18 @@ describe('WeekHeader', () => {
     expect(onNext).toHaveBeenCalledTimes(1);
   });
 
-  it('C-WEEK-10 hides This week on the current week', async () => {
+  it('C-WEEK-10 hides Back to this week on the current week', async () => {
     await render(ui('2026-10-19'));
 
-    expect(screen.queryByRole('button', { name: 'This week' })).not.toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Back to this week' })).not.toBeOnTheScreen();
   });
 
   it.each(['2026-10-12', '2026-10-26'])(
-    'C-WEEK-10 shows This week on the week of %s, and it calls onThisWeek',
+    'C-WEEK-10 shows Back to this week on the week of %s, and it calls onThisWeek',
     async (weekStart) => {
       await render(ui(weekStart));
 
-      await fireEvent.press(screen.getByRole('button', { name: 'This week' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Back to this week' }));
 
       expect(onThisWeek).toHaveBeenCalledTimes(1);
       expect(onPrevious).not.toHaveBeenCalled();
@@ -68,13 +68,13 @@ describe('WeekHeader', () => {
     await render(ui('2026-10-18', 6));
 
     expect(screen.getByRole('header')).toHaveTextContent('Oct 18 – Oct 24');
-    expect(screen.queryByRole('button', { name: 'This week' })).not.toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Back to this week' })).not.toBeOnTheScreen();
   });
 
-  it('C-WEEK-16 shows This week on a Sunday week that isn’t the current one', async () => {
+  it('C-WEEK-16 shows Back to this week on a Sunday week that isn’t the current one', async () => {
     await render(ui('2026-10-11', 6));
 
-    expect(screen.getByRole('button', { name: 'This week' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Back to this week' })).toBeOnTheScreen();
   });
 
   it.each(['week-previous', 'week-next', 'week-this'])(
@@ -88,13 +88,15 @@ describe('WeekHeader', () => {
     },
   );
 
-  it('uses chevron symbols in terracotta for the arrows', async () => {
+  // accentInk, not accent: terracotta on the ivory page is under 3:1 for an icon (N13).
+  it('uses chevron symbols in deep terracotta for the arrows', async () => {
     await render(ui('2026-10-19'));
 
-    expect(screen.getByTestId('week-previous').children[0]).toHaveProp('name', 'chevron.left');
-    expect(screen.getByTestId('week-next').children[0]).toHaveProp(
-      'tintColor',
-      themes.light.accent,
-    );
+    const previous = screen.getByTestId('week-previous').children[0];
+    const next = screen.getByTestId('week-next').children[0];
+    expect(previous).toHaveProp('name', 'chevron.left');
+    expect(next).toHaveProp('name', 'chevron.right');
+    expect(previous).toHaveProp('tintColor', themes.light.accentInk);
+    expect(next).toHaveProp('tintColor', themes.light.accentInk);
   });
 });

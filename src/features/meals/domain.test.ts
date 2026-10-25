@@ -92,8 +92,17 @@ describe('parseEntryRow', () => {
         date: '2026-10-22',
         mealType: 'lunch',
         body: 'Leftover chili',
+        libraryMealId: null,
         updatedAt: '2026-10-19T12:30:00+00:00',
       },
+    });
+  });
+
+  it('U-MDOM-05 keeps the library meal a row was chosen from (DD-R10)', () => {
+    const row = makeEntryRow({ library_meal_id: 'meal-3' });
+    expect(parseEntryRow(row)).toEqual({
+      ok: true,
+      entry: expect.objectContaining({ body: 'Tacos', libraryMealId: 'meal-3' }),
     });
   });
 
@@ -103,6 +112,8 @@ describe('parseEntryRow', () => {
     ['meal_date', { meal_date: '22/10/2026' }],
     ['body', { body: '' }],
     ['body', { body: null }],
+    ['library_meal_id', { library_meal_id: 7 }],
+    ['library_meal_id', { library_meal_id: undefined }],
     ['updated_at', { updated_at: null }],
   ])('U-MDOM-06 marks a row with a bad %s invalid', (field, overrides) => {
     const row = { ...makeEntryRow({ id: 'entry-9' }), ...overrides } as MealEntryRow;

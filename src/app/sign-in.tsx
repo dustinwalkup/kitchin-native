@@ -57,6 +57,9 @@ export default function SignIn() {
           <Text variant="largeTitle" accessibilityRole="header">
             Kitchin
           </Text>
+          <Text variant="subhead" color="inkMuted">
+            Groceries and meals, together
+          </Text>
         </View>
 
         {message ? (
@@ -101,6 +104,7 @@ export default function SignIn() {
         />
         <Button
           label="Sign in"
+          block
           onPress={() => void submit()}
           disabled={!canSubmit}
           loading={pending}
@@ -112,5 +116,5 @@ export default function SignIn() {
 
 const styles = StyleSheet.create({
   content: { flexGrow: 1, justifyContent: 'center', padding: 24, gap: 16 },
-  brand: { alignItems: 'center', gap: 12, marginBottom: 16 },
+  brand: { alignItems: 'center', gap: 8, marginBottom: 24 },
 });

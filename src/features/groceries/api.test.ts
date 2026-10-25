@@ -15,6 +15,7 @@ import {
   setItemChecked,
   setItemQuantity,
   uncheckAllItems,
+  updateItemDetails,
 } from './api';
 
 jest.mock('@/lib/supabase', () => ({ supabase: { from: jest.fn() } }));
@@ -167,6 +168,51 @@ describe('setItemQuantity', () => {
   });
 });
 
+describe('updateItemDetails', () => {
+  it('sends only the fields it was given, for that item, and asks for the updated row back', async () => {
+    const builder = stubQuery({ data: [{ id: 'item-1' }], error: null, status: 200 });
+
+    await updateItemDetails('item-1', { name: 'Oat milk', category: 'beverages' });
+
+    expect(supabase.from).toHaveBeenCalledWith('grocery_items');
+    expect(builder.update.mock.calls).toStrictEqual([
+      [{ name: 'Oat milk', category: 'beverages' }],
+    ]);
+    expect(builder.eq.mock.calls).toEqual([['id', 'item-1']]);
+    expect(builder.select).toHaveBeenCalledWith('id');
+  });
+
+  it('sends a cleared quantity as null', async () => {
+    const builder = stubQuery({ data: [{ id: 'item-1' }], error: null, status: 200 });
+
+    await updateItemDetails('item-1', { quantity: null });
+
+    expect(builder.update.mock.calls).toStrictEqual([[{ quantity: null }]]);
+  });
+
+  it('throws not_found when no row was updated, because another device deleted it', async () => {
+    stubQuery({ data: [], error: null, status: 200 });
+
+    await expect(updateItemDetails('item-1', { name: 'Rice' })).rejects.toMatchObject({
+      category: 'not_found',
+      meta: { table: 'grocery_items', operation: 'update', recordId: 'item-1' },
+    });
+  });
+
+  it('keeps the constraint name of a duplicate open name, which the mutation needs', async () => {
+    stubQuery({
+      data: null,
+      error: makePostgrestError('23505', { constraint: 'grocery_items_one_open_per_name' }),
+      status: 409,
+    });
+
+    await expect(updateItemDetails('item-1', { name: 'Milk' })).rejects.toMatchObject({
+      category: 'conflict_duplicate',
+      meta: { constraint: 'grocery_items_one_open_per_name', recordId: 'item-1' },
+    });
+  });
+});
+
 describe('deleteItem', () => {
   it('U-API-05 deletes that item', async () => {
     const builder = stubQuery({ data: null, error: null, status: 204 });
@@ -244,6 +290,12 @@ describe('failures', () => {
     ['insertItem', () => insertItem(ITEM), 'grocery_items', 'insert'],
     ['setItemChecked', () => setItemChecked('item-1', true), 'grocery_items', 'update'],
     ['setItemQuantity', () => setItemQuantity('item-1', null), 'grocery_items', 'update'],
+    [
+      'updateItemDetails',
+      () => updateItemDetails('item-1', { name: 'Rice' }),
+      'grocery_items',
+      'update',
+    ],
     ['deleteItem', () => deleteItem('item-1'), 'grocery_items', 'delete'],
     ['clearCheckedItems', () => clearCheckedItems('list-1'), 'grocery_items', 'delete'],
     ['uncheckAllItems', () => uncheckAllItems('list-1', []), 'grocery_items', 'update'],

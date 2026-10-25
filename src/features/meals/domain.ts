@@ -9,13 +9,18 @@ export interface MealEntry {
   date: IsoDate;
   mealType: MealType;
   body: string;
+  /**
+   * The library meal the text was chosen from, or null for text typed in. The text is the entry's
+   * own copy, so the library meal changing never changes it (K19, specs/redesign DD-R10).
+   */
+  libraryMealId: string | null;
   updatedAt: string;
 }
 
 /** A `meal_entries` row as `api.ts` selects it (design §3.3.3). `parseEntryRow` checks it at runtime. */
 export type MealEntryRow = Pick<
   Tables<'meal_entries'>,
-  'id' | 'meal_date' | 'meal_type' | 'body' | 'updated_at'
+  'id' | 'meal_date' | 'meal_type' | 'body' | 'library_meal_id' | 'updated_at'
 >;
 
 export interface Slot {
@@ -70,6 +75,7 @@ const ROW_CHECKS: [keyof MealEntryRow, (v: unknown) => boolean][] = [
   ['meal_date', (v) => isString(v) && parseIsoDate(v) !== null],
   ['meal_type', (v) => isString(v) && MEAL_TYPE_KEYS.has(v)],
   ['body', (v) => isString(v) && v !== ''],
+  ['library_meal_id', (v) => v === null || isString(v)],
   ['updated_at', isString],
 ];
 
@@ -85,6 +91,7 @@ export function parseEntryRow(row: MealEntryRow): ParsedEntryRow {
       date: row.meal_date as IsoDate,
       mealType: row.meal_type as MealType,
       body: row.body,
+      libraryMealId: row.library_meal_id,
       updatedAt: row.updated_at,
     },
   };

@@ -1,26 +1,43 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import type { CategoryKey } from '@/features/groceries/constants';
-import { Card } from '@/ui/card';
-import { CategoryBadge } from '@/ui/category-badge';
+import { CATEGORIES } from '@/features/groceries/constants';
+import { MEAL_TYPES } from '@/features/meals/constants';
+import { CountBadge } from '@/ui/count-badge';
+import { Group } from '@/ui/group';
 import { Screen } from '@/ui/screen';
-import { Text } from '@/ui/text';
+import { Text, type TextVariant } from '@/ui/text';
 import type { ColourToken, Theme } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
+import { MealTypeIcon } from '@/features/meals/components/meal-type-icon';
 
-/** Every colour token as a labelled swatch, to compare with the legacy app (R15.3, R16.1). */
+const TYPE_SCALE: TextVariant[] = [
+  'largeTitle',
+  'title',
+  'title2',
+  'headline',
+  'body',
+  'callout',
+  'subhead',
+  'footnote',
+  'caption',
+  'eyebrow',
+];
+
+/**
+ * The design system at a glance (R15.3, specs/redesign/design.md §2–§3): every colour token as a
+ * labelled swatch, the type scale, the count badges, the grocery categories and the meal-type icons.
+ * Development variant only.
+ */
 export default function ThemePreview() {
   const theme = useTheme();
   const colours = (Object.keys(theme) as (keyof Theme)[]).filter(
     (key): key is ColourToken => typeof theme[key] === 'string',
   );
-  const categories = Object.keys(theme.category) as CategoryKey[];
 
   return (
     <Screen edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text variant="headline">Colours</Text>
-        <Card style={styles.list}>
+        <Group title="Colours">
           {colours.map((token) => (
             <View key={token} style={styles.row} accessible>
               <View
@@ -35,28 +52,53 @@ export default function ThemePreview() {
               </Text>
             </View>
           ))}
-        </Card>
+        </Group>
 
-        <Text variant="headline">Category badges</Text>
-        <Card style={styles.list}>
-          {categories.map((category) => (
-            <View key={category} style={styles.row} accessible>
-              <CategoryBadge category={category} label={category} />
-              <Text variant="footnote" color="inkMuted" style={styles.value}>
-                {theme.category[category].fg} on {theme.category[category].bg}
+        <Group title="Type">
+          {TYPE_SCALE.map((variant) => (
+            <View key={variant} style={styles.row}>
+              <Text variant={variant} style={styles.flex}>
+                {variant}
               </Text>
             </View>
           ))}
-        </Card>
+        </Group>
+
+        <Group title="Badges and icons">
+          <View style={styles.row}>
+            <CountBadge label="4 left" />
+            <CountBadge label="1/3" tone="neutral" />
+            <CountBadge label="Today" tone="accent" />
+          </View>
+          <View style={styles.row}>
+            {MEAL_TYPES.map(({ key }) => (
+              <MealTypeIcon key={key} mealType={key} />
+            ))}
+          </View>
+          <View style={[styles.row, styles.wrap]}>
+            {CATEGORIES.map(({ key, emoji, label }) => (
+              <Text key={key} variant="subhead">
+                {emoji} {label}
+              </Text>
+            ))}
+          </View>
+        </Group>
       </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 12 },
-  list: { gap: 12 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  swatch: { width: 44, height: 44, borderRadius: 8, borderWidth: StyleSheet.hairlineWidth },
+  content: { padding: 16, gap: 24 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  wrap: { flexWrap: 'wrap' },
+  flex: { flex: 1 },
+  swatch: { width: 36, height: 36, borderRadius: 8, borderWidth: StyleSheet.hairlineWidth },
   value: { marginLeft: 'auto' },
 });

@@ -4,6 +4,7 @@
 import type { ExpoConfig } from 'expo/config';
 
 import eas from './eas.json';
+import { themes } from './src/ui/theme';
 
 // specs/mvp/4-test-plan.md §3.2. The variant and URL guards run when app.config.ts is evaluated,
 // so each case loads a fresh copy of the module with its own environment.
@@ -174,6 +175,40 @@ describe('app.config.ts', () => {
       ],
     });
   });
+
+  it('fills the splash with the ivory page colour, so launch runs straight into the app', () => {
+    const config = loadConfig({});
+    const splash = config.plugins?.find(
+      (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-splash-screen',
+    );
+
+    expect(splash).toEqual([
+      'expo-splash-screen',
+      expect.objectContaining({ backgroundColor: themes.light.screen }),
+    ]);
+  });
+
+  it.each([
+    ['development', LOCAL_URL],
+    ['production', PROD_URL],
+  ])(
+    'asks for the camera and photos, never the microphone, for meal photos in %s (redesign §6.5)',
+    (variant, url) => {
+      const config = loadConfig({ APP_VARIANT: variant, EXPO_PUBLIC_SUPABASE_URL: url });
+      const picker = config.plugins?.find(
+        (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-image-picker',
+      );
+
+      expect(picker).toEqual([
+        'expo-image-picker',
+        {
+          photosPermission: expect.stringMatching(/^Kitchin uses .+ photos/),
+          cameraPermission: expect.stringMatching(/^Kitchin uses the camera/),
+          microphonePermission: false,
+        },
+      ]);
+    },
+  );
 
   it('references only asset files that exist', () => {
     for (const env of [{}, { APP_VARIANT: 'production', EXPO_PUBLIC_SUPABASE_URL: PROD_URL }]) {

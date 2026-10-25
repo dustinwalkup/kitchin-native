@@ -9,13 +9,23 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { useCallback, useEffect } from 'react';
+import { randomUUID } from 'expo-crypto';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useHousehold } from '@/features/household/household-provider';
 import { ApiError, classifyError } from '@/lib/errors';
 import { report, reportOnce } from '@/lib/reporting';
 
-import { deleteMeal, fetchLibrary, runSavePlan, type SaveResult } from './api';
+import {
+  deleteMeal,
+  fetchLibrary,
+  removeImages,
+  runSavePlan,
+  type SaveResult,
+  signImageUrls,
+  uploadImage,
+} from './api';
+import { IMAGE_URL_REFRESH_MS } from './constants';
 import {
   buildLibrary,
   type CleanMeal,
@@ -28,7 +38,11 @@ import {
   type SavePlan,
 } from './domain';
 
-export const libraryKeys = { all: (hid: string) => ['household', hid, 'library'] as const };
+export const libraryKeys = {
+  all: (hid: string) => ['household', hid, 'library'] as const,
+  // Outside `all`, so a live library change doesn't re-sign every photo.
+  images: (hid: string, paths: string) => ['household', hid, 'meal-images', paths] as const,
+};
 // The realtime handler defers to pending library mutations by this key's first element (§3.5).
 const mutationKey = (hid: string) => ['library-mutation', hid] as const;
 // One scope per household, so saves and deletes run one at a time, in the order they were made
@@ -165,6 +179,8 @@ export interface SaveMealVariables {
   meal: CleanMeal;
   /** The meal's ID: a new meal's is generated when the form opens, so Retry reuses it (R46.4). */
   mealId: string;
+  /** A photo picked in the form, uploaded to `meal.imagePath` before the meal is written. */
+  upload?: { uri: string; path: string } | null;
 }
 
 export type SaveOutcome =
@@ -177,10 +193,19 @@ interface Saved {
   result: SaveResult;
 }
 
-// Null when an edit changes nothing (R42.11).
+// Null when an edit changes nothing (R42.11). A picked photo goes up first, so the meal never names
+// a photo that isn't there. Once the meal no longer uses its old photo, that's removed; a failure
+// there leaves an unused object, never a broken meal (design §6.4).
 async function sendSave(hid: string, v: SaveMealVariables): Promise<Saved | null> {
   const plan = planSave(v.base, v.meal, v.mealId);
-  return plan && { plan, result: await runSavePlan(hid, plan) };
+  if (plan === null) return null;
+  if (v.upload) await uploadImage(v.upload.path, v.upload.uri);
+  const result = await runSavePlan(hid, plan);
+  const replaced = v.base?.imagePath;
+  if (replaced && replaced !== v.meal.imagePath) {
+    await removeImages([replaced]).catch((e: unknown) => report(classifyError(e)));
+  }
+  return { plan, result };
 }
 
 // The meal row as the save left it: the cached row, or a new one, with the plan's fields and links.
@@ -188,10 +213,23 @@ async function sendSave(hid: string, v: SaveMealVariables): Promise<Saved | null
 // An edit of a meal the cache doesn't hold is left to the refetch.
 function savedRow(cached: MealRow | undefined, { plan, result }: Saved): MealRow | null {
   const { meal } = plan;
-  let fields: Pick<MealRow, 'id' | 'name' | 'description' | 'ingredients'>;
-  if (meal.kind === 'upsert') fields = meal.row;
-  else if (cached === undefined) return null;
-  else fields = meal.kind === 'update' ? { ...cached, ...meal.changes } : cached;
+  let fields: Pick<
+    MealRow,
+    'id' | 'name' | 'description' | 'ingredients' | 'meal_type' | 'image_path'
+  >;
+  if (meal.kind === 'upsert') {
+    const { mealType, imagePath, ...rest } = meal.row;
+    fields = { ...rest, meal_type: mealType, image_path: imagePath };
+  } else if (cached === undefined) return null;
+  else if (meal.kind === 'update') {
+    const { mealType, imagePath, ...rest } = meal.changes;
+    fields = {
+      ...cached,
+      ...rest,
+      ...(mealType !== undefined && { meal_type: mealType }),
+      ...(imagePath !== undefined && { image_path: imagePath }),
+    };
+  } else fields = cached;
 
   const removed = new Set(plan.removeTagIds);
   const tagIds = new Set([
@@ -203,6 +241,8 @@ function savedRow(cached: MealRow | undefined, { plan, result }: Saved): MealRow
     name: fields.name,
     description: fields.description,
     ingredients: fields.ingredients,
+    meal_type: fields.meal_type,
+    image_path: fields.image_path,
     // The database's time arrives with the refetch.
     updated_at: new Date().toISOString(),
     library_meal_tags: [...tagIds].filter((id) => !removed.has(id)).map((tag_id) => ({ tag_id })),
@@ -267,10 +307,19 @@ export function useSaveMeal(): (v: SaveMealVariables) => Promise<SaveOutcome> {
 export type DeleteOutcome =
   { ok: true } | { ok: false; reason: 'offline' | 'forbidden' | 'failed' };
 
-const sendDelete = (_: string, id: string) => deleteMeal(id);
+interface DeleteVariables {
+  id: string;
+  imagePath: string | null;
+}
+
+// The photo goes after the meal, and a failure there leaves only an unused object (design §6.4).
+async function sendDelete(_: string, { id, imagePath }: DeleteVariables): Promise<void> {
+  await deleteMeal(id);
+  if (imagePath) await removeImages([imagePath]).catch((e: unknown) => report(classifyError(e)));
+}
 
 // Its links are embedded in the meal's row, so they go with it (R47.6).
-const removeMeal = (rows: Rows, _: void, id: string): Rows => ({
+const removeMeal = (rows: Rows, _: void, { id }: DeleteVariables): Rows => ({
   ...rows,
   meals: rows.meals.filter((r) => r.id !== id),
 });
@@ -285,14 +334,14 @@ function deleteOutcome(error: ApiError): DeleteOutcome {
  * Deletes a meal (R44). A meal that's already gone counts as deleted (R44.5), so there's no
  * `deleted` outcome. Resolves with the library no longer showing it, or with it still listed.
  */
-export function useDeleteMeal(): (id: string) => Promise<DeleteOutcome> {
+export function useDeleteMeal(): (id: string, imagePath?: string | null) => Promise<DeleteOutcome> {
   const { householdId, mutateAsync } = useLibraryMutation(sendDelete, removeMeal);
 
   return useCallback(
-    async (id: string) => {
+    async (id: string, imagePath: string | null = null) => {
       if (householdId === null) return { ok: false, reason: 'failed' };
       try {
-        await mutateAsync(id);
+        await mutateAsync({ id, imagePath });
         return { ok: true };
       } catch (e) {
         return deleteOutcome(classifyError(e));
@@ -300,4 +349,44 @@ export function useDeleteMeal(): (id: string) => Promise<DeleteOutcome> {
     },
     [householdId, mutateAsync],
   );
+}
+
+// Photos
+
+/** A fresh Storage key in the household's folder, for a photo just picked (design §6.4). */
+export function useNewImagePath(): () => string | null {
+  const householdId = useHouseholdId();
+  return useCallback(
+    () => (householdId === null ? null : `${householdId}/${randomUUID()}.jpg`),
+    [householdId],
+  );
+}
+
+const NO_URLS: Readonly<Record<string, string>> = {};
+
+/**
+ * Signed URLs for the given photos, by key (design §6.4). One request signs them all; the URLs last
+ * an hour, and are signed afresh after 45 minutes on screen. A key that can't be signed is missing,
+ * and its meal shows the placeholder. Failures aren't toasted: the photos are a nicety.
+ */
+export function useMealImageUrls(paths: (string | null)[]): Readonly<Record<string, string>> {
+  const householdId = useHouseholdId();
+  const key = useMemo(
+    () => [...new Set(paths.filter((p): p is string => p !== null))].sort().join('|'),
+    [paths],
+  );
+  const { data, error } = useQuery({
+    queryKey: libraryKeys.images(householdId ?? '', key),
+    queryFn: householdId === null || key === '' ? skipToken : () => signImageUrls(key.split('|')),
+    staleTime: IMAGE_URL_REFRESH_MS,
+    refetchInterval: IMAGE_URL_REFRESH_MS,
+    // Keep the URLs shown while a new set is signed, so photos don't blink as meals change.
+    placeholderData: (previous) => previous,
+  });
+
+  useEffect(() => {
+    if (error) report(classifyError(error));
+  }, [error]);
+
+  return data ?? NO_URLS;
 }

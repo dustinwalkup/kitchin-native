@@ -3,14 +3,14 @@ import { act, render, screen, within } from '@testing-library/react-native';
 
 import { Banner } from './banner';
 import { Card } from './card';
-import { CategoryBadge } from './category-badge';
 import { DevBadge } from './dev-badge';
 import { Pill } from './pill';
 import { Screen } from './screen';
 import { Text } from './text';
 import { themes } from './theme';
 
-// The display-only primitives: Banner, Pill, Card, CategoryBadge, DevBadge and Screen.
+// The display-only primitives: Banner, Pill, Card, DevBadge and Screen. CountBadge, which replaced
+// CategoryBadge, has its own tests.
 
 const { light } = themes;
 
@@ -25,37 +25,44 @@ describe('Banner', () => {
 });
 
 describe('Pill', () => {
-  it('shows its label in inkMuted', async () => {
+  it('shows its label in inkMuted on the sunken tone, after a terracotta dot', async () => {
     await render(<Pill label="Reconnecting…" />);
 
-    expect(screen.getByText('Reconnecting…')).toHaveStyle({ color: light.inkMuted });
+    const label = screen.getByText('Reconnecting…');
+    const pill = label.parent!;
+    const [dot, text] = pill.children.filter((child) => typeof child !== 'string');
+    expect(text).toBe(label);
+    expect(label).toHaveStyle({ color: light.inkMuted });
+    expect(pill).toHaveStyle({ backgroundColor: light.sunken, borderRadius: 999 });
+    expect(dot).toHaveStyle({ backgroundColor: light.accent });
   });
 });
 
 describe('Card', () => {
-  it('is white with a sage border and the card radius (R16.2)', async () => {
+  it('DD-R2 is a white surface with the card radius and no border or shadow', async () => {
     await render(
       <Card>
         <Text>Inside</Text>
       </Card>,
     );
 
-    expect(screen.getByText('Inside').parent).toHaveStyle({
+    const card = screen.getByText('Inside').parent!;
+    expect(card).toHaveStyle({
       backgroundColor: light.background,
-      borderColor: light.tertiary,
       borderRadius: light.radius.card,
     });
+    expect(card).not.toHaveStyle({ borderWidth: expect.anything() });
+    expect(card).not.toHaveStyle({ shadowOpacity: expect.anything() });
   });
-});
 
-describe('CategoryBadge', () => {
-  it.each(
-    Object.entries(light.category) as [keyof typeof light.category, { bg: string; fg: string }][],
-  )('uses the %s badge pair (R16.4)', async (category, { bg, fg }) => {
-    await render(<CategoryBadge category={category} label="2 left" />);
+  it('takes a style after its own', async () => {
+    await render(
+      <Card style={{ padding: 0 }}>
+        <Text>Inside</Text>
+      </Card>,
+    );
 
-    expect(screen.getByText('2 left')).toHaveStyle({ color: fg });
-    expect(screen.getByText('2 left').parent).toHaveStyle({ backgroundColor: bg });
+    expect(screen.getByText('Inside').parent).toHaveStyle({ padding: 0 });
   });
 });
 

@@ -133,6 +133,17 @@ export function formatDay(d: IsoDate): { weekday: string; date: string } {
   };
 }
 
+/**
+ * "Thu" and "Oct 22" in en-US, or the device locale's equivalents: the compact day headings on Meals
+ * (specs/redesign/design.md §5.1). VoiceOver reads `formatDay`'s full names instead.
+ */
+export function formatDayShort(d: IsoDate): { weekday: string; date: string } {
+  return {
+    weekday: display(d, { weekday: 'short' }),
+    date: display(d, { day: 'numeric', month: 'short' }),
+  };
+}
+
 // 2026-10-19 was a Monday, so adding a Weekday to it gives a date on that day.
 const A_MONDAY = Date.UTC(2026, 9, 19) / DAY_MS;
 

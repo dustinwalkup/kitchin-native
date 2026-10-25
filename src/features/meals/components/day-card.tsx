@@ -1,24 +1,23 @@
-import { memo, type ReactNode, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { type LayoutChangeEvent, StyleSheet, View } from 'react-native';
 
-import { formatDay } from '@/lib/calendar';
-import { Card } from '@/ui/card';
+import { formatDay, formatDayShort } from '@/lib/calendar';
+import { CountBadge } from '@/ui/count-badge';
+import { Divider } from '@/ui/group';
 import { Text } from '@/ui/text';
 import { useTheme } from '@/ui/use-theme';
 
-import { COPY, DAY_ACCENTS, DAY_KEYS, MEAL_TYPES, type MealType } from '../constants';
-import type { Day, Slot } from '../domain';
-import { SlotRow, slotName } from './slot-row';
+import { COPY, DAY_KEYS, MEAL_TYPES } from '../constants';
+import type { Day, MealEntry, Slot } from '../domain';
+import { type SlotPhoto, SlotRow } from './slot-row';
 
 export interface DayCardProps {
   day: Day;
   isToday: boolean;
-  /** The day's open slot, or `null`. Only the day being edited gets a new value (§3.3.6). */
-  editing: MealType | null;
-  /** Draws the open slot's editor (§3.5), given the slot and its name, such as "Thursday dinner". */
-  renderEditor: (slot: Slot, name: string) => ReactNode;
   onEdit: (slot: Slot) => void;
   onClear: (slot: Slot) => void;
+  /** The photo for a planned meal chosen from the library, if it has one (DD-R10). */
+  photoFor?: (entry: MealEntry) => SlotPhoto | undefined;
   /** Today's card reports where it is, so the screen can scroll to it (R31.1). */
   onLayout?: (event: LayoutChangeEvent) => void;
 }
@@ -29,95 +28,74 @@ export function plannedLabel(planned: number): string {
 }
 
 /**
- * One day: its accent edge (R36.3), weekday and date (R30.1), the Today pill (R30.6), the planned
- * count (R30.5) and a slot per meal type in the fixed order (R30.2). Memoised, so opening a slot
- * on one day doesn't redraw the other six.
+ * One day on a white surface (specs/redesign/design.md §5.1): "Thu  Oct 22", Today when it is, the
+ * planned count, then a row per meal type in the fixed order, divided by hairlines (R30.1, R30.2,
+ * R30.5, R30.6). The surface on the ivory page is the grouping; only today gets an edge, in
+ * terracotta. Memoised, so a change to one day doesn't redraw the other six.
  */
 export const DayCard = memo(function DayCard({
   day,
   isToday,
-  editing,
-  renderEditor,
   onEdit,
   onClear,
+  photoFor,
   onLayout,
 }: DayCardProps) {
   const theme = useTheme();
-  const { weekday: weekdayName, date } = useMemo(() => formatDay(day.date), [day.date]);
-  const header = [`${weekdayName} ${date}`, isToday && 'today', plannedLabel(day.planned)]
+  const full = useMemo(() => formatDay(day.date), [day.date]);
+  const short = useMemo(() => formatDayShort(day.date), [day.date]);
+  const header = [`${full.weekday} ${full.date}`, isToday && 'today', plannedLabel(day.planned)]
     .filter(Boolean)
     .join(', ');
+  const complete = day.planned === MEAL_TYPES.length;
 
   return (
-    <View testID={`day-${DAY_KEYS[day.weekday]}`} onLayout={onLayout}>
-      <Card
-        style={[
-          styles.card,
-          // Decorative, so not contrast-checked (R36.4).
-          { borderLeftWidth: 4, borderLeftColor: theme[DAY_ACCENTS[day.weekday]] },
-        ]}
-      >
-        {/* One element for VoiceOver: "Thursday October 22, today, 2 of 3 meals planned" (N10). */}
-        <View
-          accessible
-          accessibilityRole="header"
-          accessibilityLabel={header}
-          style={styles.header}
-        >
-          <View style={styles.title}>
-            <Text variant="headline">{weekdayName}</Text>
-            {isToday ? <TodayPill /> : null}
-          </View>
-          <View style={styles.title}>
-            <Text variant="subhead" color="inkMuted">
-              {date}
-            </Text>
-            <View style={[styles.count, { borderColor: theme.border }]}>
-              <Text
-                variant="footnote"
-                color="inkMuted"
-                accessibilityLabel={plannedLabel(day.planned)}
-              >
-                {day.planned}/{MEAL_TYPES.length}
-              </Text>
+    <View
+      testID={`day-${DAY_KEYS[day.weekday]}`}
+      onLayout={onLayout}
+      style={[
+        styles.card,
+        { backgroundColor: theme.background, borderRadius: theme.radius.card },
+        isToday && { borderColor: theme.accent, borderWidth: 1 },
+      ]}
+    >
+      {/* One element for VoiceOver: "Thursday October 22, today, 2 of 3 meals planned" (N10). */}
+      <View accessible accessibilityRole="header" accessibilityLabel={header} style={styles.header}>
+        <View style={styles.title}>
+          <Text variant="title2">{short.weekday}</Text>
+          <Text variant="subhead" color="inkMuted">
+            {short.date}
+          </Text>
+          {isToday ? (
+            <View testID="today-pill">
+              <CountBadge label={COPY.today} tone="accent" />
             </View>
-          </View>
+          ) : null}
         </View>
-        {day.slots.map((slot) =>
-          slot.mealType === editing ? (
-            <View key={slot.mealType}>
-              {renderEditor(slot, slotName(weekdayName, slot.mealType))}
-            </View>
-          ) : (
-            <SlotRow
-              key={slot.mealType}
-              slot={slot}
-              weekdayName={weekdayName}
-              onEdit={onEdit}
-              onClear={onClear}
-            />
-          ),
-        )}
-      </Card>
+        <CountBadge
+          label={`${day.planned}/${MEAL_TYPES.length}`}
+          tone={complete ? 'sage' : 'neutral'}
+          accessibilityLabel={plannedLabel(day.planned)}
+        />
+      </View>
+      {day.slots.map((slot) => (
+        <View key={slot.mealType}>
+          <Divider inset={46} />
+          <SlotRow
+            slot={slot}
+            weekdayName={full.weekday}
+            photo={slot.entry && photoFor ? photoFor(slot.entry) : undefined}
+            onEdit={onEdit}
+            onClear={onClear}
+          />
+        </View>
+      ))}
     </View>
   );
 });
 
-/** White bold text on terracotta, the pair TEXT_PAIRS allows for it (R30.6, R36.1). */
-function TodayPill() {
-  const theme = useTheme();
-
-  return (
-    <View testID="today-pill" style={[styles.pill, { backgroundColor: theme.accent }]}>
-      <Text variant="footnote" color="onBrand">
-        {COPY.today}
-      </Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  card: { marginHorizontal: 16, gap: 4, paddingVertical: 12 },
+  card: { marginHorizontal: 16, overflow: 'hidden' },
   // Wraps at large text sizes rather than clipping (N12).
   header: {
     flexDirection: 'row',
@@ -125,9 +103,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
-    paddingBottom: 4,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
-  title: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
-  pill: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  count: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
+  title: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', gap: 8 },
 });

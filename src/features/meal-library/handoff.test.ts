@@ -1,13 +1,9 @@
-import type { IsoDate } from '@/lib/calendar';
-
-import { lastSaved, mealPick, newMealName } from './handoff';
-
-const THURSDAY = '2026-10-22' as IsoDate;
+import { lastSaved, newMealName, newMealType } from './handoff';
 
 beforeEach(() => {
   newMealName.clear();
+  newMealType.clear();
   lastSaved.clear();
-  mealPick.clear();
 });
 
 describe('a hand-off', () => {
@@ -30,34 +26,34 @@ describe('a hand-off', () => {
     const saved = lastSaved.read()?.id;
     lastSaved.clear();
     lastSaved.set({ mealId: 'meal-1', kind: 'saved' });
-    mealPick.set({ date: THURSDAY, mealType: 'dinner', text: 'Tacos' });
+    newMealType.set('dinner');
 
-    const ids = [saved, lastSaved.read()?.id, mealPick.read()?.id];
+    const ids = [saved, lastSaved.read()?.id, newMealType.read()?.id];
     expect(new Set(ids).size).toBe(3);
   });
 
   it('U-LHOF-02 clear makes read return null', () => {
-    mealPick.set({ date: THURSDAY, mealType: 'dinner', text: 'Tacos' });
-    mealPick.clear();
-    expect(mealPick.read()).toBeNull();
+    newMealType.set('dinner');
+    newMealType.clear();
+    expect(newMealType.read()).toBeNull();
   });
 
   it('U-LHOF-02 keeps the three hand-offs independent', () => {
     lastSaved.set({ mealId: 'meal-1', kind: 'deleted' });
-    mealPick.set({ date: THURSDAY, mealType: 'lunch', text: 'Soup' });
+    newMealType.set('lunch');
     const saved = lastSaved.read();
-    const pick = mealPick.read();
+    const type = newMealType.read();
 
     newMealName.set('Tacos');
     expect(lastSaved.read()).toBe(saved);
-    expect(mealPick.read()).toBe(pick);
+    expect(newMealType.read()).toBe(type);
 
     newMealName.clear();
     expect(lastSaved.read()).toBe(saved);
-    expect(mealPick.read()).toBe(pick);
+    expect(newMealType.read()).toBe(type);
 
     lastSaved.clear();
-    expect(mealPick.read()).toBe(pick);
+    expect(newMealType.read()).toEqual({ id: expect.any(Number), value: 'lunch' });
     expect(newMealName.read()).toBeNull();
   });
 });

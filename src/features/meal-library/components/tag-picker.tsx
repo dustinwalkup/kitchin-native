@@ -6,7 +6,7 @@ import { Chip } from '@/ui/chip';
 import { Text } from '@/ui/text';
 import { TextField } from '@/ui/text-field';
 
-import { LIMITS } from '../constants';
+import { COPY, FAVORITE_TAG_KEY, LIMITS } from '../constants';
 import {
   addTypedTag,
   clampTo,
@@ -31,6 +31,8 @@ export interface TagPickerProps {
 
 interface PickerChip {
   key: string;
+  /** The tag's normalized name, which marks Family Favorite (DD-R8). */
+  tagKey: string;
   /** A tag's ID, or `new-<n>` for a tag this form will create. Never the name (R26.7). */
   id: string;
   name: string;
@@ -48,6 +50,8 @@ interface PickerChip {
 export function TagPicker({ tags, values, onChange, error }: TagPickerProps) {
   const [adding, setAdding] = useState(false);
   const [typed, setTyped] = useState('');
+  // A typed name that's a meal type, until the member types again (DD-R7).
+  const [notice, setNotice] = useState<string | null>(null);
 
   const without = (choice: TagChoice) => values.tags.filter((other) => other !== choice);
   const select = (choice: TagChoice) => onChange({ ...values, tags: [...values.tags, choice] });
@@ -57,6 +61,7 @@ export function TagPicker({ tags, values, onChange, error }: TagPickerProps) {
     const choice = values.tags.find((c) => c.kind === 'existing' && c.id === tag.id);
     return {
       key: tag.id,
+      tagKey: tag.key,
       id: tag.id,
       name: tag.name,
       selected: choice !== undefined,
@@ -68,6 +73,7 @@ export function TagPicker({ tags, values, onChange, error }: TagPickerProps) {
       ? [
           {
             key: `new:${tagKey(choice.name)}`,
+            tagKey: tagKey(choice.name),
             id: `new-${i}`,
             name: choice.name,
             selected: true,
@@ -76,7 +82,12 @@ export function TagPicker({ tags, values, onChange, error }: TagPickerProps) {
         ]
       : [],
   );
-  const chips = [...existing, ...created].sort(compareNames);
+  // Family Favorite first, then alphabetical, as in the library's filters (DD-R8).
+  const chips = [...existing, ...created].sort(
+    (a, b) =>
+      Number(b.tagKey === FAVORITE_TAG_KEY) - Number(a.tagKey === FAVORITE_TAG_KEY) ||
+      compareNames(a, b),
+  );
 
   // The name VoiceOver hears after Add: the tag that's now selected, as it's spelled (R43.5).
   function selectedName(next: FormValues): string | undefined {
@@ -91,6 +102,12 @@ export function TagPicker({ tags, values, onChange, error }: TagPickerProps) {
 
   function add() {
     const { values: next, result } = addTypedTag(values, tags, typed);
+    // Breakfast, Lunch and Dinner are the meal type: the field stays, with the reason (DD-R7).
+    if (result === 'meal-type') {
+      setNotice(COPY.typeTagReserved);
+      AccessibilityInfo.announceForAccessibility(COPY.typeTagReserved);
+      return;
+    }
     setTyped('');
     setAdding(false);
     // An empty name adds nothing (R43.6).
@@ -106,8 +123,11 @@ export function TagPicker({ tags, values, onChange, error }: TagPickerProps) {
 
   return (
     <View style={styles.picker}>
-      <Text variant="subhead" bold>
+      <Text variant="subhead" weight="semibold" accessibilityRole="header">
         Tags
+        <Text variant="subhead" color="inkMuted">
+          {'  '}Optional
+        </Text>
       </Text>
       <View style={styles.chips}>
         {chips.map((chip) => (
@@ -115,6 +135,7 @@ export function TagPicker({ tags, values, onChange, error }: TagPickerProps) {
             key={chip.key}
             id={chip.id}
             name={chip.name}
+            tagKey={chip.tagKey}
             selected={chip.selected}
             onPress={chip.toggle}
           />
@@ -122,9 +143,13 @@ export function TagPicker({ tags, values, onChange, error }: TagPickerProps) {
         {adding ? null : (
           <Chip
             testID="tag-picker-new"
-            label="＋ New tag"
+            label="Add tag"
             accessibilityLabel="New tag"
-            tone="accent"
+            leading={
+              <Text variant="subhead" color="accentInk">
+                ＋
+              </Text>
+            }
             onPress={() => setAdding(true)}
           />
         )}
@@ -137,16 +162,20 @@ export function TagPicker({ tags, values, onChange, error }: TagPickerProps) {
               label="New tag"
               value={typed}
               // One line, kept to the tag limit (R43.3).
-              onChangeText={(text) => setTyped(clampTo(oneLine(text), LIMITS.tag))}
+              onChangeText={(text) => {
+                setNotice(null);
+                setTyped(clampTo(oneLine(text), LIMITS.tag));
+              }}
               maxLength={maxLengthFor(typed, LIMITS.tag)}
               autoFocus
               autoCapitalize="words"
               returnKeyType="done"
-              submitBehavior="blurAndSubmit"
+              submitBehavior="submit"
               onSubmitEditing={add}
+              error={notice}
             />
           </View>
-          <Button label="Add" variant="secondary" tone="accent" onPress={add} />
+          <Button label="Add" variant="secondary" onPress={add} />
         </View>
       ) : null}
       {error ? (
@@ -159,7 +188,7 @@ export function TagPicker({ tags, values, onChange, error }: TagPickerProps) {
 }
 
 const styles = StyleSheet.create({
-  picker: { gap: 6 },
+  picker: { gap: 8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   // Wraps at large text sizes, so Add moves below the field rather than squeezing it (N12).
   add: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', gap: 8, paddingTop: 6 },

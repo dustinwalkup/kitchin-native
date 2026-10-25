@@ -4,50 +4,62 @@ import { randomUUID } from 'expo-crypto';
 import { router } from 'expo-router';
 import { renderRouter } from 'expo-router/testing-library';
 import { useSyncExternalStore } from 'react';
-import { Alert, type AlertButton, Text } from 'react-native';
+import {
+  type ActionSheetIOSOptions,
+  ActionSheetIOS,
+  Alert,
+  type AlertButton,
+  Text,
+} from 'react-native';
 
 import TabsLayout from '@/app/(app)/(tabs)/_layout';
 import MealLibrary from '@/app/(app)/(tabs)/meal-library';
 import AppLayout from '@/app/(app)/_layout';
 import MealForm from '@/app/(app)/meal-form';
-import MealPicker from '@/app/(app)/meal-picker';
 import { COPY } from '@/features/meal-library/constants';
 import { buildLibrary, type Library } from '@/features/meal-library/domain';
-import { lastSaved, mealPick, newMealName } from '@/features/meal-library/handoff';
-import { reportOnce } from '@/lib/reporting';
+import { lastSaved, newMealName, newMealType } from '@/features/meal-library/handoff';
 import type {
   DeleteOutcome,
   LibraryView,
   SaveMealVariables,
   SaveOutcome,
 } from '@/features/meal-library/hooks';
+import { pickPhoto } from '@/features/meal-library/photo';
 import { touchTarget } from '@/test/a11y';
 import { makeMealRow, makeTagRow } from '@/test/factories';
-import { nativeHeaders, stackPresentations } from '@/test/native-header';
+import { stackPresentations } from '@/test/native-header';
 
-// Meal Library screen tests C-LIB-04 to C-LIB-14 (4-test-plan §4.2), the meal form's C-LFS-01 to
-// C-LFS-13 (§4.4) and the picker's C-PICK-01 to C-PICK-10 (§4.6). C-LIB-01 to C-LIB-03, which start
-// on Meals, are in meals.test.tsx. The real screens run under the real (app) and tabs layouts, so
-// focus, the header, the tab bar and discard prevention behave as in the app. The hooks are mocked (§8.4): the library
-// comes from the real buildLibrary, and the save and delete are spies that return the outcome a
-// test chooses.
+// Meal Library screen tests C-LIB-04 to C-LIB-14 (4-test-plan §4.2) and the meal form's C-LFS-01 to
+// C-LFS-13 (§4.4), as redesigned (specs/redesign/design.md §5.2, §5.3). C-LIB-01 to C-LIB-03, which
+// start on Meals, are in meals.test.tsx, and the plan sheet that replaced the picker has its own
+// tests. The real screens run under the real (app) and tabs layouts, so focus, the header, the tab
+// bar and discard prevention behave as in the app. The hooks are mocked (§8.4): the library comes
+// from the real buildLibrary, and the save and delete are spies that return the outcome a test
+// chooses.
 
-const DINNER = 'tag-1';
+const COMFORT = 'tag-1';
 const QUICK = 'tag-2';
 const STEW = 'meal-1';
 const TACOS = 'meal-2';
+const TACOS_PHOTO = 'household-1/tacos.jpg';
+const TACOS_URL = 'https://storage.test/tacos.jpg?token=1';
+const NEW_PHOTO = 'household-1/new-photo.jpg';
+const PICKED = 'file:///cache/ImageManipulator/picked.jpg';
 
 const MEAL_ROWS = [
   makeMealRow({
     id: TACOS,
     name: 'Tacos',
     description: 'Beef, corn tortillas',
-    library_meal_tags: [{ tag_id: DINNER }, { tag_id: QUICK }],
+    meal_type: 'dinner',
+    image_path: TACOS_PHOTO,
+    library_meal_tags: [{ tag_id: COMFORT }, { tag_id: QUICK }],
   }),
-  makeMealRow({ id: STEW, name: 'Beef stew', library_meal_tags: [{ tag_id: DINNER }] }),
+  makeMealRow({ id: STEW, name: 'Beef stew', library_meal_tags: [{ tag_id: COMFORT }] }),
 ];
 const TAG_ROWS = [
-  makeTagRow({ id: DINNER, name: 'Dinner' }),
+  makeTagRow({ id: COMFORT, name: 'Comfort food' }),
   makeTagRow({ id: QUICK, name: 'Quick & Easy' }),
 ];
 const LIBRARY = buildLibrary(MEAL_ROWS, TAG_ROWS).library;
@@ -73,7 +85,10 @@ const update = (changes: Partial<typeof mockState>) => act(async () => setMockSt
 
 const mockRefetch = jest.fn(async () => {});
 const mockSave = jest.fn<Promise<SaveOutcome>, [SaveMealVariables]>();
-const mockDelete = jest.fn<Promise<DeleteOutcome>, [string]>();
+const mockDelete = jest.fn<Promise<DeleteOutcome>, [string, (string | null)?]>();
+// The signed URLs the photos have, by key, and the key a new photo gets.
+const mockImageUrls: Record<string, string> = {};
+const mockNewImagePath = jest.fn<string | null, []>();
 
 // jest.mock factories may only use names that start with "mock", and hooks must start with "use",
 // so the stand-in is a method of one object.
@@ -95,7 +110,12 @@ jest.mock('@/features/meal-library/hooks', () => ({
   useLibrary: () => mockHooks.useLibrary(),
   useSaveMeal: () => mockSave,
   useDeleteMeal: () => mockDelete,
+  useMealImageUrls: () => mockImageUrls,
+  useNewImagePath: () => mockNewImagePath,
 }));
+
+// The camera and the photo library are native; a test chooses what the member picked.
+jest.mock('@/features/meal-library/photo', () => ({ pickPhoto: jest.fn() }));
 
 // A new meal's ID, in a sequence a test can name (§8.4).
 jest.mock('expo-crypto', () => ({ randomUUID: jest.fn() }));
@@ -112,7 +132,7 @@ jest.mock('@/features/household/use-connection-state', () => ({
   useRealtimeDegradedReport: () => {},
 }));
 jest.mock('@/lib/env', () => ({ env: { variant: 'production', sentryDsn: null } }));
-// The picker reports bad params (§6). Debug builds log every report; only that one is asserted.
+// Debug builds log every report.
 jest.mock('@/lib/reporting', () => ({
   report: jest.fn(),
   reportOnce: jest.fn(),
@@ -138,28 +158,36 @@ const ROUTES = {
   '(app)/(tabs)/meal-library': MealLibrary,
   '(app)/(tabs)/settings': UnusedStub,
   '(app)/meal-form': MealForm,
-  '(app)/meal-picker': MealPicker,
 };
 
 const OFFLINE_BANNER = "Offline — changes will send when you're back online";
 
 let alert: jest.SpyInstance;
+let actionSheet: jest.SpyInstance;
 
 beforeEach(async () => {
   jest.clearAllMocks();
   newMealName.clear();
+  newMealType.clear();
   lastSaved.clear();
-  mealPick.clear();
   let uuid = 0;
   jest.mocked(randomUUID).mockImplementation(() => `new-${++uuid}`);
   mockSave.mockReset().mockImplementation(async ({ mealId }) => ({ ok: true, mealId }));
   mockDelete.mockReset().mockResolvedValue({ ok: true });
+  for (const key of Object.keys(mockImageUrls)) delete mockImageUrls[key];
+  mockImageUrls[TACOS_PHOTO] = TACOS_URL;
+  mockNewImagePath.mockReset().mockReturnValue(NEW_PHOTO);
+  jest.mocked(pickPhoto).mockResolvedValue({ kind: 'picked', uri: PICKED });
   alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  actionSheet = jest
+    .spyOn(ActionSheetIOS, 'showActionSheetWithOptions')
+    .mockImplementation(() => {});
   await update({ library: LIBRARY, status: 'ready', refreshFailedAt: null });
 });
 
 afterEach(() => {
   alert.mockRestore();
+  actionSheet.mockRestore();
   onlineManager.setOnline(true);
   jest.useRealTimers();
 });
@@ -215,6 +243,18 @@ const pressAlert = (text: string) =>
       ?.onPress?.(),
   );
 
+/** The options of the last action sheet. */
+const sheetOptions = (): ActionSheetIOSOptions => actionSheet.mock.calls.at(-1)?.[0];
+/** Picks an option of the last action sheet by its title, as the member's tap would. */
+const pressSheet = (title: string) =>
+  act(async () => {
+    const [options, callback] = actionSheet.mock.calls.at(-1)!;
+    callback((options as ActionSheetIOSOptions).options.indexOf(title));
+  });
+const photo = () => screen.getByTestId('meal-form-photo');
+// expo-image's view, which only a photo with a URL draws.
+const photoImages = () => photo().queryAll((node) => node.props.recyclingKey !== undefined);
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => (resolve = done));
@@ -229,8 +269,19 @@ describe('Meal Library screen', () => {
       `meal-row-${STEW}`,
       `meal-row-${TACOS}`,
     ]);
-    expect(row(TACOS)).toHaveProp('accessibilityLabel', 'Tacos. Tags: Dinner, Quick & Easy');
+    expect(row(TACOS)).toHaveProp(
+      'accessibilityLabel',
+      'Tacos, dinner. Tags: Comfort food, Quick & Easy',
+    );
     expect(row(TACOS)).toHaveProp('accessibilityHint', 'Edits this meal');
+  });
+
+  it("§5.2 shows each meal's photo from its signed URL", async () => {
+    await renderLibrary();
+
+    const photos = row(TACOS).queryAll((node) => node.props.recyclingKey === TACOS_PHOTO);
+    expect(photos).toHaveLength(1);
+    expect(photos[0]).toHaveProp('source', [{ uri: TACOS_URL, cacheKey: TACOS_PHOTO }]);
   });
 
   it('C-LIB-01 is its own tab, titled "Meal Library"', async () => {
@@ -259,6 +310,16 @@ describe('Meal Library screen', () => {
     expect(newMealName.read()?.value).toBe('lasag');
     expect(app.getPathname()).toBe('/meal-form');
     expect(app.getSearchParams()).toEqual({});
+  });
+
+  it('DD-R6 Add meal clears a meal type the plan sheet left, so the new meal starts with none', async () => {
+    newMealType.set('dinner');
+    await renderLibrary();
+
+    await addMeal();
+
+    expect(newMealType.read()).toBeNull();
+    expect(screen.getByTestId('meal-form-type-dinner')).not.toBeSelected();
   });
 
   it('C-LIB-04 Add meal with an empty search clears the name hand-off', async () => {
@@ -291,42 +352,39 @@ describe('Meal Library screen', () => {
     expect(app.getPathnameWithParams()).not.toMatch(/Tacos/i);
   });
 
-  it('C-LIB-09 opens with an empty search and no tags, and keeps both after the form closes', async () => {
+  it('C-LIB-09 opens with an empty search, every type and no tags, and keeps them after the form closes', async () => {
     await renderLibrary();
     expect(search()).toHaveDisplayValue('');
-    expect(screen.getByTestId('library-filter')).toHaveProp('accessibilityLabel', 'Filter by tags');
+    expect(screen.getByLabelText('Filter by tags')).toBeOnTheScreen();
+    expect(screen.getByTestId('type-chip-all')).toBeSelected();
 
     await fireEvent.changeText(search(), 'ta');
-    await fireEvent.press(screen.getByTestId('library-filter'));
-    await fireEvent.press(screen.getByRole('button', { name: 'Dinner' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Comfort food' }));
+    await fireEvent.press(screen.getByTestId('type-chip-dinner'));
     await fireEvent.press(row(TACOS));
     await closeForm();
 
     expect(search()).toHaveDisplayValue('ta');
-    expect(screen.getByTestId('library-filter')).toHaveProp(
-      'accessibilityLabel',
-      'Filter by tags, 1 selected',
-    );
+    expect(screen.getByLabelText('Filter by tags, 1 selected')).toBeOnTheScreen();
+    expect(screen.getByTestId('type-chip-dinner')).toBeSelected();
     expect(screen.getAllByTestId(/^meal-row-/).map((r) => r.props.testID)).toEqual([
       `meal-row-${TACOS}`,
     ]);
   });
 
-  it('C-LIB-14 keeps the search and tags while the member visits another tab', async () => {
+  it('C-LIB-14 keeps the search, type and tags while the member visits another tab', async () => {
     await renderLibrary();
     await fireEvent.changeText(search(), 'ta');
-    await fireEvent.press(screen.getByTestId('library-filter'));
-    await fireEvent.press(screen.getByRole('button', { name: 'Dinner' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Comfort food' }));
+    await fireEvent.press(screen.getByTestId('type-chip-dinner'));
 
     await fireEvent.press(tab('Meals'));
     expect(screen.getByText('Meals screen')).toBeOnTheScreen();
     await fireEvent.press(tab('Library'));
 
     expect(search()).toHaveDisplayValue('ta');
-    expect(screen.getByTestId('library-filter')).toHaveProp(
-      'accessibilityLabel',
-      'Filter by tags, 1 selected',
-    );
+    expect(screen.getByLabelText('Filter by tags, 1 selected')).toBeOnTheScreen();
+    expect(screen.getByTestId('type-chip-dinner')).toBeSelected();
   });
 });
 
@@ -357,13 +415,13 @@ describe('deleting from the list (C-LIB-11 to C-LIB-13)', () => {
     expect(row(TACOS)).toBeOnTheScreen();
   });
 
-  it('C-LIB-12 a confirmed delete deletes the meal by its ID and shows "Meal deleted"', async () => {
+  it('C-LIB-12 a confirmed delete deletes the meal and its photo, and shows "Meal deleted"', async () => {
     const app = await renderLibrary();
 
     await swipeDelete(TACOS);
     await pressAlert('Delete');
 
-    expect(mockDelete.mock.calls).toEqual([[TACOS]]);
+    expect(mockDelete.mock.calls).toEqual([[TACOS, TACOS_PHOTO]]);
     expect(within(toast()!).getByText('Meal deleted')).toBeOnTheScreen();
     expect(app.getPathname()).toBe('/meal-library');
   });
@@ -375,7 +433,8 @@ describe('deleting from the list (C-LIB-11 to C-LIB-13)', () => {
 
     expect(alert).toHaveBeenCalledWith('Delete “Beef stew”?', COPY.deleteBody, expect.any(Array));
     await pressAlert('Delete');
-    expect(mockDelete.mock.calls).toEqual([[STEW]]);
+    // Beef stew has no photo.
+    expect(mockDelete.mock.calls).toEqual([[STEW, null]]);
   });
 
   it("C-LIB-13 offline keeps the meal, and the toast's Retry deletes without asking again", async () => {
@@ -391,7 +450,10 @@ describe('deleting from the list (C-LIB-11 to C-LIB-13)', () => {
     await fireEvent.press(within(toast()!).getByRole('button', { name: 'Retry' }));
 
     expect(alert).not.toHaveBeenCalled();
-    expect(mockDelete.mock.calls).toEqual([[TACOS], [TACOS]]);
+    expect(mockDelete.mock.calls).toEqual([
+      [TACOS, TACOS_PHOTO],
+      [TACOS, TACOS_PHOTO],
+    ]);
     expect(within(toast()!).getByText('Meal deleted')).toBeOnTheScreen();
   });
 
@@ -532,7 +594,7 @@ describe('Meal Library states (C-LIB-06)', () => {
     await update({ library: EMPTY });
     const app = await renderLibrary();
 
-    expect(screen.getByRole('header', { name: 'No saved meals yet' })).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'No meals yet' })).toBeOnTheScreen();
     expect(screen.queryByLabelText('Search meals')).toBeNull();
     await fireEvent.press(
       within(screen.getByTestId('library-empty')).getByRole('button', { name: 'Add meal' }),
@@ -541,12 +603,12 @@ describe('Meal Library states (C-LIB-06)', () => {
     expect(app.getPathname()).toBe('/meal-form');
   });
 
-  it('shows "No meals match" below the search when nothing matches', async () => {
+  it('shows "No matching meals" below the search when nothing matches', async () => {
     await renderLibrary();
 
     await fireEvent.changeText(search(), 'lasagna');
 
-    expect(screen.getByRole('header', { name: 'No meals match' })).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'No matching meals' })).toBeOnTheScreen();
     expect(search()).toBeOnTheScreen();
   });
 
@@ -574,30 +636,52 @@ describe('Meal form screen', () => {
   it('C-LFS-01 a new meal is titled "New meal", with the name from the search', async () => {
     await openNewMeal('lasag');
 
-    expect(nativeHeaders()).toContainEqual(expect.objectContaining({ title: 'New meal' }));
+    expect(screen.getByRole('header', { name: 'New meal' })).toBeOnTheScreen();
     expect(nameField()).toHaveDisplayValue('lasag');
     expect(descriptionField()).toHaveDisplayValue('');
+    expect(photo()).toHaveProp('accessibilityLabel', COPY.addPhoto);
+    for (const key of ['breakfast', 'lunch', 'dinner']) {
+      expect(screen.getByTestId(`meal-form-type-${key}`)).not.toBeSelected();
+    }
     expect(screen.queryByTestId('meal-form-delete')).toBeNull();
   });
 
-  it('C-LFS-01 an edit is titled "Edit meal", with the meal and its tags selected', async () => {
+  it('C-LFS-01 an edit is titled "Edit meal", with the meal, its type, photo and tags', async () => {
     newMealName.set('ignored');
+    newMealType.set('lunch');
     await openMeal(TACOS);
 
-    expect(nativeHeaders()).toContainEqual(expect.objectContaining({ title: 'Edit meal' }));
+    expect(screen.getByRole('header', { name: 'Edit meal' })).toBeOnTheScreen();
     expect(nameField()).toHaveDisplayValue('Tacos');
     expect(descriptionField()).toHaveDisplayValue('Beef, corn tortillas');
-    expect(screen.getByTestId(`tag-chip-${DINNER}`)).toBeSelected();
+    expect(screen.getByTestId('meal-form-type-dinner')).toBeSelected();
+    expect(screen.getByTestId('meal-form-type-lunch')).not.toBeSelected();
+    expect(photo()).toHaveProp('accessibilityLabel', COPY.changePhoto);
+    expect(photoImages()[0]).toHaveProp('source', [{ uri: TACOS_URL, cacheKey: TACOS_PHOTO }]);
+    expect(screen.getByTestId(`tag-chip-${COMFORT}`)).toBeSelected();
     expect(screen.getByTestId(`tag-chip-${QUICK}`)).toBeSelected();
     expect(screen.getByTestId('meal-form-delete')).toBeOnTheScreen();
   });
 
-  it('C-LFS-02 presents full screen, with Cancel and Save in the header', async () => {
+  it("DD-R6 a new meal from a slot's plan sheet starts with the slot's type", async () => {
+    newMealType.set('lunch');
+    await renderLibrary();
+    await act(() => router.push('/meal-form'));
+
+    expect(screen.getByTestId('meal-form-type-lunch')).toBeSelected();
+    await fireEvent.changeText(nameField(), 'Soup');
+    await pressSave();
+
+    expect(savedWith(0).meal).toEqual(expect.objectContaining({ name: 'Soup', mealType: 'lunch' }));
+  });
+
+  it('C-LFS-02 presents full screen, with Cancel and Save in its own header', async () => {
     await openNewMeal();
 
     expect(stackPresentations()).toEqual(['push', 'fullScreenModal']);
-    for (const name of ['Cancel', 'Save']) {
-      const button = screen.getByRole('button', { name });
+    expect(cancelButton()).toHaveProp('accessibilityLabel', 'Cancel');
+    expect(saveButton()).toHaveProp('accessibilityLabel', 'Save');
+    for (const button of [cancelButton(), saveButton()]) {
       expect(touchTarget(button).width).toBeGreaterThanOrEqual(44);
       expect(touchTarget(button).height).toBeGreaterThanOrEqual(44);
     }
@@ -636,7 +720,8 @@ describe('Meal form screen', () => {
     const handoff = jest.spyOn(lastSaved, 'set');
     const app = await openNewMeal('Lasagna');
     await fireEvent.changeText(descriptionField(), ' Beef and ricotta ');
-    await fireEvent.press(screen.getByTestId(`tag-chip-${DINNER}`));
+    await fireEvent.press(screen.getByTestId('meal-form-type-dinner'));
+    await fireEvent.press(screen.getByTestId(`tag-chip-${COMFORT}`));
 
     await pressSave();
 
@@ -648,8 +733,11 @@ describe('Meal form screen', () => {
         name: 'Lasagna',
         description: 'Beef and ricotta',
         ingredients: null,
-        tags: [{ kind: 'existing', id: DINNER }],
+        mealType: 'dinner',
+        imagePath: null,
+        tags: [{ kind: 'existing', id: COMFORT }],
       },
+      upload: null,
     });
     expect(handoff).toHaveBeenCalledWith({ mealId: 'new-1', kind: 'saved' });
     expect(app.getPathname()).toBe('/meal-library');
@@ -722,6 +810,7 @@ describe('Meal form screen', () => {
     expect(randomUUID).toHaveBeenCalledTimes(1);
   });
 
+  // The other phone's delete removed the stored photo too, so the new meal saves without it.
   it('C-LFS-07 deleted elsewhere offers Save as new meal, which saves under a new ID', async () => {
     mockSave.mockResolvedValueOnce({ ok: false, reason: 'deleted' });
     const app = await openMeal(TACOS);
@@ -740,11 +829,14 @@ describe('Meal form screen', () => {
         name: 'Fish tacos',
         description: 'Beef, corn tortillas',
         ingredients: null,
+        mealType: 'dinner',
+        imagePath: null,
         tags: [
-          { kind: 'existing', id: DINNER },
+          { kind: 'existing', id: COMFORT },
           { kind: 'existing', id: QUICK },
         ],
       },
+      upload: null,
     });
     expect(app.getPathname()).toBe('/meal-library');
   });
@@ -828,9 +920,11 @@ describe('Meal form screen', () => {
 
   it('C-LFS-09 Cancel without changes leaves at once', async () => {
     const app = await openMeal(TACOS);
-    // A tag removed and added again is no change (R42.12).
-    await fireEvent.press(screen.getByTestId(`tag-chip-${DINNER}`));
-    await fireEvent.press(screen.getByTestId(`tag-chip-${DINNER}`));
+    // A tag or type removed and added again is no change (R42.12).
+    await fireEvent.press(screen.getByTestId(`tag-chip-${COMFORT}`));
+    await fireEvent.press(screen.getByTestId(`tag-chip-${COMFORT}`));
+    await fireEvent.press(screen.getByTestId('meal-form-type-dinner'));
+    await fireEvent.press(screen.getByTestId('meal-form-type-dinner'));
 
     await fireEvent.press(cancelButton());
 
@@ -865,7 +959,8 @@ describe('Meal form screen', () => {
     await fireEvent.press(screen.getByTestId('meal-form-delete'));
     await pressAlert('Delete');
 
-    expect(mockDelete).toHaveBeenCalledWith(TACOS);
+    // Its photo goes with it (design §6.5).
+    expect(mockDelete).toHaveBeenCalledWith(TACOS, TACOS_PHOTO);
     expect(handoff).toHaveBeenCalledWith({ mealId: TACOS, kind: 'deleted' });
     expect(app.getPathname()).toBe('/meal-library');
     expect(alert).toHaveBeenCalledTimes(1);
@@ -913,7 +1008,7 @@ describe('Meal form screen', () => {
       library: buildLibrary(
         [makeMealRow({ id: TACOS, name: 'Fish tacos', description: 'Cod, slaw' })],
         [
-          makeTagRow({ id: DINNER, name: 'Dinner' }),
+          makeTagRow({ id: COMFORT, name: 'Comfort food' }),
           makeTagRow({ id: QUICK, name: 'Quick & Easy' }),
         ],
       ).library,
@@ -921,7 +1016,7 @@ describe('Meal form screen', () => {
 
     expect(nameField()).toHaveDisplayValue('Tacos');
     expect(descriptionField()).toHaveDisplayValue('Pork, flour tortillas');
-    expect(screen.getByTestId(`tag-chip-${DINNER}`)).toBeSelected();
+    expect(screen.getByTestId(`tag-chip-${COMFORT}`)).toBeSelected();
     await pressSave();
     // Only what this member changed is compared and sent (R46.5).
     expect(savedWith(0).base).toEqual(expect.objectContaining({ name: 'Tacos' }));
@@ -970,246 +1065,165 @@ describe('Meal form screen', () => {
   });
 });
 
-const THURSDAY = '2026-10-22';
-const POPPERS = 'meal-3';
+describe('the meal form photo (§5.3, §6.5)', () => {
+  it('offers Take photo and Choose from library for a meal without one', async () => {
+    await openNewMeal('Lasagna');
 
-/** Opens the picker over Meals for Thursday dinner, as the slot editor's Choose button will. */
-async function renderPicker(
-  params: Record<string, string> = { date: THURSDAY, mealType: 'dinner' },
-) {
-  const app = await renderRouter(ROUTES, { initialUrl: '/meals' });
-  await act(() => router.push({ pathname: '/meal-picker', params }));
-  return app;
-}
+    await fireEvent.press(photo());
 
-const addNewMeal = () => screen.getByRole('button', { name: '+ Add new meal' });
-const rowIds = () => screen.getAllByTestId(/^meal-row-/).map((r) => r.props.testID);
+    expect(sheetOptions()).toEqual({
+      options: [COPY.takePhoto, COPY.choosePhoto, 'Cancel'],
+      cancelButtonIndex: 2,
+      destructiveButtonIndex: undefined,
+    });
+  });
 
-describe('picker', () => {
-  it('C-PICK-01 presents as a page sheet titled "Choose a meal", for Thursday dinner', async () => {
-    const app = await renderPicker();
+  it('offers Remove photo too, as the destructive choice, for a meal with one', async () => {
+    await openMeal(TACOS);
 
-    expect(app.getPathname()).toBe('/meal-picker');
-    expect(stackPresentations()).toEqual(['push', 'modal']);
-    expect(nativeHeaders()).toContainEqual(expect.objectContaining({ title: 'Choose a meal' }));
-    expect(screen.getByText('For Thursday dinner')).toBeOnTheScreen();
-    const cancel = screen.getByRole('button', { name: 'Cancel' });
-    expect(touchTarget(cancel).width).toBeGreaterThanOrEqual(44);
-    expect(touchTarget(cancel).height).toBeGreaterThanOrEqual(44);
+    await fireEvent.press(photo());
+
+    expect(sheetOptions()).toEqual({
+      options: [COPY.takePhoto, COPY.choosePhoto, COPY.removePhoto, 'Cancel'],
+      cancelButtonIndex: 3,
+      destructiveButtonIndex: 2,
+    });
   });
 
   it.each([
-    { date: '2026-02-30', mealType: 'dinner' },
-    { date: THURSDAY, mealType: 'snack' },
-    { date: 'Thursday', mealType: 'dinner' },
-    { mealType: 'dinner' },
-  ] as Record<string, string>[])(
-    'C-PICK-02 closes on bad params %j, and reports it once',
-    async (params) => {
-      const app = await renderPicker(params);
+    [COPY.takePhoto, 'camera'],
+    [COPY.choosePhoto, 'library'],
+  ] as const)(
+    '%s shows the picked photo, and Save uploads it with the meal',
+    async (title, source) => {
+      await openNewMeal('Lasagna');
+      await fireEvent.press(photo());
 
-      expect(app.getPathname()).toBe('/meals');
-      expect(reportOnce).toHaveBeenCalledTimes(1);
-      expect(reportOnce).toHaveBeenCalledWith('picker_bad_params');
-      expect(mealPick.read()).toBeNull();
+      await pressSheet(title);
+
+      expect(pickPhoto).toHaveBeenCalledWith(source);
+      expect(photo()).toHaveProp('accessibilityLabel', COPY.changePhoto);
+      expect(photoImages()[0]).toHaveProp('source', [{ uri: PICKED, cacheKey: NEW_PHOTO }]);
+
+      await pressSave();
+
+      expect(savedWith(0)).toEqual(
+        expect.objectContaining({
+          meal: expect.objectContaining({ imagePath: NEW_PHOTO }),
+          upload: { uri: PICKED, path: NEW_PHOTO },
+        }),
+      );
     },
   );
 
-  it('C-PICK-03 shows a cached library at once, with an empty search and no tags', async () => {
-    await renderPicker();
+  it('DD46 a retried save uploads the picked photo to the key it got when picked', async () => {
+    mockSave.mockResolvedValueOnce({ ok: false, reason: 'offline' });
+    await openNewMeal('Lasagna');
+    await fireEvent.press(photo());
+    await pressSheet(COPY.choosePhoto);
 
-    expect(screen.queryByTestId('library-skeleton')).toBeNull();
-    expect(rowIds()).toEqual([`meal-row-${STEW}`, `meal-row-${TACOS}`]);
-    expect(search()).toHaveDisplayValue('');
-    expect(screen.getByTestId('library-filter')).toHaveProp('accessibilityLabel', 'Filter by tags');
+    await pressSave();
+    await fireEvent.press(within(formError()!).getByRole('button', { name: 'Retry' }));
+
+    expect(mockSave.mock.calls.map(([v]) => v.upload)).toEqual([
+      { uri: PICKED, path: NEW_PHOTO },
+      { uri: PICKED, path: NEW_PHOTO },
+    ]);
+    expect(mockNewImagePath).toHaveBeenCalledTimes(1);
   });
 
-  it('C-PICK-04 tapping a meal picks its name and description for the slot, and goes back', async () => {
-    const app = await renderPicker();
-
-    await fireEvent.press(row(TACOS));
-
-    expect(mealPick.read()?.value).toEqual({
-      date: THURSDAY,
-      mealType: 'dinner',
-      text: 'Tacos\nBeef, corn tortillas',
-    });
-    expect(app.getPathname()).toBe('/meals');
-  });
-
-  it('C-PICK-05 Cancel goes back without a pick', async () => {
-    const app = await renderPicker();
-
-    await fireEvent.press(screen.getByTestId('picker-cancel'));
-
-    expect(app.getPathname()).toBe('/meals');
-    expect(mealPick.read()).toBeNull();
-  });
-
-  it('C-PICK-06 "+ Add new meal" starts the name from the search and opens the form', async () => {
-    const app = await renderPicker();
-    await fireEvent.changeText(search(), 'lasag');
-
-    await fireEvent.press(addNewMeal());
-
-    expect(newMealName.read()?.value).toBe('lasag');
-    expect(app.getPathname()).toBe('/meal-form');
-    expect(app.getSearchParams()).toEqual({});
-    expect(nameField()).toHaveDisplayValue('lasag');
-  });
-
-  it('C-PICK-06 "+ Add new meal" with an empty search clears the name hand-off', async () => {
-    newMealName.set('left over');
-    await renderPicker();
-
-    await fireEvent.press(addNewMeal());
-
-    expect(newMealName.read()).toBeNull();
-  });
-
-  it('C-PICK-07 after a save, shows "Meal saved" and the Just saved row, which chooses it', async () => {
-    // As the real hook does, the saved meal is in the library before the save resolves.
-    mockSave.mockImplementationOnce(async ({ mealId, meal }) => {
-      setMockState({
-        library: buildLibrary(
-          [...MEAL_ROWS, makeMealRow({ id: mealId, name: meal.name, description: null })],
-          TAG_ROWS,
-        ).library,
-      });
-      return { ok: true, mealId };
-    });
-    const app = await renderPicker();
-    await fireEvent.changeText(search(), 'stew');
-    await fireEvent.press(addNewMeal());
-    await fireEvent.changeText(nameField(), 'Lasagna');
+  it('replacing a stored photo saves the new key; the hook removes the old one', async () => {
+    await openMeal(TACOS);
+    await fireEvent.press(photo());
+    await pressSheet(COPY.takePhoto);
 
     await pressSave();
 
-    expect(app.getPathname()).toBe('/meal-picker');
-    expect(within(toast()!).getByText('Meal saved')).toBeOnTheScreen();
-    // Above the search's results, which don't include it (DD55).
-    expect(search()).toHaveDisplayValue('stew');
-    expect(within(justSavedRow()!).getByTestId('meal-row-new-1')).toBeOnTheScreen();
-    expect(rowIds()).toEqual(['meal-row-new-1', `meal-row-${STEW}`]);
-    expect(lastSaved.read()).toBeNull();
-
-    await fireEvent.press(within(justSavedRow()!).getByTestId('meal-row-new-1'));
-
-    expect(mealPick.read()?.value).toEqual({ date: THURSDAY, mealType: 'dinner', text: 'Lasagna' });
-    expect(app.getPathname()).toBe('/meals');
+    expect(savedWith(0)).toEqual(
+      expect.objectContaining({
+        base: expect.objectContaining({ imagePath: TACOS_PHOTO }),
+        meal: expect.objectContaining({ imagePath: NEW_PHOTO }),
+        upload: { uri: PICKED, path: NEW_PHOTO },
+      }),
+    );
   });
 
-  it('C-PICK-07 cancelling the form returns to the picker as it was', async () => {
-    const app = await renderPicker();
-    await fireEvent.changeText(search(), 'ta');
+  it('Remove photo takes it off the meal, which Save sends', async () => {
+    await openMeal(TACOS);
+    await fireEvent.press(photo());
 
-    await fireEvent.press(addNewMeal());
+    await pressSheet(COPY.removePhoto);
+
+    expect(photo()).toHaveProp('accessibilityLabel', COPY.addPhoto);
+    expect(photoImages()).toEqual([]);
+    expect(pickPhoto).not.toHaveBeenCalled();
+    await pressSave();
+    expect(savedWith(0)).toEqual(
+      expect.objectContaining({
+        meal: expect.objectContaining({ imagePath: null }),
+        upload: null,
+      }),
+    );
+  });
+
+  it('a new photo is a change, so Cancel asks first', async () => {
+    const app = await openMeal(TACOS);
+    await fireEvent.press(photo());
+    await pressSheet(COPY.choosePhoto);
+
     await fireEvent.press(cancelButton());
 
-    expect(app.getPathname()).toBe('/meal-picker');
-    expect(search()).toHaveDisplayValue('ta');
-    expect(toast()).toBeNull();
-    expect(justSavedRow()).toBeNull();
-  });
-
-  it('C-PICK-08 the empty library says so and offers "+ Add new meal" once', async () => {
-    await update({ library: EMPTY });
-    const app = await renderPicker();
-
-    expect(screen.getByRole('header', { name: 'No saved meals yet' })).toBeOnTheScreen();
-    expect(screen.getByText('For Thursday dinner')).toBeOnTheScreen();
-    expect(screen.getAllByRole('button', { name: '+ Add new meal' })).toHaveLength(1);
-    await fireEvent.press(
-      within(screen.getByTestId('library-empty')).getByRole('button', { name: '+ Add new meal' }),
-    );
-
+    expect(alert).toHaveBeenCalledWith(COPY.discardTitle, undefined, expect.any(Array));
     expect(app.getPathname()).toBe('/meal-form');
   });
 
-  it('C-PICK-08 shows skeleton rows on the first load, and Cancel still closes', async () => {
-    await update({ library: EMPTY, status: 'loading' });
-    const app = await renderPicker();
+  it('Cancel in the sheet, or a cancelled picker, changes nothing', async () => {
+    jest.mocked(pickPhoto).mockResolvedValue({ kind: 'cancelled' });
+    const app = await openMeal(TACOS);
+    await fireEvent.press(photo());
+    await pressSheet('Cancel');
+    await fireEvent.press(photo());
+    await pressSheet(COPY.takePhoto);
 
-    expect(screen.getByTestId('library-skeleton')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByTestId('picker-cancel'));
-
-    expect(app.getPathname()).toBe('/meals');
-    expect(mealPick.read()).toBeNull();
+    expect(pickPhoto).toHaveBeenCalledTimes(1);
+    expect(alert).not.toHaveBeenCalled();
+    expect(photoImages()[0]).toHaveProp('source', [{ uri: TACOS_URL, cacheKey: TACOS_PHOTO }]);
+    await fireEvent.press(cancelButton());
+    expect(app.getPathname()).toBe('/meal-library');
   });
 
-  it('C-PICK-08 shows LoadError when nothing has loaded, and its Retry reloads', async () => {
-    await update({ library: EMPTY, status: 'error' });
-    await renderPicker();
+  it.each([
+    ['denied', COPY.photoPermission],
+    ['failed', COPY.photoError],
+  ] as const)('a %s photo says why, and keeps the photo the form had', async (kind, message) => {
+    jest.mocked(pickPhoto).mockResolvedValue({ kind });
+    await openNewMeal('Lasagna');
+    await fireEvent.press(photo());
 
-    expect(screen.getByRole('header', { name: "Couldn't load meals" })).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
+    await pressSheet(COPY.takePhoto);
 
-    expect(mockRefetch).toHaveBeenCalledTimes(1);
+    expect(alert).toHaveBeenCalledWith(message);
+    expect(photo()).toHaveProp('accessibilityLabel', COPY.addPhoto);
+    expect(mockNewImagePath).not.toHaveBeenCalled();
   });
 
-  it('C-PICK-08 keeps the meals when a reload fails, with a toast whose Retry reloads', async () => {
-    await renderPicker();
+  it('adds no photo when the household has no folder for it yet', async () => {
+    mockNewImagePath.mockReturnValue(null);
+    await openNewMeal('Lasagna');
+    await fireEvent.press(photo());
 
-    await update({ refreshFailedAt: 1 });
+    await pressSheet(COPY.choosePhoto);
 
-    expect(rowIds()).toHaveLength(2);
-    await fireEvent.press(within(toast()!).getByRole('button', { name: 'Retry' }));
-    expect(mockRefetch).toHaveBeenCalledTimes(1);
+    expect(photo()).toHaveProp('accessibilityLabel', COPY.addPhoto);
+    await pressSave();
+    expect(savedWith(0).upload).toBeNull();
   });
 
-  it('C-PICK-08 shows the banner and "Waiting for connection…" while paused with nothing loaded', async () => {
-    onlineManager.setOnline(false);
-    await update({ library: EMPTY, status: 'waiting' });
-    await renderPicker();
+  it('shows the placeholder until a stored photo has a signed URL', async () => {
+    delete mockImageUrls[TACOS_PHOTO];
+    await openMeal(TACOS);
 
-    expect(screen.getByText(OFFLINE_BANNER)).toBeOnTheScreen();
-    expect(screen.getByText('Waiting for connection…')).toBeOnTheScreen();
-  });
-
-  it('C-PICK-08 shows "No meals match" when nothing matches', async () => {
-    await renderPicker();
-
-    await fireEvent.changeText(search(), 'lasagna');
-
-    expect(screen.getByRole('header', { name: 'No meals match' })).toBeOnTheScreen();
-  });
-
-  it('C-PICK-09 rows only choose: their hint says so, and nothing edits or deletes', async () => {
-    const app = await renderPicker();
-
-    expect(row(TACOS)).toHaveProp('accessibilityHint', 'Chooses this meal');
-    expect(screen.queryByTestId('library-add-meal')).toBeNull();
-    expect(screen.queryByRole('button', { name: /edit|delete/i })).toBeNull();
-    // No swipe to delete, no Delete action and no chevron (R45.10).
-    expect(screen.queryAllByTestId(/^meal-delete-/, { includeHiddenElements: true })).toHaveLength(
-      0,
-    );
-    expect(row(TACOS).props.accessibilityActions).toBeUndefined();
-    expect(row(TACOS).children.at(-1)).not.toHaveProp('name', 'chevron.right');
-    expect(screen.getByTestId('library-list').props.refreshControl).toBeUndefined();
-    await fireEvent.press(row(STEW));
-    expect(app.getPathname()).toBe('/meals');
-  });
-
-  it('C-PICK-10 search and tags narrow the list, and a meal with no tags can be chosen', async () => {
-    await update({
-      library: buildLibrary(
-        [...MEAL_ROWS, makeMealRow({ id: POPPERS, name: 'Jalapeño poppers' })],
-        TAG_ROWS,
-      ).library,
-    });
-    await renderPicker();
-
-    await fireEvent.press(screen.getByTestId('library-filter'));
-    await fireEvent.press(screen.getByRole('button', { name: 'Dinner' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Quick & Easy' }));
-    expect(rowIds()).toEqual([`meal-row-${TACOS}`]);
-    await fireEvent.press(screen.getByTestId('library-clear-filters'));
-
-    await fireEvent.changeText(search(), 'JALAPENO');
-    expect(rowIds()).toEqual([`meal-row-${POPPERS}`]);
-    await fireEvent.press(row(POPPERS));
-
-    expect(mealPick.read()?.value.text).toBe('Jalapeño poppers');
+    expect(photo()).toHaveProp('accessibilityLabel', COPY.changePhoto);
+    expect(photoImages()).toEqual([]);
   });
 });

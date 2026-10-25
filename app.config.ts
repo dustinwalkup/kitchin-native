@@ -49,7 +49,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     [
       'expo-splash-screen',
-      { image: './assets/splash-icon.png', backgroundColor: '#faf3ed', imageWidth: 120 },
+      { image: './assets/splash-icon.png', backgroundColor: '#f8f1e9', imageWidth: 120 },
+    ],
+    // The permission prompts for a meal's photo (specs/redesign/design.md §6.4). The photo library
+    // uses the system picker, which needs no permission; the prompt covers older iOS versions.
+    [
+      'expo-image-picker',
+      {
+        photosPermission: 'Kitchin uses the photos you choose to show your saved meals.',
+        cameraPermission: 'Kitchin uses the camera to take a photo of a saved meal.',
+        microphonePermission: false,
+      },
     ],
     // Uploads source maps during EAS production builds (R26.9). The auth token comes only from the
     // SENTRY_AUTH_TOKEN EAS secret, never from this file (R25.4). Local Debug builds skip the upload.

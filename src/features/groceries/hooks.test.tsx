@@ -17,12 +17,14 @@ import {
   setItemChecked,
   setItemQuantity,
   uncheckAllItems,
+  updateItemDetails,
 } from './api';
 import type { GroceryItemRow } from './domain';
 import {
   useAddItem,
   useClearChecked,
   useDeleteItem,
+  useEditItem,
   useGroceryList,
   useSetChecked,
   useSetQuantity,
@@ -37,6 +39,7 @@ jest.mock('./api', () => ({
   deleteItem: jest.fn(),
   clearCheckedItems: jest.fn(),
   uncheckAllItems: jest.fn(),
+  updateItemDetails: jest.fn(),
 }));
 jest.mock('expo-crypto', () => ({ randomUUID: jest.fn() }));
 
@@ -129,6 +132,10 @@ beforeEach(() => {
     apiCalls.push(`quantity ${id} ${quantity}`);
     patchServer(id, { quantity });
   });
+  jest.mocked(updateItemDetails).mockImplementation(async (id, changes) => {
+    apiCalls.push(`edit ${id} ${JSON.stringify(changes)}`);
+    patchServer(id, changes);
+  });
   jest.mocked(deleteItem).mockImplementation(async (id) => {
     apiCalls.push(`delete ${id}`);
     server = server.filter((r) => r.id !== id);
@@ -172,6 +179,7 @@ function useGroceries() {
     add: useAddItem(),
     check: useSetChecked(),
     setQuantity: useSetQuantity(),
+    edit: useEditItem(),
     remove: useDeleteItem(),
     clearChecked: useClearChecked(),
     uncheckAll: useUncheckAll(),
@@ -564,6 +572,214 @@ describe('quantity', () => {
 
     expect(item(hook, 'rice')).toBeUndefined();
     expect(lastToast()).toEqual({ message: 'That item was removed on another device' });
+  });
+});
+
+describe('edit', () => {
+  const BREAD = { name: 'Bread', category: 'bakery', quantity: null } as const;
+
+  it('shows the edit at once, and sends only the fields that changed (R12.4)', async () => {
+    const edit = deferred();
+    jest.mocked(updateItemDetails).mockReturnValueOnce(edit.promise);
+    const hook = await renderGroceries();
+
+    await act(() =>
+      hook.result.current.edit({
+        id: 'bread',
+        before: BREAD,
+        after: { name: 'Sourdough', category: 'bakery', quantity: '1 loaf' },
+      }),
+    );
+
+    await waitFor(() =>
+      expect(item(hook, 'bread')).toMatchObject({
+        name: 'Sourdough',
+        category: 'bakery',
+        quantity: '1 loaf',
+      }),
+    );
+    expect(jest.mocked(updateItemDetails).mock.calls).toStrictEqual([
+      ['bread', { name: 'Sourdough', quantity: '1 loaf' }],
+    ]);
+    edit.resolve();
+    await settle();
+  });
+
+  it('changes only the fields it edits, so a newer change to the others keeps showing', async () => {
+    const edit = deferred();
+    jest.mocked(updateItemDetails).mockImplementationOnce(async (id, changes) => {
+      await edit.promise;
+      patchServer(id, changes);
+    });
+    const hook = await renderGroceries();
+    // The sheet opened on Bread with no quantity; then the other phone set one.
+    server = server.map((r) => (r.id === 'bread' ? { ...r, quantity: '2 loaves' } : r));
+    await act(() => hook.result.current.list.refetch());
+    await waitFor(() => expect(item(hook, 'bread')?.quantity).toBe('2 loaves'));
+
+    await act(() =>
+      hook.result.current.edit({ id: 'bread', before: BREAD, after: { ...BREAD, name: 'Rye' } }),
+    );
+
+    await waitFor(() => expect(item(hook, 'bread')?.name).toBe('Rye'));
+    expect(item(hook, 'bread')).toMatchObject({ category: 'bakery', quantity: '2 loaves' });
+    expect(jest.mocked(updateItemDetails).mock.calls).toStrictEqual([['bread', { name: 'Rye' }]]);
+    edit.resolve();
+    await settle();
+    expect(item(hook, 'bread')).toMatchObject({ name: 'Rye', quantity: '2 loaves' });
+  });
+
+  it('moves the item to its new category, and sends a cleared quantity as null', async () => {
+    const hook = await renderGroceries();
+
+    await act(() =>
+      hook.result.current.edit({
+        id: 'rice',
+        before: { name: 'Rice', category: 'pantry', quantity: '1 kg' },
+        after: { name: 'Rice', category: 'other', quantity: null },
+      }),
+    );
+    await settle();
+
+    expect(jest.mocked(updateItemDetails).mock.calls).toStrictEqual([
+      ['rice', { category: 'other', quantity: null }],
+    ]);
+    expect(item(hook, 'rice')).toMatchObject({ category: 'other', quantity: null });
+    expect(hook.result.current.list.sections.map((s) => s.category)).toContain('other');
+  });
+
+  it('puts back only the fields it changed when it fails, keeping a queued quantity edit', async () => {
+    const edit = deferred();
+    const quantity = deferred();
+    jest.mocked(updateItemDetails).mockReturnValueOnce(edit.promise);
+    jest.mocked(setItemQuantity).mockReturnValueOnce(quantity.promise);
+    const hook = await renderGroceries();
+
+    await act(() =>
+      hook.result.current.edit({
+        id: 'bread',
+        before: BREAD,
+        after: { ...BREAD, name: 'Sourdough' },
+      }),
+    );
+    await act(() => hook.result.current.setQuantity({ id: 'bread', quantity: '2 loaves' }));
+    await waitFor(() =>
+      expect(item(hook, 'bread')).toMatchObject({ name: 'Sourdough', quantity: '2 loaves' }),
+    );
+
+    await act(() => edit.reject(fail('server')));
+
+    await waitFor(() => expect(item(hook, 'bread')?.name).toBe('Bread'));
+    expect(item(hook, 'bread')?.quantity).toBe('2 loaves');
+    expect(lastToast()).toMatchObject({
+      message: "Couldn't save that change",
+      action: { label: 'Retry' },
+    });
+    expect(report).toHaveBeenCalledWith(expect.objectContaining({ category: 'server' }));
+    await act(() => quantity.resolve());
+    await settle();
+  });
+
+  it('puts back the category and quantity it changed when it fails, leaving the name alone', async () => {
+    const edit = deferred();
+    const rename = deferred();
+    jest.mocked(updateItemDetails).mockReturnValueOnce(edit.promise);
+    const hook = await renderGroceries();
+
+    await act(() =>
+      hook.result.current.edit({
+        id: 'rice',
+        before: { name: 'Rice', category: 'pantry', quantity: '1 kg' },
+        after: { name: 'Rice', category: 'other', quantity: null },
+      }),
+    );
+    // A second, queued edit renames it meanwhile.
+    jest.mocked(updateItemDetails).mockReturnValueOnce(rename.promise);
+    await act(() =>
+      hook.result.current.edit({
+        id: 'rice',
+        before: { name: 'Rice', category: 'other', quantity: null },
+        after: { name: 'Basmati', category: 'other', quantity: null },
+      }),
+    );
+    await waitFor(() => expect(item(hook, 'rice')?.name).toBe('Basmati'));
+
+    await act(() => edit.reject(fail('server')));
+
+    await waitFor(() =>
+      expect(item(hook, 'rice')).toMatchObject({
+        name: 'Basmati',
+        category: 'pantry',
+        quantity: '1 kg',
+      }),
+    );
+    await act(() => rename.resolve());
+    await settle();
+  });
+
+  it('changes nothing when an edit to an item the list no longer has fails', async () => {
+    jest.mocked(updateItemDetails).mockRejectedValueOnce(fail('server'));
+    const hook = await renderGroceries();
+
+    await act(() =>
+      hook.result.current.edit({ id: 'ghost', before: BREAD, after: { ...BREAD, name: 'Rye' } }),
+    );
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalled());
+
+    expect(itemIds(hook)).toEqual(['bagels', 'bread', 'milk', 'peas', 'rice']);
+    expect(item(hook, 'bread')?.name).toBe('Bread');
+    await settle();
+  });
+
+  it('Retry repeats the same edit', async () => {
+    jest.mocked(updateItemDetails).mockRejectedValueOnce(fail('server'));
+    const hook = await renderGroceries();
+
+    await act(() =>
+      hook.result.current.edit({ id: 'bread', before: BREAD, after: { ...BREAD, name: 'Rye' } }),
+    );
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalled());
+    expect(item(hook, 'bread')?.name).toBe('Bread');
+
+    await act(() => lastToast().action.onPress());
+    await settle();
+
+    expect(jest.mocked(updateItemDetails).mock.calls).toEqual([
+      ['bread', { name: 'Rye' }],
+      ['bread', { name: 'Rye' }],
+    ]);
+    expect(item(hook, 'bread')?.name).toBe('Rye');
+  });
+
+  it('undoes a name another open item has, and says so, without reporting (R5.6)', async () => {
+    jest
+      .mocked(updateItemDetails)
+      .mockRejectedValueOnce(fail('conflict_duplicate', 'grocery_items_one_open_per_name'));
+    const hook = await renderGroceries();
+
+    await act(() =>
+      hook.result.current.edit({ id: 'bread', before: BREAD, after: { ...BREAD, name: 'Rice' } }),
+    );
+    await settle();
+
+    expect(item(hook, 'bread')?.name).toBe('Bread');
+    expect(mockShowToast).toHaveBeenCalledTimes(1);
+    expect(lastToast()).toEqual({ message: 'Rice is already on the list' });
+    expect(report).not.toHaveBeenCalled();
+  });
+
+  it('removes an item that another device deleted (R12.5)', async () => {
+    const hook = await renderGroceries();
+    server = server.filter((r) => r.id !== 'bread');
+
+    await act(() =>
+      hook.result.current.edit({ id: 'bread', before: BREAD, after: { ...BREAD, name: 'Rye' } }),
+    );
+    await settle();
+
+    expect(item(hook, 'bread')).toBeUndefined();
+    expect(lastToast()).toEqual({ message: 'That item was removed on another device' });
+    expect(report).not.toHaveBeenCalled();
   });
 });
 

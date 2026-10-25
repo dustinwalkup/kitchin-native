@@ -13,15 +13,20 @@ import {
   deleteMeal,
   fetchLibrary,
   mealExists,
+  removeImages,
   removeTagLinks,
   runSavePlan,
+  signImageUrls,
   updateMeal,
+  uploadImage,
   upsertMeal,
   upsertTags,
 } from './api';
 import type { SavePlan } from './domain';
 
-jest.mock('@/lib/supabase', () => ({ supabase: { from: jest.fn() } }));
+jest.mock('@/lib/supabase', () => ({
+  supabase: { from: jest.fn(), storage: { from: jest.fn() } },
+}));
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -75,7 +80,8 @@ const forbidden: Response = { data: null, error: makePostgrestError('42501'), st
 const summary = (requests: Request[]) => requests.map((r) => `${r.table} ${r.calls[0]?.[0]}`);
 
 const HID = 'household-1';
-const MEAL_COLUMNS = 'id, name, description, ingredients, updated_at, library_meal_tags(tag_id)';
+const MEAL_COLUMNS =
+  'id, name, description, ingredients, meal_type, image_path, updated_at, library_meal_tags(tag_id)';
 const TAG_COLUMNS = 'id, name, name_key';
 
 const NEW_MEAL = {
@@ -83,6 +89,8 @@ const NEW_MEAL = {
   name: 'Lasagna',
   description: 'Beef and ricotta',
   ingredients: null,
+  mealType: 'dinner',
+  imagePath: 'household-1/photo.jpg',
 } as const;
 
 describe('fetchLibrary', () => {
@@ -212,6 +220,8 @@ describe('upsertMeal', () => {
               name: 'Lasagna',
               description: 'Beef and ricotta',
               ingredients: null,
+              meal_type: 'dinner',
+              image_path: 'household-1/photo.jpg',
             },
             { onConflict: 'id' },
           ],
@@ -222,9 +232,18 @@ describe('upsertMeal', () => {
 });
 
 describe('request bodies', () => {
-  const FORBIDDEN_KEYS = ['created_by', 'updated_by', 'created_at', 'updated_at', 'name_key'];
+  // The domain's camelCase names aren't columns, so PostgREST would reject them.
+  const FORBIDDEN_KEYS = [
+    'created_by',
+    'updated_by',
+    'created_at',
+    'updated_at',
+    'name_key',
+    'mealType',
+    'imagePath',
+  ];
 
-  it('U-LAPI-04 never carry attribution, timestamps or the tag key', async () => {
+  it('U-LAPI-04 never carry attribution, timestamps, the tag key or domain field names', async () => {
     const requests = stubRequests({
       library_tags: [ok([makeTagRow({ id: 'tag-9', name: 'Taco Night' })], 201)],
       library_meals: [ok(null, 201), ok([{ id: 'meal-1' }])],
@@ -233,7 +252,13 @@ describe('request bodies', () => {
 
     await upsertTags(HID, ['Taco Night']);
     await upsertMeal(HID, NEW_MEAL);
-    await updateMeal('meal-1', { name: 'Lasagne', description: null, ingredients: 'Pasta' });
+    await updateMeal('meal-1', {
+      name: 'Lasagne',
+      description: null,
+      ingredients: 'Pasta',
+      mealType: 'lunch',
+      imagePath: null,
+    });
     await addTagLinks(HID, 'meal-1', ['tag-1']);
 
     const bodies = requests
@@ -262,6 +287,27 @@ describe('updateMeal', () => {
           ['select', 'id'],
         ],
       },
+    ]);
+  });
+
+  it('U-LAPI-05 sends the meal type and photo as their columns, including none', async () => {
+    const requests = stubRequests({
+      library_meals: [ok([{ id: 'meal-1' }]), ok([{ id: 'meal-1' }]), ok([{ id: 'meal-1' }])],
+    });
+
+    await updateMeal('meal-1', { mealType: 'breakfast' });
+    await updateMeal('meal-1', { imagePath: 'household-1/new.jpg', mealType: null });
+    await updateMeal('meal-1', {
+      name: 'Lasagne',
+      description: 'Beef',
+      ingredients: null,
+      imagePath: null,
+    });
+
+    expect(requests.map((r) => r.calls[0])).toStrictEqual([
+      ['update', { meal_type: 'breakfast' }],
+      ['update', { meal_type: null, image_path: 'household-1/new.jpg' }],
+      ['update', { name: 'Lasagne', description: 'Beef', ingredients: null, image_path: null }],
     ]);
   });
 
@@ -573,6 +619,192 @@ describe('failures', () => {
     await expect(upsertMeal(HID, NEW_MEAL)).rejects.toMatchObject({
       category: 'network',
       meta: { table: 'library_meals', operation: 'upsert' },
+    });
+  });
+});
+
+describe('photos', () => {
+  const PATH = 'household-1/photo.jpg';
+  const URI = 'file:///photo.jpg';
+  const BYTES = new ArrayBuffer(8);
+  const bucket = { upload: jest.fn(), remove: jest.fn(), createSignedUrls: jest.fn() };
+  const fetchMock = jest.fn();
+  const realFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    jest.mocked(supabase.storage.from).mockReturnValue(bucket as never);
+    fetchMock.mockResolvedValue({ arrayBuffer: () => Promise.resolve(BYTES) });
+    globalThis.fetch = fetchMock;
+  });
+
+  afterAll(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  // A Storage error as storage-js returns it, with household text in the message, which must
+  // never survive classification.
+  const storageError = (fields: object = {}) => ({
+    message: `Upload of "${HOUSEHOLD_TEXT}" failed`,
+    ...fields,
+  });
+
+  describe('uploadImage', () => {
+    it('reads the prepared photo and uploads its bytes as a JPEG, never overwriting', async () => {
+      bucket.upload.mockResolvedValue({ data: { path: PATH }, error: null });
+
+      await expect(uploadImage(PATH, URI)).resolves.toBeUndefined();
+
+      expect(fetchMock).toHaveBeenCalledWith(URI);
+      expect(supabase.storage.from).toHaveBeenCalledWith('meal-images');
+      expect(bucket.upload).toHaveBeenCalledWith(PATH, BYTES, {
+        contentType: 'image/jpeg',
+        upsert: false,
+      });
+    });
+
+    it.each([
+      ['a 409', { status: 409 }],
+      ['a 409 as text', { statusCode: '409' }],
+      ['"Duplicate"', { statusCode: '400', message: 'Duplicate' }],
+      ['"already exists"', { status: 400, message: 'The resource already exists' }],
+    ])('DD46 counts %s, an upload already there from an earlier try, as success', async (_, e) => {
+      bucket.upload.mockResolvedValue({ data: null, error: storageError(e) });
+
+      await expect(uploadImage(PATH, URI)).resolves.toBeUndefined();
+    });
+
+    it.each([
+      ['the file cannot be read', () => fetchMock.mockRejectedValue(new Error(`No ${URI}`))],
+      [
+        'its bytes cannot be read',
+        () => fetchMock.mockResolvedValue({ arrayBuffer: () => Promise.reject(new Error(URI)) }),
+      ],
+    ])('fails without uploading when %s, naming no file', async (_, arrange) => {
+      arrange();
+
+      const error = await uploadImage(PATH, URI).catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(ApiError);
+      expect(error).toMatchObject({
+        category: 'server',
+        meta: { table: 'meal-images', operation: 'read_local_image' },
+      });
+      expect(JSON.stringify(error)).not.toContain('photo.jpg');
+      expect(bucket.upload).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['a failed connection', { message: 'Network request failed' }, 'network', undefined],
+      ['a 403', { status: 403 }, 'forbidden', 403],
+      ['a 403 as text', { statusCode: '403' }, 'forbidden', 403],
+      ['a 413', { statusCode: '413' }, 'server', 413],
+      ['an error with no status', {}, 'server', undefined],
+      ['an error with a status that is not a number', { statusCode: 'oops' }, 'server', undefined],
+    ])(
+      'classifies %s by its shape alone, with no server text',
+      async (_, fields, category, status) => {
+        bucket.upload.mockResolvedValue({ data: null, error: storageError(fields) });
+
+        const error = await uploadImage(PATH, URI).catch((e: unknown) => e);
+
+        expect(error).toBeInstanceOf(ApiError);
+        expect(error).toMatchObject({
+          category,
+          meta: { table: 'meal-images', operation: 'upload' },
+        });
+        expect((error as ApiError).meta.status).toBe(status);
+        const { message, stack } = error as ApiError;
+        expect([message, stack, JSON.stringify(error)].join('\n')).not.toContain(HOUSEHOLD_TEXT);
+      },
+    );
+  });
+
+  describe('removeImages', () => {
+    it('removes the photos from the bucket', async () => {
+      bucket.remove.mockResolvedValue({ data: [], error: null });
+
+      await expect(removeImages([PATH, 'household-1/other.jpg'])).resolves.toBeUndefined();
+
+      expect(supabase.storage.from).toHaveBeenCalledWith('meal-images');
+      expect(bucket.remove).toHaveBeenCalledWith([PATH, 'household-1/other.jpg']);
+    });
+
+    it('sends nothing for no photos', async () => {
+      await removeImages([]);
+
+      expect(supabase.storage.from).not.toHaveBeenCalled();
+    });
+
+    it('throws an ApiError with no server text when Storage fails', async () => {
+      bucket.remove.mockResolvedValue({ data: null, error: storageError({ status: 403 }) });
+
+      const error = await removeImages([PATH]).catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(ApiError);
+      expect(error).toMatchObject({
+        category: 'forbidden',
+        meta: { table: 'meal-images', operation: 'remove', status: 403 },
+      });
+      expect(JSON.stringify(error)).not.toContain(HOUSEHOLD_TEXT);
+    });
+  });
+
+  describe('signImageUrls', () => {
+    it('signs every photo in one request, for an hour, by key', async () => {
+      bucket.createSignedUrls.mockResolvedValue({
+        data: [
+          { path: PATH, signedUrl: 'https://storage.test/a?token=1', error: null },
+          { path: 'household-1/b.jpg', signedUrl: 'https://storage.test/b?token=2', error: null },
+        ],
+        error: null,
+      });
+
+      await expect(signImageUrls([PATH, 'household-1/b.jpg'])).resolves.toEqual({
+        [PATH]: 'https://storage.test/a?token=1',
+        'household-1/b.jpg': 'https://storage.test/b?token=2',
+      });
+
+      expect(supabase.storage.from).toHaveBeenCalledWith('meal-images');
+      expect(bucket.createSignedUrls).toHaveBeenCalledTimes(1);
+      expect(bucket.createSignedUrls).toHaveBeenCalledWith([PATH, 'household-1/b.jpg'], 3600);
+    });
+
+    it("leaves out a photo Storage couldn't sign", async () => {
+      bucket.createSignedUrls.mockResolvedValue({
+        data: [
+          { path: PATH, signedUrl: 'https://storage.test/a', error: null },
+          {
+            path: 'household-1/gone.jpg',
+            signedUrl: '',
+            error: 'Either the object does not exist',
+          },
+          { path: 'household-1/blank.jpg', signedUrl: '', error: null },
+          { path: null, signedUrl: 'https://storage.test/orphan', error: null },
+        ],
+        error: null,
+      });
+
+      await expect(
+        signImageUrls([PATH, 'household-1/gone.jpg', 'household-1/blank.jpg']),
+      ).resolves.toEqual({ [PATH]: 'https://storage.test/a' });
+    });
+
+    it('sends nothing for no photos', async () => {
+      await expect(signImageUrls([])).resolves.toEqual({});
+
+      expect(supabase.storage.from).not.toHaveBeenCalled();
+    });
+
+    it('throws an ApiError with no server text when Storage fails', async () => {
+      bucket.createSignedUrls.mockResolvedValue({
+        data: null,
+        error: storageError({ message: 'Network request failed' }),
+      });
+
+      await expect(signImageUrls([PATH])).rejects.toMatchObject({
+        category: 'network',
+        meta: { table: 'meal-images', operation: 'sign' },
+      });
     });
   });
 });

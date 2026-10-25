@@ -137,14 +137,14 @@ isOneToOne: false
                   ]
                 },"library_meals": {
                   Row: {
-                    "created_at": string,"created_by": string | null,"description": string | null,"household_id": string,"id": string,"ingredients": string | null,"name": string,"updated_at": string,"updated_by": string | null
+                    "created_at": string,"created_by": string | null,"description": string | null,"household_id": string,"id": string,"image_path": string | null,"ingredients": string | null,"meal_type": string | null,"name": string,"updated_at": string,"updated_by": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"created_by"?: string | null,"description"?: string | null,"household_id": string,"id"?: string,"ingredients"?: string | null,"name": string,"updated_at"?: string,"updated_by"?: string | null
+                    "created_at"?: string,"created_by"?: string | null,"description"?: string | null,"household_id": string,"id"?: string,"image_path"?: string | null,"ingredients"?: string | null,"meal_type"?: string | null,"name": string,"updated_at"?: string,"updated_by"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"created_by"?: string | null,"description"?: string | null,"household_id"?: string,"id"?: string,"ingredients"?: string | null,"name"?: string,"updated_at"?: string,"updated_by"?: string | null
+                    "created_at"?: string,"created_by"?: string | null,"description"?: string | null,"household_id"?: string,"id"?: string,"image_path"?: string | null,"ingredients"?: string | null,"meal_type"?: string | null,"name"?: string,"updated_at"?: string,"updated_by"?: string | null
                   }
                   Relationships: [
                     {
@@ -177,14 +177,14 @@ isOneToOne: false
                   ]
                 },"meal_entries": {
                   Row: {
-                    "body": string,"created_at": string,"created_by": string | null,"household_id": string,"id": string,"meal_date": string,"meal_type": string,"updated_at": string,"updated_by": string | null
+                    "body": string,"created_at": string,"created_by": string | null,"household_id": string,"id": string,"library_meal_id": string | null,"meal_date": string,"meal_type": string,"updated_at": string,"updated_by": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "body": string,"created_at"?: string,"created_by"?: string | null,"household_id": string,"id"?: string,"meal_date": string,"meal_type": string,"updated_at"?: string,"updated_by"?: string | null
+                    "body": string,"created_at"?: string,"created_by"?: string | null,"household_id": string,"id"?: string,"library_meal_id"?: string | null,"meal_date": string,"meal_type": string,"updated_at"?: string,"updated_by"?: string | null
                   }
                   Update: {
-                    "body"?: string,"created_at"?: string,"created_by"?: string | null,"household_id"?: string,"id"?: string,"meal_date"?: string,"meal_type"?: string,"updated_at"?: string,"updated_by"?: string | null
+                    "body"?: string,"created_at"?: string,"created_by"?: string | null,"household_id"?: string,"id"?: string,"library_meal_id"?: string | null,"meal_date"?: string,"meal_type"?: string,"updated_at"?: string,"updated_by"?: string | null
                   }
                   Relationships: [
                     {
@@ -193,6 +193,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "households"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "meal_entries_library_meal_fkey"
+      columns: ["library_meal_id","household_id"]
+isOneToOne: false
+      referencedRelation: "library_meals"
+      referencedColumns: ["id","household_id"]
     }
                   ]
                 }

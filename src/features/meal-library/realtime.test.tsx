@@ -42,12 +42,12 @@ const LIBRARY_KEY = ['household', HOUSEHOLD_ID, 'library'];
 const MEALS_KEY = ['household', HOUSEHOLD_ID, 'meals'];
 const GROCERY_KEY = ['household', HOUSEHOLD_ID, 'grocery'];
 
-const DINNER = makeTagRow({ id: 'tag-dinner', name: 'Dinner' });
+const COMFORT = makeTagRow({ id: 'tag-comfort', name: 'Comfort food' });
 const TACOS = makeMealRow({ id: 'meal-tacos', name: 'Chicken tacos' });
 const STEW = makeMealRow({
   id: 'meal-stew',
   name: 'Beef stew',
-  library_meal_tags: [{ tag_id: 'tag-dinner' }],
+  library_meal_tags: [{ tag_id: 'tag-comfort' }],
 });
 const CRUMBLE = makeMealRow({ id: 'meal-crumble', name: 'Apple crumble' });
 
@@ -67,7 +67,7 @@ beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
   resetBackend();
-  server = { meals: [TACOS], tags: [DINNER] };
+  server = { meals: [TACOS], tags: [COMFORT] };
   handlers = libraryTableHandlers;
   jest.mocked(fetchLibrary).mockImplementation(async () => ({
     meals: server.meals.map((r) => ({ ...r })),
@@ -131,7 +131,7 @@ describe('onLibraryTableChange', () => {
       queryClient.setQueryData([...MEALS_KEY, 'week', '2026-10-19'], []);
       const invalidate = jest.spyOn(queryClient, 'invalidateQueries');
 
-      // The other phone adds Beef stew, tagged Dinner.
+      // The other phone adds Beef stew, tagged Comfort food.
       server.meals = [TACOS, STEW];
       mockRealtime.latest().emitBroadcast(event(table));
       await act(() => jest.advanceTimersByTimeAsync(QUIET_MS));
@@ -157,7 +157,14 @@ describe('onLibraryTableChange', () => {
       saving = hook.result.current.save({
         base: null,
         mealId: 'meal-crumble',
-        meal: { name: 'Apple crumble', description: null, ingredients: null, tags: [] },
+        meal: {
+          name: 'Apple crumble',
+          description: null,
+          ingredients: null,
+          mealType: null,
+          imagePath: null,
+          tags: [],
+        },
       });
     });
     await waitFor(() => expect(runSavePlan).toHaveBeenCalled());
@@ -193,7 +200,14 @@ describe('onLibraryTableChange', () => {
       await hook.result.current.save({
         base: null,
         mealId: 'meal-crumble',
-        meal: { name: 'Apple crumble', description: null, ingredients: null, tags: [] },
+        meal: {
+          name: 'Apple crumble',
+          description: null,
+          ingredients: null,
+          mealType: null,
+          imagePath: null,
+          tags: [],
+        },
       });
     });
     await waitFor(() => expect(fetches()).toBe(2));

@@ -6,36 +6,69 @@ import { makeMealRow, makeTagRow } from '@/test/factories';
 import { Text } from '@/ui/text';
 
 import { buildLibrary, type Library } from '../domain';
+import { useMealImageUrls } from '../hooks';
 import { MealBrowser, type MealBrowserProps } from './meal-browser';
 
-// Browser components C-LBR-01 to C-LBR-14 (4-test-plan §4.1). The IDs hold no names, so C-LBR-13
-// can check that no test ID contains one.
+// Browser components C-LBR-01 to C-LBR-14 (4-test-plan §4.1), as redesigned: one row of type and tag
+// filters, the wider search and Recently used (specs/redesign/design.md §5.2, DD-R6 to DD-R10). The
+// IDs hold no names, so C-LBR-13 can check that no test ID contains one.
 
-const BREAKFAST = 'tag-1';
-const DINNER = 'tag-2';
+// The photos' signed URLs come from a query; here they're whatever the test says.
+jest.mock('../hooks', () => ({ useMealImageUrls: jest.fn() }));
+
+const FAVOURITE = 'tag-1';
+const COMFORT = 'tag-2';
 const QUICK = 'tag-3';
+// A legacy type tag, which the library no longer lists (DD-R7).
+const LEGACY_DINNER = 'tag-4';
 const STEW = 'meal-1';
 const POPPERS = 'meal-2';
 const OATS = 'meal-3';
 const TACOS = 'meal-4';
+const TACOS_PHOTO = 'household-1/tacos.jpg';
 
 const links = (...ids: string[]) => ids.map((tag_id) => ({ tag_id }));
 
 const LIBRARY = buildLibrary(
   [
-    makeMealRow({ id: TACOS, name: 'Tacos', library_meal_tags: links(DINNER, QUICK) }),
+    makeMealRow({
+      id: TACOS,
+      name: 'Tacos',
+      meal_type: 'dinner',
+      image_path: TACOS_PHOTO,
+      library_meal_tags: links(COMFORT, QUICK, LEGACY_DINNER),
+    }),
     makeMealRow({ id: POPPERS, name: 'Jalapeño poppers', library_meal_tags: links(QUICK) }),
-    makeMealRow({ id: STEW, name: 'Beef stew', library_meal_tags: links(DINNER) }),
-    makeMealRow({ id: OATS, name: 'Overnight oats', library_meal_tags: links(BREAKFAST, QUICK) }),
+    makeMealRow({
+      id: STEW,
+      name: 'Beef stew',
+      meal_type: 'dinner',
+      library_meal_tags: links(COMFORT),
+    }),
+    makeMealRow({
+      id: OATS,
+      name: 'Overnight oats',
+      meal_type: 'breakfast',
+      library_meal_tags: links(FAVOURITE, QUICK),
+    }),
   ],
   [
     makeTagRow({ id: QUICK, name: 'Quick & Easy' }),
-    makeTagRow({ id: DINNER, name: 'Dinner' }),
-    makeTagRow({ id: BREAKFAST, name: 'Breakfast' }),
+    makeTagRow({ id: COMFORT, name: 'Comfort food' }),
+    makeTagRow({ id: FAVOURITE, name: 'Family Favorite' }),
+    makeTagRow({ id: LEGACY_DINNER, name: 'Dinner' }),
   ],
 ).library;
 const EMPTY: Library = { meals: [], tags: LIBRARY.tags, tagsById: LIBRARY.tagsById };
-const NAMES = ['Tacos', 'Jalapeño poppers', 'Beef stew', 'Overnight oats', 'Breakfast', 'Dinner'];
+const NAMES = [
+  'Tacos',
+  'Jalapeño poppers',
+  'Beef stew',
+  'Overnight oats',
+  'Comfort food',
+  'Family Favorite',
+];
+const mealById = (id: string) => LIBRARY.meals.find((meal) => meal.id === id)!;
 
 const onRetry = jest.fn();
 const onPressMeal = jest.fn();
@@ -54,8 +87,9 @@ const props = (overrides: Partial<MealBrowserProps> = {}): MealBrowserProps => (
 });
 
 const search = () => screen.getByLabelText('Search meals');
-const filter = () => screen.getByTestId('library-filter');
 const clearFilters = () => screen.queryByTestId('library-clear-filters');
+const typeChip = (key: string) => screen.getByTestId(`type-chip-${key}`);
+const tagChip = (id: string) => screen.getByTestId(`tag-chip-${id}`);
 /** The IDs of the meals in the list, in order, leaving out the Just saved row. */
 function listed() {
   const ids = screen
@@ -65,13 +99,15 @@ function listed() {
   return screen.queryByTestId('library-just-saved') ? ids.slice(1) : ids;
 }
 
-/** Opens the filter, if it isn't open, and taps each tag's chip. */
+/** Taps each tag's chip. */
 async function selectTags(...names: string[]) {
-  if (!filter().props.accessibilityState?.expanded) await fireEvent.press(filter());
   for (const name of names) await fireEvent.press(screen.getByRole('button', { name }));
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  jest.mocked(useMealImageUrls).mockReturnValue({});
+});
 
 describe('MealBrowser', () => {
   it('lists every meal in alphabetical order', async () => {
@@ -84,6 +120,7 @@ describe('MealBrowser', () => {
     await render(<MealBrowser {...props()} />);
 
     expect(search()).toHaveProp('placeholder', 'Search meals');
+    expect(search()).toHaveProp('testID', 'library-search');
     await fireEvent.changeText(search(), 's');
     expect(listed()).toEqual([STEW, POPPERS, OATS, TACOS]);
 
@@ -106,6 +143,30 @@ describe('MealBrowser', () => {
     expect(listed()).toEqual([TACOS]);
   });
 
+  it('DD-R9 finds meals by their tag names too', async () => {
+    await render(<MealBrowser {...props()} />);
+
+    await fireEvent.changeText(search(), 'COMFORT');
+
+    expect(listed()).toEqual([STEW, TACOS]);
+  });
+
+  it('DD-R9 lists meals whose names match first, then those whose details do', async () => {
+    const library = buildLibrary(
+      [
+        makeMealRow({ id: 'meal-a', name: 'Apple crumble', ingredients: 'Apples\nOats\nButter' }),
+        makeMealRow({ id: 'meal-b', name: 'Banana bread', description: 'With an oat crumble' }),
+        makeMealRow({ id: 'meal-c', name: 'Overnight oats' }),
+      ],
+      [],
+    ).library;
+    await render(<MealBrowser {...props({ library })} />);
+
+    await fireEvent.changeText(search(), 'oat');
+
+    expect(listed()).toEqual(['meal-c', 'meal-a', 'meal-b']);
+  });
+
   it('R42.6 passes each change of the search to onSearchChange', async () => {
     await render(<MealBrowser {...props()} />);
 
@@ -115,29 +176,79 @@ describe('MealBrowser', () => {
     expect(onSearchChange.mock.calls).toEqual([['las'], ['lasag']]);
   });
 
-  it('C-LBR-02 starts with the filter collapsed and no tag chips', async () => {
+  it('C-LBR-02 starts with All selected and no tag selected', async () => {
     await render(<MealBrowser {...props()} />);
 
-    expect(filter()).toBeCollapsed();
-    expect(screen.queryAllByTestId(/^tag-chip-/)).toEqual([]);
+    expect(typeChip('all')).toBeSelected();
+    expect(typeChip('all')).toHaveProp('accessibilityLabel', 'All meals');
+    for (const key of ['breakfast', 'lunch', 'dinner']) expect(typeChip(key)).not.toBeSelected();
+    for (const chip of screen.getAllByTestId(/^tag-chip-/)) expect(chip).not.toBeSelected();
   });
 
-  it('C-LBR-03 opening the filter shows every tag, in alphabetical order', async () => {
+  it('C-LBR-03 shows one row of filters: All, the types, then every tag, Family Favorite first', async () => {
     await render(<MealBrowser {...props()} />);
 
-    await fireEvent.press(filter());
-
-    expect(screen.queryAllByTestId(/^tag-chip-/).map((chip) => chip.props.testID)).toEqual([
-      `tag-chip-${BREAKFAST}`,
-      `tag-chip-${DINNER}`,
+    expect(screen.queryAllByTestId(/^(type|tag)-chip-/).map((chip) => chip.props.testID)).toEqual([
+      'type-chip-all',
+      'type-chip-breakfast',
+      'type-chip-lunch',
+      'type-chip-dinner',
+      `tag-chip-${FAVOURITE}`,
+      `tag-chip-${COMFORT}`,
       `tag-chip-${QUICK}`,
     ]);
+    // DD-R7: the legacy Dinner tag isn't a tag any more, so it has no chip.
+    expect(screen.queryByTestId(`tag-chip-${LEGACY_DINNER}`)).toBeNull();
+    // DD-R8: Family Favorite has its heart.
+    expect(tagChip(FAVOURITE).children[0]).toHaveProp('name', 'heart.fill');
   });
 
-  it('C-LBR-04 selecting Dinner and Quick & Easy shows only meals with both', async () => {
+  it('DD-R6 shows only the meals of the chosen type, one type at a time', async () => {
     await render(<MealBrowser {...props()} />);
 
-    await selectTags('Dinner');
+    await fireEvent.press(typeChip('dinner'));
+    expect(listed()).toEqual([STEW, TACOS]);
+    expect(typeChip('dinner')).toBeSelected();
+    expect(typeChip('all')).not.toBeSelected();
+
+    await fireEvent.press(typeChip('breakfast'));
+    expect(listed()).toEqual([OATS]);
+    expect(typeChip('dinner')).not.toBeSelected();
+
+    await fireEvent.press(typeChip('lunch'));
+    expect(listed()).toEqual([]);
+    expect(screen.getByTestId('library-no-match')).toBeOnTheScreen();
+  });
+
+  it('DD-R6 shows every meal again for All, or when the chosen type is tapped again', async () => {
+    await render(<MealBrowser {...props()} />);
+
+    await fireEvent.press(typeChip('dinner'));
+    await fireEvent.press(typeChip('dinner'));
+    expect(listed()).toEqual([STEW, POPPERS, OATS, TACOS]);
+    expect(typeChip('all')).toBeSelected();
+
+    await fireEvent.press(typeChip('breakfast'));
+    await fireEvent.press(typeChip('all'));
+    expect(listed()).toEqual([STEW, POPPERS, OATS, TACOS]);
+  });
+
+  it('DD-R6 combines the type with the tags and the search', async () => {
+    await render(<MealBrowser {...props()} />);
+
+    await fireEvent.press(typeChip('dinner'));
+    await selectTags('Quick & Easy');
+    expect(listed()).toEqual([TACOS]);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Quick & Easy' }));
+    await fireEvent.changeText(search(), 'stew');
+    expect(listed()).toEqual([STEW]);
+  });
+
+  it('C-LBR-04 selecting Comfort food and Quick & Easy shows only meals with both', async () => {
+    await render(<MealBrowser {...props()} />);
+
+    await selectTags('Comfort food');
     expect(listed()).toEqual([STEW, TACOS]);
 
     await selectTags('Quick & Easy');
@@ -159,27 +270,26 @@ describe('MealBrowser', () => {
   it('R41.5 deselecting every tag shows every meal again', async () => {
     await render(<MealBrowser {...props()} />);
 
-    await selectTags('Breakfast');
+    await selectTags('Family Favorite');
     expect(listed()).toEqual([OATS]);
-    await fireEvent.press(screen.getByRole('button', { name: 'Breakfast' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Family Favorite' }));
 
     expect(listed()).toEqual([STEW, POPPERS, OATS, TACOS]);
   });
 
-  it('C-LBR-05 collapsed, the filter shows how many tags are selected, and which', async () => {
+  it('C-LBR-05 the filter row reads how many tags are selected', async () => {
     await render(<MealBrowser {...props()} />);
+    expect(screen.getByLabelText('Filter by tags')).toBeOnTheScreen();
 
-    await selectTags('Quick & Easy', 'Dinner');
-    await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
+    await selectTags('Quick & Easy', 'Comfort food');
 
-    expect(screen.getByText('Filter by tags · 2')).toBeOnTheScreen();
-    expect(screen.getByText('Dinner, Quick & Easy')).toBeOnTheScreen();
-    expect(filter()).toHaveProp('accessibilityLabel', 'Filter by tags, 2 selected');
-    expect(filter()).toBeCollapsed();
+    expect(screen.getByLabelText('Filter by tags, 2 selected')).toBeOnTheScreen();
+    expect(screen.getByText('✓ Quick & Easy')).toBeOnTheScreen();
+    expect(screen.getByText('✓ Comfort food')).toBeOnTheScreen();
     expect(listed()).toEqual([TACOS]);
   });
 
-  it('C-LBR-06 offers Clear filters only while there is a search or a selected tag', async () => {
+  it('C-LBR-06 offers Clear filters only while there is a search, a type or a selected tag', async () => {
     await render(<MealBrowser {...props()} />);
     expect(clearFilters()).toBeNull();
 
@@ -189,40 +299,48 @@ describe('MealBrowser', () => {
     await fireEvent.changeText(search(), '');
     expect(clearFilters()).toBeNull();
 
-    await selectTags('Dinner');
+    await selectTags('Comfort food');
     expect(clearFilters()).toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Dinner' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Comfort food' }));
+    expect(clearFilters()).toBeNull();
+
+    await fireEvent.press(typeChip('lunch'));
+    expect(clearFilters()).toBeOnTheScreen();
+
+    await fireEvent.press(typeChip('all'));
     expect(clearFilters()).toBeNull();
   });
 
-  it('C-LBR-06 Clear filters empties the search and deselects every tag', async () => {
+  it('C-LBR-06 Clear filters empties the search, deselects every tag and shows every type', async () => {
     await render(<MealBrowser {...props()} />);
     await fireEvent.changeText(search(), 'taco');
-    await selectTags('Dinner', 'Quick & Easy');
+    await selectTags('Comfort food', 'Quick & Easy');
+    await fireEvent.press(typeChip('dinner'));
     onSearchChange.mockClear();
 
     await fireEvent.press(clearFilters()!);
 
     expect(search()).toHaveDisplayValue('');
-    expect(filter()).toHaveProp('accessibilityLabel', 'Filter by tags');
-    expect(screen.getByRole('button', { name: 'Dinner' })).not.toBeSelected();
+    expect(screen.getByLabelText('Filter by tags')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Comfort food' })).not.toBeSelected();
+    expect(typeChip('all')).toBeSelected();
     expect(listed()).toEqual([STEW, POPPERS, OATS, TACOS]);
     expect(onSearchChange).toHaveBeenCalledWith('');
     expect(clearFilters()).toBeNull();
   });
 
-  it('C-LBR-07 shows "No meals match" with Clear filters, below the search and filter', async () => {
+  it('C-LBR-07 shows "No matching meals" with Clear filters, below the search and filters', async () => {
     await render(<MealBrowser {...props()} />);
 
-    await selectTags('Breakfast', 'Dinner');
+    await selectTags('Family Favorite', 'Comfort food');
 
     expect(listed()).toEqual([]);
     const noMatch = screen.getByTestId('library-no-match');
-    expect(within(noMatch).getByRole('header', { name: 'No meals match' })).toBeOnTheScreen();
+    expect(within(noMatch).getByRole('header', { name: 'No matching meals' })).toBeOnTheScreen();
     expect(search()).toBeOnTheScreen();
-    expect(filter()).toBeOnTheScreen();
-    expect(screen.queryByText('No saved meals yet')).toBeNull();
+    expect(typeChip('all')).toBeOnTheScreen();
+    expect(screen.queryByText('No meals yet')).toBeNull();
 
     await fireEvent.press(within(noMatch).getByRole('button', { name: 'Clear filters' }));
 
@@ -230,26 +348,31 @@ describe('MealBrowser', () => {
     expect(screen.queryByTestId('library-no-match')).toBeNull();
   });
 
-  it('C-LBR-07 an empty library shows "No saved meals yet" and its action, with no search or filter', async () => {
+  it('C-LBR-07 an empty library shows "No meals yet" and its action, with no search or filters', async () => {
     await render(<MealBrowser {...props({ library: EMPTY })} />);
 
-    expect(screen.getByRole('header', { name: 'No saved meals yet' })).toBeOnTheScreen();
-    expect(screen.queryByText('No meals match')).toBeNull();
+    expect(screen.getByRole('header', { name: 'No meals yet' })).toBeOnTheScreen();
+    expect(screen.queryByText('No matching meals')).toBeNull();
     expect(screen.queryByLabelText('Search meals')).toBeNull();
-    expect(screen.queryByTestId('library-filter')).toBeNull();
+    expect(screen.queryByTestId('type-chip-all')).toBeNull();
+    expect(screen.queryAllByTestId(/^tag-chip-/)).toEqual([]);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Add meal' }));
 
     expect(onAdd).toHaveBeenCalledTimes(1);
   });
 
-  it('C-LBR-08 rows show their tags and read as the name followed by the tags', async () => {
+  it('C-LBR-08 rows show their type and tags and read as the name, the type, then the tags', async () => {
     await render(<MealBrowser {...props()} />);
 
     const tacos = screen.getByTestId(`meal-row-${TACOS}`);
-    expect(tacos).toHaveProp('accessibilityLabel', 'Tacos. Tags: Dinner, Quick & Easy');
+    expect(tacos).toHaveProp(
+      'accessibilityLabel',
+      'Tacos, dinner. Tags: Comfort food, Quick & Easy',
+    );
     expect(tacos).toHaveProp('accessibilityHint', 'Edits this meal');
-    expect(within(tacos).getByText('Dinner')).toBeOnTheScreen();
+    expect(within(tacos).getByTestId('type-pill')).toHaveTextContent('Dinner');
+    expect(within(tacos).getByText('Comfort food')).toBeOnTheScreen();
     expect(within(tacos).getByText('Quick & Easy')).toBeOnTheScreen();
   });
 
@@ -259,6 +382,88 @@ describe('MealBrowser', () => {
     await fireEvent.press(screen.getByTestId(`meal-row-${STEW}`));
 
     expect(onPressMeal).toHaveBeenCalledWith(LIBRARY.meals[0]);
+  });
+
+  describe('photos (§6.5)', () => {
+    const images = () => screen.root!.queryAll((node) => node.props.recyclingKey !== undefined);
+
+    it("asks for every meal's photo URL at once, in the meals' order", async () => {
+      await render(<MealBrowser {...props()} />);
+
+      expect(useMealImageUrls).toHaveBeenLastCalledWith([null, null, null, TACOS_PHOTO]);
+    });
+
+    it('shows a photo once its URL is signed, and the placeholder until then', async () => {
+      await render(<MealBrowser {...props()} />);
+      expect(images()).toEqual([]);
+
+      jest.mocked(useMealImageUrls).mockReturnValue({ [TACOS_PHOTO]: 'https://storage.test/t' });
+      await screen.rerender(<MealBrowser {...props()} />);
+
+      expect(images()).toHaveLength(1);
+      expect(images()[0]).toHaveProp('source', [
+        { uri: 'https://storage.test/t', cacheKey: TACOS_PHOTO },
+      ]);
+    });
+  });
+
+  describe('Recently used (DD-R10)', () => {
+    const recent = [mealById(OATS), mealById(TACOS)];
+    const recentMeals = () => screen.queryByTestId('recent-meals');
+
+    it('shows the recent meals as cards above "All meals"', async () => {
+      await render(<MealBrowser {...props({ recent })} />);
+
+      const section = within(recentMeals()!);
+      expect(section.getByRole('header', { name: 'Recently used' })).toBeOnTheScreen();
+      expect(section.getAllByTestId(/^recent-meal-/).map((card) => card.props.testID)).toEqual([
+        `recent-meal-${OATS}`,
+        `recent-meal-${TACOS}`,
+      ]);
+      expect(screen.getByRole('header', { name: 'All meals' })).toBeOnTheScreen();
+      // The cards are a shortcut: the meals stay in the list.
+      expect(listed()).toEqual([STEW, POPPERS, OATS, TACOS]);
+    });
+
+    it('passes a tapped card to onPressMeal', async () => {
+      await render(<MealBrowser {...props({ recent })} />);
+
+      await fireEvent.press(screen.getByTestId(`recent-meal-${TACOS}`));
+
+      expect(onPressMeal).toHaveBeenCalledWith(mealById(TACOS));
+    });
+
+    it('goes while there is a search, a type or a tag, and comes back once cleared', async () => {
+      await render(<MealBrowser {...props({ recent })} />);
+
+      await fireEvent.changeText(search(), 'o');
+      expect(recentMeals()).toBeNull();
+      expect(screen.queryByRole('header', { name: 'All meals' })).toBeNull();
+
+      await fireEvent.changeText(search(), '');
+      await fireEvent.press(typeChip('dinner'));
+      expect(recentMeals()).toBeNull();
+
+      await fireEvent.press(typeChip('all'));
+      await selectTags('Quick & Easy');
+      expect(recentMeals()).toBeNull();
+
+      await fireEvent.press(clearFilters()!);
+      expect(recentMeals()).toBeOnTheScreen();
+    });
+
+    it('shows neither the section nor "All meals" with nothing recent', async () => {
+      await render(<MealBrowser {...props({ recent: [] })} />);
+
+      expect(recentMeals()).toBeNull();
+      expect(screen.queryByRole('header', { name: 'All meals' })).toBeNull();
+    });
+
+    it('shows nothing recent while the library loads', async () => {
+      await render(<MealBrowser {...props({ recent, library: EMPTY, status: 'loading' })} />);
+
+      expect(recentMeals()).toBeNull();
+    });
   });
 
   describe('Just saved', () => {
@@ -305,11 +510,11 @@ describe('MealBrowser', () => {
     it('C-LBR-10 goes when the search changes', async () => {
       await saveHiddenStew();
 
-      // "o" still hides Beef stew.
-      await fireEvent.changeText(search(), 'o');
+      // "tacos" still hides Beef stew.
+      await fireEvent.changeText(search(), 'tacos');
 
       expect(justSavedRow()).toBeNull();
-      expect(listed()).toEqual([POPPERS, OATS, TACOS]);
+      expect(listed()).toEqual([TACOS]);
     });
 
     it('C-LBR-10 goes when the tags change', async () => {
@@ -317,6 +522,15 @@ describe('MealBrowser', () => {
 
       // Quick & Easy still hides Beef stew.
       await selectTags('Quick & Easy');
+
+      expect(justSavedRow()).toBeNull();
+    });
+
+    it('C-LBR-10 goes when the type changes', async () => {
+      await saveHiddenStew();
+
+      // Breakfast still hides Beef stew.
+      await fireEvent.press(typeChip('breakfast'));
 
       expect(justSavedRow()).toBeNull();
     });
@@ -350,15 +564,25 @@ describe('MealBrowser', () => {
       await screen.rerender(<MealBrowser {...justSaved(2, 'meal-gone')} />);
       expect(justSavedRow()).toBeNull();
     });
+
+    it("shows the saved meal's photo", async () => {
+      jest.mocked(useMealImageUrls).mockReturnValue({ [TACOS_PHOTO]: 'https://storage.test/t' });
+      await render(<MealBrowser {...props()} />);
+      await fireEvent.changeText(search(), 'stew');
+      await screen.rerender(<MealBrowser {...justSaved(1, TACOS)} />);
+
+      const row = screen.getByTestId('library-just-saved');
+      expect(row.queryAll((node) => node.props.recyclingKey === TACOS_PHOTO)).toHaveLength(1);
+    });
   });
 
   describe('states', () => {
-    it('C-LBR-11 the first load shows skeleton rows, with no search or filter', async () => {
+    it('C-LBR-11 the first load shows skeleton rows, with no search or filters', async () => {
       await render(<MealBrowser {...props({ library: EMPTY, status: 'loading' })} />);
 
       expect(screen.getByTestId('library-skeleton')).toBeOnTheScreen();
       expect(screen.queryByLabelText('Search meals')).toBeNull();
-      expect(screen.queryByTestId('library-filter')).toBeNull();
+      expect(screen.queryByTestId('type-chip-all')).toBeNull();
     });
 
     it('C-LBR-11 an error with nothing loaded shows LoadError, whose Retry calls onRetry', async () => {
@@ -369,7 +593,7 @@ describe('MealBrowser', () => {
       );
 
       expect(onRetry).toHaveBeenCalledTimes(1);
-      expect(screen.queryByText('No saved meals yet')).toBeNull();
+      expect(screen.queryByText('No meals yet')).toBeNull();
     });
 
     it('C-LBR-11 offline before the first load shows "Waiting for connection…"', async () => {
@@ -413,14 +637,15 @@ describe('MealBrowser', () => {
     });
   });
 
-  it('C-LBR-12 the filter, Clear filters, chips and rows are at least 44 pt', async () => {
+  it('C-LBR-12 the type chips, tag chips, Clear filters and rows are at least 44 pt', async () => {
     await render(<MealBrowser {...props()} />);
-    await selectTags('Dinner');
+    await selectTags('Comfort food');
 
     for (const target of [
-      filter(),
+      typeChip('all'),
+      typeChip('dinner'),
       clearFilters()!,
-      screen.getByRole('button', { name: 'Dinner' }),
+      screen.getByRole('button', { name: 'Comfort food' }),
     ]) {
       const { width, height } = touchTarget(target);
       expect(width).toBeGreaterThanOrEqual(44);
@@ -431,21 +656,28 @@ describe('MealBrowser', () => {
   });
 
   it('C-LBR-13 no test ID holds a meal or tag name', async () => {
-    await render(<MealBrowser {...props()} />);
+    await render(<MealBrowser {...props({ recent: [mealById(OATS)] })} />);
+    const withRecent = screen
+      .queryAllByTestId(/./, { includeHiddenElements: true })
+      .map((element) => element.props.testID as string);
     // The search hides Beef stew, so it shows as the Just saved row.
     await fireEvent.changeText(search(), 'taco');
     await screen.rerender(<MealBrowser {...props({ justSaved: { id: 1, mealId: STEW } })} />);
-    await fireEvent.press(filter());
 
-    const testIDs = screen
-      .queryAllByTestId(/./, { includeHiddenElements: true })
-      .map((element) => (element.props.testID as string).toLowerCase());
+    const testIDs = [
+      ...withRecent,
+      ...screen
+        .queryAllByTestId(/./, { includeHiddenElements: true })
+        .map((element) => element.props.testID as string),
+    ].map((testID) => testID.toLowerCase());
     expect(testIDs).toEqual(
       expect.arrayContaining([
         'library-search',
-        'library-filter',
         'library-list',
         'library-just-saved',
+        'library-clear-filters',
+        'recent-meals',
+        'type-chip-all',
       ]),
     );
     for (const name of [...NAMES, 'Quick', 'Easy']) {
@@ -453,35 +685,50 @@ describe('MealBrowser', () => {
     }
   });
 
-  it('C-LBR-14 a new browser starts with an empty search and no tags', async () => {
+  it('C-LBR-14 a new browser starts with an empty search, every type and no tags', async () => {
     await render(<MealBrowser {...props()} />);
     await fireEvent.changeText(search(), 'taco');
-    await selectTags('Dinner');
+    await selectTags('Comfort food');
+    await fireEvent.press(typeChip('dinner'));
     await screen.unmount();
 
     await render(<MealBrowser {...props()} />);
 
     expect(search()).toHaveDisplayValue('');
-    expect(filter()).toHaveProp('accessibilityLabel', 'Filter by tags');
+    expect(screen.getByLabelText('Filter by tags')).toBeOnTheScreen();
+    expect(typeChip('all')).toBeSelected();
     expect(listed()).toEqual([STEW, POPPERS, OATS, TACOS]);
   });
 
-  it('R41.9 keeps the search and tags while the library changes underneath', async () => {
+  it('R41.9 keeps the search, type and tags while the library changes underneath', async () => {
     await render(<MealBrowser {...props()} />);
     await fireEvent.changeText(search(), 'o');
     await selectTags('Quick & Easy');
+    await fireEvent.press(typeChip('dinner'));
 
     const reloaded = buildLibrary(
       [
-        makeMealRow({ id: TACOS, name: 'Tacos', library_meal_tags: links(QUICK) }),
-        makeMealRow({ id: 'meal-5', name: 'Soup', library_meal_tags: links(QUICK) }),
+        makeMealRow({
+          id: TACOS,
+          name: 'Tacos',
+          meal_type: 'dinner',
+          library_meal_tags: links(QUICK),
+        }),
+        makeMealRow({
+          id: 'meal-5',
+          name: 'Soup',
+          meal_type: 'dinner',
+          library_meal_tags: links(QUICK),
+        }),
+        makeMealRow({ id: 'meal-6', name: 'Porridge', library_meal_tags: links(QUICK) }),
       ],
       [makeTagRow({ id: QUICK, name: 'Quick & Easy' })],
     ).library;
     await screen.rerender(<MealBrowser {...props({ library: reloaded })} />);
 
     expect(search()).toHaveDisplayValue('o');
-    expect(filter()).toHaveProp('accessibilityLabel', 'Filter by tags, 1 selected');
+    expect(screen.getByLabelText('Filter by tags, 1 selected')).toBeOnTheScreen();
+    expect(typeChip('dinner')).toBeSelected();
     expect(listed()).toEqual(['meal-5', TACOS]);
   });
 
@@ -490,14 +737,15 @@ describe('MealBrowser', () => {
     const rowProps = { onDeleteMeal, rowDisclosure: true };
     await render(<MealBrowser {...props(rowProps)} />);
     // The search hides Tacos, so it shows as the Just saved row.
-    await fireEvent.changeText(search(), 'e');
+    await fireEvent.changeText(search(), 'n');
     await screen.rerender(
       <MealBrowser {...props({ ...rowProps, justSaved: { id: 1, mealId: TACOS } })} />,
     );
 
     const deletes = screen.getAllByTestId(/^meal-delete-/, { includeHiddenElements: true });
-    // Three listed rows, and the Just saved row of Tacos.
-    expect(deletes).toHaveLength(4);
+    // Two listed rows, and the Just saved row of Tacos.
+    expect(listed()).toEqual([POPPERS, OATS]);
+    expect(deletes).toHaveLength(3);
     await fireEvent.press(deletes[0]);
     expect(onDeleteMeal).toHaveBeenCalledWith(expect.objectContaining({ id: TACOS }));
     for (const row of screen.getAllByTestId(/^meal-row-/)) {

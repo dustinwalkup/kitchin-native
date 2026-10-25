@@ -2,16 +2,18 @@ import { type ReactElement, type ReactNode, useCallback, useMemo, useState } fro
 import {
   FlatList,
   type ListRenderItemInfo,
-  Pressable,
   type RefreshControlProps,
   StyleSheet,
   View,
 } from 'react-native';
 
-import { Text } from '@/ui/text';
+import type { MealType } from '@/features/meals/constants';
+import { Divider, SectionHeader } from '@/ui/group';
+import { SearchField } from '@/ui/search-field';
 
 import { COPY } from '../constants';
 import { filterMeals, type Library, type Meal } from '../domain';
+import { useMealImageUrls } from '../hooks';
 import {
   EmptyLibrary,
   LoadError,
@@ -19,9 +21,9 @@ import {
   SkeletonRows,
   WaitingForConnection,
 } from './library-states';
+import { MealFilters } from './meal-filters';
 import { MealRow, type MealRowProps } from './meal-row';
-import { SearchField } from './search-field';
-import { TagFilter } from './tag-filter';
+import { RecentMeals } from './recent-meals';
 
 export interface MealBrowserProps {
   library: Library;
@@ -39,30 +41,36 @@ export interface MealBrowserProps {
   onDeleteMeal?: (meal: Meal) => void;
   /** A chevron on every row, where a tap opens the meal (R40.7). */
   rowDisclosure?: boolean;
-  /** The empty library's action: Add meal, or "+ Add new meal" in the picker (R40.9, R45.12). */
+  /** The empty library's action: Add meal, or New meal in the picker (R40.9, R45.12). */
   emptyAction: { label: string; onPress: () => void };
   /**
    * The meal just saved, with its `lastSaved` hand-off ID, for the Just saved row (DD55). The row
-   * shows only while the search or tags hide the meal, and until the member changes either; the
+   * shows only while the search or filters hide the meal, and until the member changes them; the
    * screen passes null once they leave.
    */
   justSaved?: { id: number; mealId: string } | null;
   /** Follows the search as it changes, so the screen can start a new meal's name from it (R42.6). */
   onSearchChange?: (search: string) => void;
-  /** Shown above the search, such as the picker's "+ Add new meal" (§3.10). */
+  /** The meals planned most recently, shown as cards above the list until a filter is set (DD-R10). */
+  recent?: Meal[];
+  /** Shown above the search, such as the picker's New meal (§3.10). Hidden while the library is empty. */
   header?: ReactNode;
+  /** Shown at the top in every state, such as the plan sheet's mode switch (design §5.4). */
+  persistentHeader?: ReactNode;
   refreshControl?: ReactElement<RefreshControlProps>;
 }
 
 const NO_TAGS: ReadonlySet<string> = new Set();
 
 /**
- * The library's meals with a search, Filter by tags and Clear filters, shared by the library and
- * the picker (N29, DD53). The search and selected tags live here, so a new browser starts with
- * neither, and the screen underneath a form keeps both (R41.9, R45.11).
+ * The library's meals with a search and one row of type and tag filters, shared by the library and
+ * the picker (N29, DD53, specs/redesign/design.md §5.2). The search and filters live here, so a new
+ * browser starts with neither, and the screen underneath a form keeps both (R41.9, R45.11). The
+ * library's default shows every meal, of any type, so a filter never hides a meal from a slot it
+ * wasn't saved for.
  *
- * The search and filter scroll with the list, so an open filter can't crowd out the meals at large
- * text sizes (N12). They're hidden until there are meals to search (R40.9).
+ * The search and filters scroll with the list, so they can't crowd out the meals at large text
+ * sizes (N12). They're hidden until there are meals to search (R40.9).
  */
 export function MealBrowser({
   library,
@@ -75,19 +83,26 @@ export function MealBrowser({
   emptyAction,
   justSaved = null,
   onSearchChange,
+  recent = [],
   header,
+  persistentHeader,
   refreshControl,
 }: MealBrowserProps) {
   const { meals, tags, tagsById } = library;
   const [query, setQuery] = useState('');
   const [tagIds, setTagIds] = useState(NO_TAGS);
+  const [mealType, setMealType] = useState<MealType | null>(null);
   // The hand-off ID of a Just saved row the member has since changed the filters under (DD55).
   const [dismissedId, setDismissedId] = useState<number | null>(null);
+  const imageUrls = useMealImageUrls(useMemo(() => meals.map((meal) => meal.imagePath), [meals]));
 
   // Filtering 300 meals is well inside a keystroke's 100 ms (N25), and the rows are memoised.
-  const visible = useMemo(() => filterMeals(meals, { query, tagIds }), [meals, query, tagIds]);
-  const filtering = query !== '' || tagIds.size > 0;
-  // Only while the search or tags hide the meal, so it never shows twice (DD55).
+  const visible = useMemo(
+    () => filterMeals(meals, { query, tagIds, mealType }),
+    [meals, query, tagIds, mealType],
+  );
+  const filtering = query !== '' || tagIds.size > 0 || mealType !== null;
+  // Only while the search or filters hide the meal, so it never shows twice (DD55).
   const justSavedMeal =
     justSaved !== null &&
     justSaved.id !== dismissedId &&
@@ -95,41 +110,48 @@ export function MealBrowser({
       ? meals.find((meal) => meal.id === justSaved.mealId)
       : undefined;
 
-  function changeFilters(nextQuery: string, nextTagIds: ReadonlySet<string>) {
+  function changeFilters(
+    nextQuery: string,
+    nextTagIds: ReadonlySet<string>,
+    nextType: MealType | null,
+  ) {
     if (nextQuery !== query) onSearchChange?.(nextQuery);
     setQuery(nextQuery);
     setTagIds(nextTagIds);
-    // Any change to the search or tags ends the Just saved row (DD55).
+    setMealType(nextType);
+    // Any change to the search or filters ends the Just saved row (DD55).
     if (justSaved !== null) setDismissedId(justSaved.id);
   }
 
   function toggleTag(id: string) {
     const next = new Set(tagIds);
     if (!next.delete(id)) next.add(id);
-    changeFilters(query, next);
+    changeFilters(query, next, mealType);
   }
 
   // R41.7
-  const clearFilters = () => changeFilters('', NO_TAGS);
+  const clearFilters = () => changeFilters('', NO_TAGS, null);
 
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<Meal>) => (
       <MealRow
         meal={item}
         tagsById={tagsById}
+        imageUri={item.imagePath ? imageUrls[item.imagePath] : undefined}
         hint={rowHint}
         onPress={onPressMeal}
         onDelete={onDeleteMeal}
         disclosure={rowDisclosure}
       />
     ),
-    [tagsById, rowHint, onPressMeal, onDeleteMeal, rowDisclosure],
+    [tagsById, imageUrls, rowHint, onPressMeal, onDeleteMeal, rowDisclosure],
   );
 
   const empty = status === 'ready' && meals.length === 0;
   const searchable = status === 'ready' && !empty;
-  // The empty library offers its own action, so the picker doesn't show "+ Add new meal" twice.
+  // The empty library offers its own action, so the picker doesn't show New meal twice.
   const top = empty ? null : header;
+  const showRecent = searchable && !filtering && recent.length > 0;
 
   return (
     <FlatList
@@ -137,30 +159,56 @@ export function MealBrowser({
       data={visible}
       keyExtractor={(meal) => meal.id}
       renderItem={renderItem}
-      ItemSeparatorComponent={RowGap}
+      ItemSeparatorComponent={RowDivider}
       // An element, not a component, so the search field keeps focus as the list redraws.
       ListHeaderComponent={
-        top || searchable ? (
+        persistentHeader || top || searchable ? (
           <View style={styles.header}>
+            {persistentHeader}
             {top}
             {searchable ? (
               <>
-                <SearchField value={query} onChangeText={(text) => changeFilters(text, tagIds)} />
-                <TagFilter
+                <View style={styles.search}>
+                  <SearchField
+                    testID="library-search"
+                    label={COPY.search}
+                    value={query}
+                    onChangeText={(text) => changeFilters(text, tagIds, mealType)}
+                  />
+                </View>
+                <MealFilters
+                  mealType={mealType}
+                  onMealType={(type) => changeFilters(query, tagIds, type)}
                   tags={tags}
-                  selected={tagIds}
-                  onToggle={toggleTag}
-                  action={filtering ? <ClearFiltersButton onPress={clearFilters} /> : null}
+                  selectedTagIds={tagIds}
+                  onToggleTag={toggleTag}
+                  onClear={filtering ? clearFilters : undefined}
                 />
+                {showRecent ? (
+                  <RecentMeals
+                    meals={recent}
+                    imageUrls={imageUrls}
+                    onPress={onPressMeal}
+                    hint={rowHint}
+                  />
+                ) : null}
                 {justSavedMeal ? (
                   <JustSaved
                     meal={justSavedMeal}
                     tagsById={tagsById}
+                    imageUri={
+                      justSavedMeal.imagePath ? imageUrls[justSavedMeal.imagePath] : undefined
+                    }
                     hint={rowHint}
                     onPress={onPressMeal}
                     onDelete={onDeleteMeal}
                     disclosure={rowDisclosure}
                   />
+                ) : null}
+                {showRecent && visible.length > 0 ? (
+                  <View style={styles.listHeading}>
+                    <SectionHeader title="All meals" />
+                  </View>
                 ) : null}
               </>
             ) : null}
@@ -212,54 +260,27 @@ function BrowserState({
   }
 }
 
-/** The meal just saved, above the list, when the search or tags leave it out of the list (DD55). */
+/** The meal just saved, above the list, when the search or filters leave it out of the list (DD55). */
 function JustSaved(props: MealRowProps) {
   return (
     <View testID="library-just-saved" style={styles.justSaved}>
-      <Text variant="footnote" color="inkMuted" bold accessibilityRole="header" style={styles.caps}>
-        {COPY.justSaved}
-      </Text>
+      <View style={styles.listHeading}>
+        <SectionHeader title={COPY.justSaved} />
+      </View>
       <MealRow {...props} />
     </View>
   );
 }
 
-/** Shown beside Filter by tags while there's a search or a selected tag (R41.7). */
-function ClearFiltersButton({ onPress }: { onPress: () => void }) {
-  return (
-    <Pressable
-      testID="library-clear-filters"
-      accessibilityRole="button"
-      accessibilityLabel={COPY.clearFilters}
-      onPress={onPress}
-      style={({ pressed }) => [styles.clear, pressed && styles.pressed]}
-    >
-      {/* Terracotta carries text only in bold (N13). */}
-      <Text variant="subhead" color="accent" bold>
-        {COPY.clearFilters}
-      </Text>
-    </Pressable>
-  );
-}
-
-function RowGap() {
-  return <View style={styles.gap} />;
+function RowDivider() {
+  return <Divider inset={86} />;
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16 },
+  content: { paddingBottom: 24 },
   fill: { flexGrow: 1 },
-  header: { gap: 12, paddingBottom: 12 },
-  justSaved: { gap: 8 },
-  caps: { textTransform: 'uppercase', letterSpacing: 0.5 },
-  gap: { height: 12 },
-  clear: {
-    minHeight: 44,
-    minWidth: 44,
-    marginLeft: 'auto',
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pressed: { opacity: 0.6 },
+  header: { gap: 10, paddingTop: 4, paddingBottom: 6 },
+  search: { paddingHorizontal: 16 },
+  listHeading: { paddingHorizontal: 16, paddingTop: 6 },
+  justSaved: { gap: 2 },
 });

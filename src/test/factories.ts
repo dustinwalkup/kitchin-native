@@ -159,6 +159,7 @@ export function makeMealEntry(
     date: date as IsoDate,
     mealType: 'dinner',
     body: 'Tacos',
+    libraryMealId: null,
     updatedAt: '2026-10-19T12:00:00+00:00',
     ...rest,
   };
@@ -171,21 +172,29 @@ export function makeEntryRow(overrides: Partial<MealEntryRow> = {}): MealEntryRo
     meal_date: '2026-10-19',
     meal_type: 'dinner',
     body: 'Tacos',
+    library_meal_id: null,
     updated_at: '2026-10-19T12:00:00+00:00',
     ...overrides,
   };
 }
 
-/** A saved meal with no tags. Its `searchKey` follows its name unless the overrides set it. */
+/**
+ * A saved meal with no type, photo or tags. Its `searchKey` follows its name, and its `detailKey`
+ * its description and ingredients, unless the overrides set them.
+ */
 export function makeLibraryMeal(overrides: Partial<Meal> = {}): Meal {
   const name = overrides.name ?? 'Tacos';
+  const details = [overrides.description, overrides.ingredients].filter(Boolean).join('\n');
   return {
     id: 'meal-1',
     name,
     description: null,
     ingredients: null,
+    mealType: null,
+    imagePath: null,
     tagIds: [],
     searchKey: foldForSearch(name),
+    detailKey: foldForSearch(details),
     updatedAt: '2026-10-19T12:00:00+00:00',
     ...overrides,
   };
@@ -193,7 +202,7 @@ export function makeLibraryMeal(overrides: Partial<Meal> = {}): Meal {
 
 /** A household tag. Its `key` follows its name unless the overrides set it. */
 export function makeLibraryTag(overrides: Partial<Tag> = {}): Tag {
-  const name = overrides.name ?? 'Dinner';
+  const name = overrides.name ?? 'Quick & Easy';
   return { id: 'tag-1', name, key: tagKey(name), ...overrides };
 }
 
@@ -207,6 +216,8 @@ export function makeMealRow(overrides: Partial<MealRow> = {}): MealRow {
     name: 'Tacos',
     description: null,
     ingredients: null,
+    meal_type: null,
+    image_path: null,
     updated_at: '2026-10-19T12:00:00+00:00',
     library_meal_tags: [],
     ...overrides,
@@ -218,6 +229,6 @@ export function makeMealRow(overrides: Partial<MealRow> = {}): MealRow {
  * the generated column does.
  */
 export function makeTagRow(overrides: Partial<TagRow> = {}): TagRow {
-  const name = overrides.name ?? 'Dinner';
+  const name = overrides.name ?? 'Quick & Easy';
   return { id: 'tag-1', name, name_key: tagKey(name), ...overrides };
 }

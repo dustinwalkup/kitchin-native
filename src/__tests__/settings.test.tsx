@@ -7,6 +7,7 @@ import type { SignOutResult } from '@/features/auth/auth-provider';
 import type { AppVariant } from '@/lib/env-guard';
 import { queryClient } from '@/lib/query-client';
 import { MEMBERSHIP, resetBackend } from '@/test/mock-backend';
+import { themes } from '@/ui/theme';
 
 // Settings tests C-SET-01–05 (4-test-plan §4.7), and C-SET-06–07 for the start of the week (meals
 // 4-test-plan §14.3), on the real routes. The auth provider's sign-out
@@ -82,6 +83,12 @@ async function openSignOut(): Promise<AlertButton[]> {
   return alert.mock.calls[0][2];
 }
 
+/** The Sign out row's spinner, while signing out is pending. */
+const spinner = () =>
+  screen
+    .getByTestId('settings-sign-out')
+    .children.find((child) => typeof child !== 'string' && child.type === 'ActivityIndicator');
+
 const press = (buttons: AlertButton[], text: string) =>
   act(async () => buttons.find((button) => button.text === text)?.onPress?.());
 
@@ -133,16 +140,68 @@ describe('Settings', () => {
     expect(screen.getByText("Couldn't sign out. Try again.")).toBeOnTheScreen();
   });
 
-  it('blocks a second sign-out while one is in progress', async () => {
+  it('blocks a second sign-out while one is in progress, with a spinner', async () => {
     let finish!: (result: SignOutResult) => void;
     mockSignOut.mockReturnValue(new Promise((resolve) => (finish = resolve)));
     await renderSettings();
 
     await press(await openSignOut(), 'Sign out');
 
-    expect(screen.getByRole('button', { name: 'Sign out' })).toBeDisabled();
+    const row = screen.getByTestId('settings-sign-out');
+    expect(row).toBe(screen.getByRole('button', { name: 'Sign out' }));
+    expect(row).toBeDisabled();
+    expect(row).toBeBusy();
+    expect(spinner()).toHaveProp('color', themes.light.accent);
+    await fireEvent.press(row);
+    expect(alert).toHaveBeenCalledTimes(1);
+
     await act(async () => finish({ ok: false, reason: 'offline' }));
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Sign out' })).not.toBeBusy();
+    expect(spinner()).toBeUndefined();
+  });
+
+  it('shows Sign out as a centred terracotta action row, with no chevron (design §7)', async () => {
+    await renderSettings();
+
+    const row = screen.getByTestId('settings-sign-out');
+    expect(row).toHaveProp('accessibilityRole', 'button');
+    expect(row).toHaveAccessibleName('Sign out');
+    expect(row).toHaveStyle({ justifyContent: 'center' });
+    expect(row.children).toHaveLength(1);
+    expect(screen.getByText('Sign out')).toHaveStyle({ color: themes.light.accentInk });
+  });
+
+  it('shows the signed-in email in the Account group', async () => {
+    await renderSettings();
+
+    expect(screen.getByLabelText(`Signed in as, ${EMAIL}`)).toBeOnTheScreen();
+  });
+
+  it('lists the settings as Account, Household, About and Developer tools (design §7)', async () => {
+    await renderSettings();
+
+    expect(screen.getAllByRole('header').map((header) => header.props.children)).toEqual(
+      expect.arrayContaining(['Account', 'Household', 'About', 'Developer tools']),
+    );
+    expect(screen.getByLabelText('Version, 1.2.0 (7)')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Environment, Development')).toBeOnTheScreen();
+  });
+
+  it('has no Developer tools heading in production', async () => {
+    mockVariant = 'production';
+    await renderSettings();
+
+    expect(screen.queryByRole('header', { name: 'Developer tools' })).not.toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'About' })).toBeOnTheScreen();
+  });
+
+  it('opens the theme preview from Developer tools', async () => {
+    const app = await renderSettings();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Theme preview' }));
+
+    expect(app.getPathname()).toBe('/theme');
   });
 
   it('C-SET-04 offers the theme preview and the test error in development', async () => {

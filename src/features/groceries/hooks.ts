@@ -23,6 +23,7 @@ import {
   setItemChecked,
   setItemQuantity,
   uncheckAllItems,
+  updateItemDetails,
 } from './api';
 import type { CategoryKey } from './constants';
 import {
@@ -365,6 +366,57 @@ export function useSetQuantity(): (v: { id: string; quantity: string | null }) =
       };
     },
     outcome: (e) => (e.category === 'not_found' ? 'gone' : undefined),
+  });
+}
+
+export interface ItemDetails {
+  name: string;
+  category: CategoryKey;
+  quantity: string | null;
+}
+
+/**
+ * Saves the edit sheet's name, category and quantity, sending only what differs from the item as
+ * the sheet opened (R12.4, specs/redesign/design.md §4.3). A name another open item has is undone
+ * and explained, as when adding (R5.6).
+ */
+export function useEditItem(): (v: {
+  id: string;
+  before: ItemDetails;
+  after: ItemDetails;
+}) => void {
+  return useGroceryMutation<{ id: string; before: ItemDetails; after: ItemDetails }>({
+    mutationFn: ({ id, before, after }) =>
+      updateItemDetails(id, {
+        ...(after.name !== before.name && { name: after.name }),
+        ...(after.category !== before.category && { category: after.category }),
+        ...(after.quantity !== before.quantity && { quantity: after.quantity }),
+      }),
+    optimistic: (rows, { id, before, after }) => {
+      const row = rows.find((r) => r.id === id);
+      // Only what this edit changed, so a newer change to the other fields keeps showing.
+      const changed = {
+        ...(after.name !== before.name && { name: after.name }),
+        ...(after.category !== before.category && { category: after.category }),
+        ...(after.quantity !== before.quantity && { quantity: after.quantity }),
+      };
+      return {
+        rows: patchRow(rows, id, changed),
+        // Puts back only the fields this edit changed, so a newer change to the others survives.
+        undo: row
+          ? (current) =>
+              patchRow(current, id, {
+                ...(after.name !== before.name && { name: row.name }),
+                ...(after.category !== before.category && { category: row.category }),
+                ...(after.quantity !== before.quantity && { quantity: row.quantity }),
+              })
+          : keep,
+        id,
+        name: after.name,
+      };
+    },
+    outcome: (e) =>
+      e.category === 'not_found' ? 'gone' : isOpenNameDuplicate(e) ? 'duplicate' : undefined,
   });
 }
 

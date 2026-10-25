@@ -1,38 +1,17 @@
-import { COPY, COUNTER_FROM, DAY_ACCENTS, DAY_KEYS, ENTRY_MAX, MEAL_TYPES } from './constants';
+import { COPY, COUNTER_FROM, DAY_KEYS, ENTRY_MAX, MEAL_TYPES } from './constants';
 
 describe('MEAL_TYPES', () => {
-  it('U-MDOM-01 lists breakfast, lunch and dinner in order, with the DD32 symbols, glyphs and tints', () => {
+  it('U-MDOM-01 lists breakfast, lunch and dinner in order, with their symbols and glyph colours', () => {
     expect(MEAL_TYPES).toEqual([
-      {
-        key: 'breakfast',
-        label: 'Breakfast',
-        symbol: 'cup.and.saucer.fill',
-        glyph: 'accent',
-        tint: 'accentSoft',
-      },
-      { key: 'lunch', label: 'Lunch', symbol: 'sun.max.fill', glyph: 'ink', tint: 'secondarySoft' },
-      {
-        key: 'dinner',
-        label: 'Dinner',
-        symbol: 'moon.fill',
-        glyph: 'primary',
-        tint: 'primarySoft',
-      },
+      { key: 'breakfast', label: 'Breakfast', symbol: 'sunrise.fill', glyph: 'breakfast' },
+      { key: 'lunch', label: 'Lunch', symbol: 'sun.max.fill', glyph: 'lunch' },
+      { key: 'dinner', label: 'Dinner', symbol: 'moon.stars.fill', glyph: 'dinner' },
     ]);
   });
 });
 
-describe('DAY_ACCENTS and DAY_KEYS', () => {
-  it('U-MDOM-02 gives Monday to Sunday the legacy accents and static keys', () => {
-    expect(DAY_ACCENTS).toEqual([
-      'primary',
-      'ink',
-      'cactus',
-      'secondary',
-      'tertiary',
-      'sand',
-      'accent',
-    ]);
+describe('DAY_KEYS', () => {
+  it('U-MDOM-02 gives Monday to Sunday static keys', () => {
     expect(DAY_KEYS).toEqual(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
   });
 });

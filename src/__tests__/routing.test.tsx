@@ -6,6 +6,9 @@ import * as SplashScreen from 'expo-splash-screen';
 import { Alert, type AlertButton } from 'react-native';
 
 import { onSessionEnd } from '@/features/auth/auth-provider';
+import { fetchList } from '@/features/groceries/api';
+import { CATEGORIES, EMPTY_STATE } from '@/features/groceries/constants';
+import { COPY as LIBRARY_COPY } from '@/features/meal-library/constants';
 import { ApiError } from '@/lib/errors';
 import type { AppVariant } from '@/lib/env-guard';
 import { queryClient } from '@/lib/query-client';
@@ -18,7 +21,7 @@ import {
   resetBackend,
   SESSION,
 } from '@/test/mock-backend';
-import { makeAuthError } from '@/test/factories';
+import { makeAuthError, makeRow } from '@/test/factories';
 import { nativeHeaders, stackPresentations } from '@/test/native-header';
 import { type ColourToken, type Theme, themes } from '@/ui/theme';
 
@@ -45,17 +48,19 @@ jest.mock(
 jest.mock('@/features/groceries/api', () => ({
   fetchList: jest.fn(async () => ({ listId: 'list-1', rows: [] })),
 }));
-// Meals loads an empty week.
+// Meals loads an empty week, with no recently chosen meals.
 jest.mock('@/features/meals/api', () => ({
   fetchWeek: jest.fn(async () => []),
   saveEntry: jest.fn(),
   clearEntry: jest.fn(),
+  fetchRecentLibraryMealIds: jest.fn(async () => []),
 }));
-// The Meal Library loads an empty library.
+// The Meal Library loads an empty library, so there are no photos to sign.
 jest.mock('@/features/meal-library/api', () => ({
   fetchLibrary: jest.fn(async () => ({ meals: [], tags: [] })),
   runSavePlan: jest.fn(),
   deleteMeal: jest.fn(),
+  signImageUrls: jest.fn(async () => ({})),
 }));
 // The root layout's auto-refresh hook would create the real Supabase client.
 jest.mock('@/lib/auto-refresh', () => ({ useForegroundAutoRefresh: () => {} }));
@@ -72,7 +77,7 @@ jest.mock('expo-splash-screen', () => ({
   hide: jest.fn(),
 }));
 
-const GROCERIES = 'No items yet';
+const GROCERIES = EMPTY_STATE.title;
 const OFFLINE_BANNER = "Offline — changes will send when you're back online";
 
 beforeEach(() => {
@@ -318,11 +323,11 @@ describe('main tabs', () => {
     expect(tab('Groceries')).toBeSelected();
   });
 
-  it('labels the tabs in bold, cactus when active and inkMuted when not (N13)', async () => {
+  it('labels the tabs in bold, terracotta when active and inkMuted when not (N13, DD-R1)', async () => {
     await renderApp();
 
     expect(within(tab('Groceries')).getByText('Groceries')).toHaveStyle({
-      color: light.cactus,
+      color: light.accent,
       fontWeight: '700',
     });
     for (const name of ['Meals', 'Library', 'Settings'] as const) {
@@ -333,7 +338,7 @@ describe('main tabs', () => {
     }
   });
 
-  it('C-RTE-10 turns the active Meals tab terracotta, in bold (R36.1, DD36)', async () => {
+  it('C-RTE-10 turns the active Meals tab terracotta, in bold, as every tab (R36.1, DD-R1)', async () => {
     const app = await renderApp();
 
     await fireEvent.press(tab('Meals'));
@@ -350,7 +355,7 @@ describe('main tabs', () => {
 
     await fireEvent.press(tab('Groceries'));
 
-    expect(within(tab('Groceries')).getByText('Groceries')).toHaveStyle({ color: light.cactus });
+    expect(within(tab('Groceries')).getByText('Groceries')).toHaveStyle({ color: light.accent });
     expect(within(tab('Meals')).getByText('Meals')).toHaveStyle({ color: light.inkMuted });
   });
 
@@ -386,16 +391,23 @@ describe('theme preview (C-RTE-07)', () => {
     expect(app.getPathname()).toBe('/theme');
   });
 
-  it('shows every colour token and category pair as a labelled swatch (R15.3)', async () => {
-    await renderApp('/theme', 'cactus');
+  it('shows every colour token as a labelled swatch, the type scale and the categories (R15.3)', async () => {
+    await renderApp('/theme', 'accentSoft');
 
     const colours = (Object.keys(light) as (keyof Theme)[]).filter(
       (key): key is ColourToken => typeof light[key] === 'string',
     );
-    expect(colours).toContain('cactus');
+    expect(colours).toEqual(expect.arrayContaining(['accent', 'sage', 'sunken', 'dinner']));
     for (const token of colours) expect(screen.getByText(token)).toBeOnTheScreen();
-    for (const category of Object.keys(light.category)) {
-      expect(screen.getByText(category)).toBeOnTheScreen();
+    for (const variant of ['largeTitle', 'headline', 'caption', 'eyebrow']) {
+      expect(screen.getByText(variant)).toBeOnTheScreen();
+    }
+    // Categories are told apart by emoji, not colour (DD-R1).
+    for (const { emoji, label } of CATEGORIES) {
+      expect(screen.getByText(`${emoji} ${label}`)).toBeOnTheScreen();
+    }
+    for (const badge of ['4 left', '1/3', 'Today']) {
+      expect(screen.getByText(badge)).toBeOnTheScreen();
     }
   });
 
@@ -422,7 +434,7 @@ describe('theme preview (C-RTE-07)', () => {
 describe('DEV badge (C-RTE-07, R24.2)', () => {
   it.each([
     ['/groceries', GROCERIES],
-    ['/theme', 'cactus'],
+    ['/theme', 'accentSoft'],
   ])('shows on %s in the development variant', async (initialUrl, text) => {
     await renderApp(initialUrl, text);
 
@@ -503,9 +515,22 @@ describe('add-item sheet (§3.4, DD10)', () => {
   });
 });
 
+describe('tab headers (redesign §3.4)', () => {
+  it('puts Add to groceries in the Meals header, and not on Groceries (R37.1)', async () => {
+    jest.mocked(fetchList).mockResolvedValueOnce({ listId: 'list-1', rows: [makeRow()] });
+    await renderApp(undefined, 'Bread');
+
+    expect(screen.queryByRole('button', { name: 'Add to groceries' })).not.toBeOnTheScreen();
+
+    await fireEvent.press(tab('Meals'));
+
+    expect(await screen.findByRole('button', { name: 'Add to groceries' })).toBeOnTheScreen();
+  });
+});
+
 describe('meal library routes (C-RTE-11)', () => {
   it('opens /meal-library as the Library tab, titled "Meal Library" (§3.8)', async () => {
-    const app = await renderApp('/meal-library', 'No saved meals yet');
+    const app = await renderApp('/meal-library', LIBRARY_COPY.emptyTitle);
 
     expect(app.getPathname()).toBe('/meal-library');
     expect(tab('Library')).toBeSelected();
@@ -521,36 +546,37 @@ describe('meal library routes (C-RTE-11)', () => {
     await act(() => router.push('/meal-library'));
 
     expect(app.getPathname()).toBe('/sign-in');
-    expect(screen.queryByText('No saved meals yet')).not.toBeOnTheScreen();
+    expect(screen.queryByText(LIBRARY_COPY.emptyTitle)).not.toBeOnTheScreen();
   });
 
   it('opens /meal-form under (app) as a full-screen modal, titled "New meal" (§3.9)', async () => {
-    const app = await renderApp('/meal-library', 'No saved meals yet');
+    const app = await renderApp('/meal-library', LIBRARY_COPY.emptyTitle);
 
     await act(() => router.push('/meal-form'));
 
     expect(app.getPathname()).toBe('/meal-form');
     expect(await screen.findByLabelText('Description (optional)')).toBeOnTheScreen();
     expect(stackPresentations().at(-1)).toBe('fullScreenModal');
-    // Opaque, so the Name field isn't under iOS 26's glass header.
-    expect(nativeHeaders()).toContainEqual(
-      expect.objectContaining({ title: 'New meal', translucent: false }),
-    );
+    // The form draws its own header in place of the native one (redesign §3.4).
+    expect(screen.getByRole('header', { name: 'New meal' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeOnTheScreen();
+    expect(nativeHeaders().at(-1)).toEqual(expect.objectContaining({ hidden: true }));
   });
 
-  it('opens /meal-picker under (app) as a page sheet, titled "Choose a meal" (§3.10)', async () => {
-    const app = await renderApp('/meal-library', 'No saved meals yet');
+  it('opens /meal-picker under (app) as a page sheet, titled by its slot (§3.10, redesign §5.4)', async () => {
+    const app = await renderApp('/meal-library', LIBRARY_COPY.emptyTitle);
 
     await act(() =>
       router.push({ pathname: '/meal-picker', params: { date: '2026-10-22', mealType: 'dinner' } }),
     );
 
     expect(app.getPathname()).toBe('/meal-picker');
-    expect(await screen.findByText('For Thursday dinner')).toBeOnTheScreen();
+    expect(await screen.findByRole('header', { name: 'Thu, Oct 22 · Dinner' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeOnTheScreen();
     expect(stackPresentations().at(-1)).toBe('modal');
-    expect(nativeHeaders()).toContainEqual(
-      expect.objectContaining({ title: 'Choose a meal', translucent: false }),
-    );
+    // The sheet draws its own header in place of the native one (redesign §3.4).
+    expect(nativeHeaders().at(-1)).toEqual(expect.objectContaining({ hidden: true }));
   });
 
   it("doesn't open /meal-picker while signed out (R1.2)", async () => {
@@ -562,7 +588,7 @@ describe('meal library routes (C-RTE-11)', () => {
     );
 
     expect(app.getPathname()).toBe('/sign-in');
-    expect(screen.queryByText('For Thursday dinner')).not.toBeOnTheScreen();
+    expect(screen.queryByRole('header', { name: 'Thu, Oct 22 · Dinner' })).not.toBeOnTheScreen();
   });
 
   it("doesn't open /meal-form while signed out (R1.2)", async () => {

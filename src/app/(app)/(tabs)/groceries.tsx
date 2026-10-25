@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useEffectEvent, useState } from 'react';
+import { Tabs } from 'expo-router/js-tabs';
+import { useCallback, useEffect, useEffectEvent, useState } from 'react';
 import { RefreshControl, SectionList, StyleSheet, View } from 'react-native';
 
 import {
@@ -7,8 +8,11 @@ import {
   AddItemButton,
 } from '@/features/groceries/components/add-item-button';
 import { CategorySectionHeader } from '@/features/groceries/components/category-section-header';
-import { ClearCheckedButton } from '@/features/groceries/components/clear-checked-button';
 import { ItemRow } from '@/features/groceries/components/item-row';
+import {
+  confirmClearChecked,
+  confirmUncheckAll,
+} from '@/features/groceries/components/list-actions';
 import {
   GroceriesEmptyState,
   LoadError,
@@ -16,8 +20,8 @@ import {
 } from '@/features/groceries/components/list-states';
 import { ProgressHeader } from '@/features/groceries/components/progress-header';
 import { SkeletonRows } from '@/features/groceries/components/skeleton-rows';
-import { UncheckAllButton } from '@/features/groceries/components/uncheck-all-button';
-import { planUncheckAll } from '@/features/groceries/domain';
+import type { CategoryKey } from '@/features/groceries/constants';
+import { planUncheckAll, visibleSections } from '@/features/groceries/domain';
 import {
   type GroceryList,
   useClearChecked,
@@ -27,13 +31,23 @@ import {
   useSetQuantity,
   useUncheckAll,
 } from '@/features/groceries/hooks';
+import { ReconnectingPill } from '@/features/household/components/reconnecting-pill';
 import { useIsOnline } from '@/lib/query-client';
 import { useToast } from '@/lib/toast';
+import { useStoredFlag } from '@/lib/use-stored-flag';
+import { Button } from '@/ui/button';
+import { EmptyState } from '@/ui/empty-state';
 import { FormScrollView } from '@/ui/form-scroll-view';
 import { Screen } from '@/ui/screen';
 import { useTheme } from '@/ui/use-theme';
 
-/** The household's list by store section, with its progress and loading states (R4, R13.1). */
+const NONE_COLLAPSED: ReadonlySet<CategoryKey> = new Set();
+
+/**
+ * The household's list by store section, built for a phone held in one hand in the shop (R4, R13.1,
+ * specs/redesign/design.md §4.1): a compact progress panel, sections that collapse, and rows that
+ * check with a tap anywhere on them.
+ */
 export default function Groceries() {
   const theme = useTheme();
   const router = useRouter();
@@ -47,18 +61,45 @@ export default function Groceries() {
   const clearChecked = useClearChecked();
   const uncheckAll = useUncheckAll();
   const { uncheckIds, keepIds } = planUncheckAll(list.items);
+  const [hideChecked, setHideChecked] = useStoredFlag('groceries.hideChecked', false);
+  const [collapsed, setCollapsed] = useState(NONE_COLLAPSED);
 
-  const sections = list.sections.map((section) => ({ ...section, data: section.items }));
+  const sections = visibleSections(list.sections, { hideChecked, collapsed });
   const openAddItem = () => router.push('/add-item');
+  const { checked } = list.progress;
+
+  // Stable, so the memoised rows don't redraw as the list changes around them (N3).
+  const openEdit = useCallback(
+    (id: string) => router.push({ pathname: '/edit-item', params: { id } }),
+    [router],
+  );
+  const toggleSection = useCallback((category: CategoryKey) => {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (!next.delete(category)) next.add(category);
+      return next;
+    });
+  }, []);
 
   return (
     <Screen edges={['left', 'right']}>
+      <Tabs.Screen
+        options={{
+          // Beside the title, where it doesn't cover the list (§3.4, R13.4).
+          headerRight: () => <ReconnectingPill />,
+        }}
+      />
       <SectionList
         testID="groceries-list"
         sections={sections}
         keyExtractor={(item) => item.id}
         renderSectionHeader={({ section }) => (
-          <CategorySectionHeader category={section.category} openCount={section.openCount} />
+          <CategorySectionHeader
+            category={section.category}
+            openCount={section.openCount}
+            collapsed={section.collapsed}
+            onToggle={toggleSection}
+          />
         )}
         renderItem={({ item, index, section }) => (
           <ItemRow
@@ -68,25 +109,42 @@ export default function Groceries() {
             onSetChecked={setChecked}
             onSetQuantity={setQuantity}
             onDelete={deleteItem}
+            onEdit={openEdit}
           />
         )}
         ListHeaderComponent={
           list.progress.total > 0 ? (
-            <ProgressHeader progress={list.progress}>
-              <View style={styles.actions}>
-                <UncheckAllButton
-                  uncheckCount={uncheckIds.length}
-                  onUncheck={() => uncheckAll({ keepIds })}
-                />
-                <ClearCheckedButton checkedCount={list.progress.checked} onClear={clearChecked} />
-              </View>
-            </ProgressHeader>
+            <ProgressHeader
+              progress={list.progress}
+              hideChecked={hideChecked}
+              onHideCheckedChange={setHideChecked}
+              uncheckCount={uncheckIds.length}
+              onUncheckAll={() =>
+                confirmUncheckAll(uncheckIds.length, () => uncheckAll({ keepIds }))
+              }
+              onClearChecked={() => confirmClearChecked(checked, clearChecked)}
+            />
+          ) : undefined
+        }
+        ListFooterComponent={
+          list.status === 'ready' && hideChecked && checked > 0 ? (
+            <ShowChecked count={checked} onPress={() => setHideChecked(false)} />
           ) : undefined
         }
         ListEmptyComponent={
-          <ListState status={list.status} onRetry={list.refetch} onAdd={openAddItem} />
+          list.status === 'ready' && list.items.length > 0 ? (
+            // Everything is checked and hidden.
+            <EmptyState
+              testID="groceries-all-hidden"
+              emoji="🎉"
+              title="Everything's checked off"
+              fill={false}
+            />
+          ) : (
+            <ListState status={list.status} onRetry={list.refetch} onAdd={openAddItem} />
+          )
         }
-        // Headers sit on the sand background with no fill, so a pinned one would overlap the rows.
+        // Headers sit on the ivory page with no fill, so a pinned one would overlap the rows.
         stickySectionHeadersEnabled={false}
         // Enough rows to fill a Pro Max screen on the first frame (N3).
         initialNumToRender={20}
@@ -94,7 +152,7 @@ export default function Groceries() {
         keyboardDismissMode="on-drag"
         // Keeps a row's quantity editor clear of the keyboard toolbar.
         renderScrollComponent={(props) => <FormScrollView {...props} />}
-        contentContainerStyle={sections.length === 0 ? styles.fill : styles.content}
+        contentContainerStyle={list.items.length === 0 ? styles.fill : styles.content}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -106,6 +164,21 @@ export default function Groceries() {
       {/* Adding needs the loaded list, to check for an item that's already on it (R5.6). */}
       {list.status === 'ready' ? <AddItemButton onPress={openAddItem} /> : null}
     </Screen>
+  );
+}
+
+/** Below the last section while checked items are hidden: how many, and a way to show them. */
+function ShowChecked({ count, onPress }: { count: number; onPress: () => void }) {
+  return (
+    <View style={styles.footer}>
+      <Button
+        testID="show-checked"
+        variant="text"
+        size="small"
+        label={`Show ${count} checked ${count === 1 ? 'item' : 'items'}`}
+        onPress={onPress}
+      />
+    </View>
   );
 }
 
@@ -164,8 +237,7 @@ function useRefreshFailedToast({ refreshFailedAt, refetch }: GroceryList) {
 }
 
 const styles = StyleSheet.create({
-  // Apart, so the destructive Clear checked isn't a slip of the thumb away.
-  actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  content: { paddingBottom: ADD_ITEM_BUTTON_CLEARANCE },
+  content: { paddingTop: 4, paddingBottom: ADD_ITEM_BUTTON_CLEARANCE },
   fill: { flexGrow: 1 },
+  footer: { alignItems: 'center', paddingTop: 20, paddingHorizontal: 16 },
 });

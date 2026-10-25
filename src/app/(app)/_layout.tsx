@@ -10,6 +10,7 @@ import {
 import { libraryTableHandlers } from '@/features/meal-library/realtime';
 import { mealTableHandlers } from '@/features/meals/realtime';
 import { env } from '@/lib/env';
+import { useTheme } from '@/ui/use-theme';
 
 // A screen that fails to render is replaced by the crash screen, and the root stays mounted (R14.6).
 export { ErrorBoundary } from '@/ui/crash-screen';
@@ -23,6 +24,7 @@ const TABLE_HANDLERS: TableHandlers = {
 };
 
 export default function AppLayout() {
+  const theme = useTheme();
   // Every household screen sits under this layout, so the channel runs while the household is open.
   useHouseholdRealtime(TABLE_HANDLERS);
   useRealtimeDegradedReport();
@@ -31,24 +33,57 @@ export default function AppLayout() {
   // only a screen whose first child is its list gets inset below it. The form and the picker start
   // with a field or a line of text inside `Screen`, which would sit behind the header.
   return (
-    <Stack screenOptions={{ headerTransparent: false }}>
+    <Stack
+      screenOptions={{
+        headerTransparent: false,
+        headerShadowVisible: false,
+        headerStyle: { backgroundColor: theme.screen },
+        headerTitleStyle: { color: theme.ink, fontWeight: '600' },
+        headerTintColor: theme.accentInk,
+      }}
+    >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      {/* A native sheet, with its own title and Done (§3.4, DD10). */}
+      {/* Native sheets, each with its own header (§3.4, DD10, specs/redesign/design.md §4.2). */}
       <Stack.Screen
         name="add-item"
         options={{
           presentation: 'formSheet',
-          sheetAllowedDetents: [0.75, 1],
+          sheetAllowedDetents: [0.9, 1],
           sheetGrabberVisible: true,
+          sheetCornerRadius: 20,
           headerShown: false,
+          contentStyle: { backgroundColor: theme.screen },
         }}
       />
-      {/* Full screen, so only Cancel can close it; the screen sets its title and buttons (§3.9). */}
-      <Stack.Screen name="meal-form" options={{ presentation: 'fullScreenModal' }} />
-      {/* A page sheet over Meals; a swipe down cancels, as Cancel does (§3.10, R45.7). */}
+      <Stack.Screen
+        name="edit-item"
+        options={{
+          presentation: 'formSheet',
+          sheetAllowedDetents: [0.9, 1],
+          sheetGrabberVisible: true,
+          sheetCornerRadius: 20,
+          headerShown: false,
+          contentStyle: { backgroundColor: theme.screen },
+        }}
+      />
+      {/* Full screen, so only Cancel can close it; the screen draws its own header (§3.9). */}
+      <Stack.Screen
+        name="meal-form"
+        options={{
+          presentation: 'fullScreenModal',
+          headerShown: false,
+          contentStyle: { backgroundColor: theme.screen },
+        }}
+      />
+      {/* A page sheet over Meals, with its own header naming the slot; a swipe down cancels, as
+          Cancel does (§3.10, R45.7, specs/redesign/design.md §5.4). */}
       <Stack.Screen
         name="meal-picker"
-        options={{ presentation: 'modal', title: 'Choose a meal' }}
+        options={{
+          presentation: 'modal',
+          headerShown: false,
+          contentStyle: { backgroundColor: theme.screen },
+        }}
       />
       {/* Pushed from Settings, with Back (meals R48.1, §11.5). */}
       {/* The tabs have no title, so Back would read "(tabs)". */}

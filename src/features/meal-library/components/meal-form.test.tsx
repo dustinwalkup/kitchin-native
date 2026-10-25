@@ -1,6 +1,6 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { createRef, useState } from 'react';
-import { AccessibilityInfo, TextInput } from 'react-native';
+import { AccessibilityInfo, StyleSheet, TextInput } from 'react-native';
 
 import { touchTarget } from '@/test/a11y';
 import { makeTagRow } from '@/test/factories';
@@ -11,29 +11,41 @@ import { buildLibrary, type FormValues } from '../domain';
 import type { FormProblem } from './form-error';
 import { counterLabel, MealForm, type MealFormHandle } from './meal-form';
 
-// Meal form components C-LFM-01 to 05 and 09 to 12 (4-test-plan §4.3). The tags' own cases, C-LFM-06
-// to 08, are in tag-picker.test.tsx. The screen's header Save calls the form's `save()`, which these
-// tests call through the ref.
+// Meal form components C-LFM-01 to 05 and 09 to 12 (4-test-plan §4.3, as redesigned in
+// specs/redesign/design.md §5.3). The tags' own cases, C-LFM-06 to 08, are in tag-picker.test.tsx.
+// The screen's header Save calls the form's `save()`, which these tests call through the ref.
 
 const theme = themes.light;
 
 const { tags } = buildLibrary(
   [],
   [
-    makeTagRow({ id: 'tag-dinner', name: 'Dinner' }),
+    makeTagRow({ id: 'tag-comfort', name: 'Comfort food' }),
     makeTagRow({ id: 'tag-quick', name: 'Quick & Easy' }),
   ],
 ).library;
 
-const EMPTY: FormValues = { name: '', description: '', ingredients: '', tags: [] };
+const EMPTY: FormValues = {
+  name: '',
+  description: '',
+  ingredients: '',
+  mealType: null,
+  image: { kind: 'none' },
+  tags: [],
+};
 const LASAGNA: FormValues = {
   name: '  Lasagna ',
   description: 'Beef and ricotta\n',
   ingredients: '',
-  tags: [{ kind: 'existing', id: 'tag-dinner' }],
+  mealType: null,
+  image: { kind: 'none' },
+  tags: [{ kind: 'existing', id: 'tag-comfort' }],
 };
+const STORED = 'household-1/lasagna.jpg';
+const STORED_URL = 'https://storage.test/lasagna.jpg?token=1';
 
 const onSave = jest.fn();
+const onPhotoPress = jest.fn();
 const onSaveAsNew = jest.fn();
 const onDelete = jest.fn();
 const onRetryDelete = jest.fn();
@@ -49,10 +61,17 @@ interface FormOptions {
   editing?: boolean;
   problem?: FormProblem | null;
   busy?: boolean;
+  photoUri?: string;
 }
 
 // Holds the values, as the form screen does, so each change shows.
-function Form({ initial = EMPTY, editing = false, problem = null, busy = false }: FormOptions) {
+function Form({
+  initial = EMPTY,
+  editing = false,
+  problem = null,
+  busy = false,
+  photoUri,
+}: FormOptions) {
   const [values, setValues] = useState(initial);
   return (
     <MealForm
@@ -63,6 +82,8 @@ function Form({ initial = EMPTY, editing = false, problem = null, busy = false }
         setValues(next);
       }}
       tags={tags}
+      photoUri={photoUri}
+      onPhotoPress={onPhotoPress}
       editing={editing}
       problem={problem}
       busy={busy}
@@ -85,6 +106,10 @@ const focused = () =>
     return field.props.accessibilityLabel;
   });
 const counters = () => screen.queryAllByText(/characters? left$/).map((t) => t.props.children);
+const photo = () => screen.getByTestId('meal-form-photo');
+// expo-image's view, which only a photo with a URL draws.
+const photoImages = () => screen.root!.queryAll((node) => node.props.recyclingKey !== undefined);
+const typeChip = (key: string) => screen.getByTestId(`meal-form-type-${key}`);
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -95,20 +120,35 @@ beforeEach(() => {
 afterEach(() => jest.restoreAllMocks());
 
 describe('MealForm', () => {
-  it('C-LFM-01 has Name, Description (optional), Ingredients (optional) and Tags, in that order', async () => {
-    await render(<Form />);
+  it('C-LFM-01 has the photo, Name, Meal type, Description (optional), Ingredients (optional) and Tags, in that order', async () => {
+    await render(<Form editing />);
 
     expect(nameField()).toHaveProp('testID', 'meal-form-name');
     expect(descriptionField()).toHaveProp('testID', 'meal-form-description');
     expect(ingredientsField()).toHaveProp('testID', 'meal-form-ingredients');
-    expect(screen.getByText('Tags')).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: /^Tags/ })).toBeOnTheScreen();
 
     const tree = JSON.stringify(screen.toJSON());
-    const positions = ['Name', 'Description (optional)', 'Ingredients (optional)', 'Tags'].map(
-      (label) => tree.indexOf(`"${label}"`),
-    );
+    const positions = [
+      'Add photo',
+      'Name',
+      'Meal type',
+      'Description (optional)',
+      'Ingredients (optional)',
+      'Tags',
+      'Delete meal',
+    ].map((label) => tree.indexOf(`"${label}"`));
     expect(positions.every((p) => p >= 0)).toBe(true);
     expect(positions).toEqual([...positions].sort((a, b) => a - b));
+  });
+
+  it('§5.3 says which fields are optional', async () => {
+    await render(<Form />);
+
+    expect(nameField()).toHaveProp('accessibilityLabel', 'Name');
+    expect(screen.getByRole('header', { name: 'Meal type  Optional' })).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Tags  Optional' })).toBeOnTheScreen();
+    expect(screen.getByText('Optional · helps you spot it in the list')).toBeOnTheScreen();
   });
 
   it('C-LFM-02 keeps Name on one line, turning pasted line breaks into spaces', async () => {
@@ -121,7 +161,8 @@ describe('MealForm', () => {
     // Description and Ingredients keep their line breaks.
     expect(descriptionField()).toHaveProp('multiline', true);
     expect(ingredientsField()).toHaveProp('multiline', true);
-    expect(ingredientsField()).toHaveProp('placeholder', 'One per line');
+    expect(ingredientsField()).toHaveProp('placeholder', 'Chicken thighs\nRice\nBroccoli');
+    expect(screen.getByText('One per line')).toBeOnTheScreen();
     await fireEvent.changeText(ingredientsField(), '1 lb beef\n1 box noodles');
     expect(latest().ingredients).toBe('1 lb beef\n1 box noodles');
   });
@@ -200,10 +241,33 @@ describe('MealForm', () => {
           name: 'Lasagna',
           description: 'Beef and ricotta',
           ingredients: null,
-          tags: [{ kind: 'existing', id: 'tag-dinner' }],
+          mealType: null,
+          imagePath: null,
+          tags: [{ kind: 'existing', id: 'tag-comfort' }],
         },
       ],
     ]);
+  });
+
+  it("saves the chosen meal type and the photo's Storage key", async () => {
+    await render(<Form initial={{ ...LASAGNA, image: { kind: 'stored', path: STORED } }} />);
+
+    await fireEvent.press(typeChip('dinner'));
+    await save();
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ mealType: 'dinner', imagePath: STORED }),
+    );
+  });
+
+  it('C-LFM-05 focuses Description when it is too long to save', async () => {
+    await render(<Form initial={{ ...LASAGNA, description: 'x'.repeat(301) }} />);
+
+    await save();
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(focused()).toEqual(['Description (optional)']);
+    expect(screen.getByText('Shorten this to 300 characters')).toBeOnTheScreen();
   });
 
   it('R42.2 moves from Name to Description on Return', async () => {
@@ -338,19 +402,34 @@ describe('MealForm', () => {
     );
 
     expect(screen.getByText(COPY.fieldRejected)).toBeOnTheScreen();
-    expect(nameField()).toHaveStyle({ borderColor: theme.controlBorder });
+    // DD-R4: an untouched field keeps the soft edge.
+    expect(nameField()).toHaveStyle({ borderColor: theme.border });
   });
 
-  it('C-LFM-11 offers Delete meal only when editing, in bold destructive red', async () => {
+  it('C-LFM-10 shows a rejected photo key under the photo', async () => {
+    await render(
+      <Form
+        initial={{ ...LASAGNA, image: { kind: 'stored', path: STORED } }}
+        problem={{ kind: 'save', outcome: { ok: false, reason: 'invalid', field: 'image' } }}
+      />,
+    );
+
+    const rejected = screen.getByText(COPY.fieldRejected);
+    expect(rejected).toHaveStyle({ color: theme.destructive });
+    expect(within(photo().parent!).getByText(COPY.fieldRejected)).toBe(rejected);
+  });
+
+  it('C-LFM-11 offers Delete meal only when editing, as a destructive text button', async () => {
     const { rerender } = await render(<Form />);
     expect(screen.queryByRole('button', { name: 'Delete meal' })).toBeNull();
 
     await rerender(<Form editing />);
     const remove = screen.getByRole('button', { name: 'Delete meal' });
     expect(remove).toHaveProp('testID', 'meal-form-delete');
+    expect(StyleSheet.flatten(remove.props.style).backgroundColor).toBeUndefined();
     expect(screen.getByText('Delete meal')).toHaveStyle({
       color: theme.destructive,
-      fontWeight: '700',
+      fontWeight: '600',
     });
 
     await fireEvent.press(remove);
@@ -372,15 +451,131 @@ describe('MealForm', () => {
     for (const field of [nameField(), descriptionField(), ingredientsField()]) {
       expect(touchTarget(field).height).toBeGreaterThanOrEqual(44);
     }
-    const remove = touchTarget(screen.getByRole('button', { name: 'Delete meal' }));
-    expect(remove.width).toBeGreaterThanOrEqual(44);
-    expect(remove.height).toBeGreaterThanOrEqual(44);
+    for (const button of [
+      screen.getByRole('button', { name: 'Delete meal' }),
+      typeChip('breakfast'),
+      typeChip('lunch'),
+      typeChip('dinner'),
+    ]) {
+      const target = touchTarget(button);
+      expect(target.width).toBeGreaterThanOrEqual(44);
+      expect(target.height).toBeGreaterThanOrEqual(44);
+    }
   });
 
   it('R26.7 uses test IDs without meal text', async () => {
-    await render(<Form initial={LASAGNA} editing />);
+    await render(
+      <Form initial={{ ...LASAGNA, image: { kind: 'stored', path: STORED } }} editing />,
+    );
 
     const ids = screen.queryAllByTestId(/.+/).map((e) => e.props.testID as string);
     expect(ids.join(' ')).not.toMatch(/lasagna|ricotta/i);
+  });
+
+  describe('the photo (§5.3)', () => {
+    it('invites a photo when there is none, and opens the choices when tapped', async () => {
+      await render(<Form />);
+
+      expect(photo()).toHaveProp('accessibilityRole', 'button');
+      expect(photo()).toHaveProp('accessibilityLabel', COPY.addPhoto);
+      expect(within(photo()).getByText(COPY.addPhoto)).toHaveStyle({ color: theme.accentInk });
+      expect(photoImages()).toEqual([]);
+
+      await fireEvent.press(photo());
+
+      expect(onPhotoPress).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows a stored photo from its signed URL, offering to change it', async () => {
+      await render(
+        <Form
+          initial={{ ...LASAGNA, image: { kind: 'stored', path: STORED } }}
+          photoUri={STORED_URL}
+        />,
+      );
+
+      expect(photo()).toHaveProp('accessibilityLabel', COPY.changePhoto);
+      expect(within(photo()).getByText('Change')).toBeOnTheScreen();
+      expect(photoImages()).toHaveLength(1);
+      expect(photoImages()[0]).toHaveProp('source', [{ uri: STORED_URL, cacheKey: STORED }]);
+
+      await fireEvent.press(photo());
+      expect(onPhotoPress).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows a picked photo from the file on the phone', async () => {
+      await render(
+        <Form
+          initial={{
+            ...LASAGNA,
+            image: { kind: 'picked', uri: 'file:///new.jpg', path: 'household-1/new.jpg' },
+          }}
+          photoUri="file:///new.jpg"
+        />,
+      );
+
+      expect(photo()).toHaveProp('accessibilityLabel', COPY.changePhoto);
+      expect(photoImages()[0]).toHaveProp('source', [
+        { uri: 'file:///new.jpg', cacheKey: 'household-1/new.jpg' },
+      ]);
+    });
+
+    it("shows the meal type's glyph while a stored photo's URL is on its way", async () => {
+      await render(
+        <Form
+          initial={{ ...LASAGNA, mealType: 'lunch', image: { kind: 'stored', path: STORED } }}
+        />,
+      );
+
+      expect(photo()).toHaveProp('accessibilityLabel', COPY.changePhoto);
+      expect(photoImages()).toEqual([]);
+      expect(photo().queryAll((node) => node.props.name === 'sun.max.fill')).toHaveLength(1);
+    });
+  });
+
+  describe('the meal type (DD-R6)', () => {
+    it('offers Breakfast, Lunch and Dinner, none chosen for a new meal', async () => {
+      await render(<Form />);
+
+      for (const [key, label] of [
+        ['breakfast', 'Breakfast'],
+        ['lunch', 'Lunch'],
+        ['dinner', 'Dinner'],
+      ]) {
+        expect(typeChip(key)).toHaveProp('accessibilityLabel', label);
+        expect(typeChip(key)).not.toBeSelected();
+      }
+    });
+
+    it('chooses one type at a time', async () => {
+      await render(<Form />);
+
+      await fireEvent.press(typeChip('lunch'));
+      expect(latest().mealType).toBe('lunch');
+      expect(typeChip('lunch')).toBeSelected();
+
+      await fireEvent.press(typeChip('dinner'));
+      expect(latest().mealType).toBe('dinner');
+      expect(typeChip('dinner')).toBeSelected();
+      expect(typeChip('lunch')).not.toBeSelected();
+    });
+
+    it('clears the type when the chosen one is tapped again', async () => {
+      await render(<Form initial={{ ...LASAGNA, mealType: 'breakfast' }} />);
+      expect(typeChip('breakfast')).toBeSelected();
+
+      await fireEvent.press(typeChip('breakfast'));
+
+      expect(latest().mealType).toBeNull();
+      expect(typeChip('breakfast')).not.toBeSelected();
+    });
+
+    it("draws each chip with its type's glyph", async () => {
+      await render(<Form />);
+
+      expect(typeChip('breakfast').children[0]).toHaveProp('name', 'sunrise.fill');
+      expect(typeChip('lunch').children[0]).toHaveProp('name', 'sun.max.fill');
+      expect(typeChip('dinner').children[0]).toHaveProp('tintColor', theme.dinner);
+    });
   });
 });

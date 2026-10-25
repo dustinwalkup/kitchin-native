@@ -14,10 +14,11 @@ insert into fixture_ids (key, id)
 select k, gen_random_uuid()
   from unnest(array['tacos', 'stew', 'oats', 'chili', 'lasagna', 'curry', 'taco night', 'spicy', 'curry night',
                     'pad thai', 'validation', 'spoofed meal', 'spoofed tag', 'never saved']) as k;
--- Two of Household One's starter tags, which the seed's provisioning created.
+-- Two of Household One's starter tags, which the seed's provisioning created. High Protein stands in for
+-- the Dinner tag these tests used before the meal type left the starter tags (redesign task R3).
 insert into fixture_ids (key, id)
 select lower(t.name), t.id from public.library_tags t
- where t.household_id = tests.household_id('Household One') and t.name in ('Dinner', 'Quick & Easy');
+ where t.household_id = tests.household_id('Household One') and t.name in ('High Protein', 'Quick & Easy');
 
 create function pg_temp.id_of(p_key text)
 returns uuid language plpgsql stable security definer set search_path = '' as $$
@@ -29,20 +30,19 @@ end $$;
 
 -- STARTER_TAGS in src/features/meal-library/constants.ts (design §3.1, R43.8).
 create temporary table starter_tags on commit drop as
-  select unnest(array['Quick & Easy', 'Family Favorite', 'High Protein', 'Breakfast', 'Lunch', 'Dinner',
-                      'Meal Prep']) as name;
+  select unnest(array['Quick & Easy', 'Family Favorite', 'High Protein', 'Meal Prep']) as name;
 
 -- Fixtures, as postgres. With the triggers off they're backdated a day and attributed directly, so a
 -- test can tell an unchanged row from one a trigger touched.
 --
---   Household One  Fixture Tacos    Dinner, Fixture Spicy        created by A, last changed by B
+--   Household One  Fixture Tacos    High Protein, Fixture Spicy  created by A, last changed by B
 --                  Fixture Stew     Fixture Spicy
 --                  Fixture Oats     no tags
---                  Fixture Chili    Dinner, Fixture Taco Night
+--                  Fixture Chili    High Protein, Fixture Taco Night
 --                  Fixture Lasagna  no tags; an entry holds its copied text (DB-L-33)
 --   Household Two  Fixture Curry    Fixture Curry Night
 --
--- B also created Fixture Taco Night and Fixture Tacos' Dinner link, for DB-L-38.
+-- B also created Fixture Taco Night and Fixture Tacos' High Protein link, for DB-L-38.
 alter table public.library_meals disable trigger user;
 alter table public.library_tags disable trigger user;
 alter table public.library_meal_tags disable trigger user;
@@ -74,10 +74,10 @@ insert into public.library_meal_tags (household_id, meal_id, tag_id, created_at,
 select tests.household_id(f.household), pg_temp.id_of(f.meal), pg_temp.id_of(f.tag),
        now() - interval '1 day', now() - interval '1 day', tests.user_id(f.member), tests.user_id(f.member)
   from (values
-    ('Household One', 'tacos', 'dinner',      'member-b@example.com'),
+    ('Household One', 'tacos', 'high protein', 'member-b@example.com'),
     ('Household One', 'tacos', 'spicy',       'member-a@example.com'),
     ('Household One', 'stew',  'spicy',       'member-a@example.com'),
-    ('Household One', 'chili', 'dinner',      'member-a@example.com'),
+    ('Household One', 'chili', 'high protein', 'member-a@example.com'),
     ('Household One', 'chili', 'taco night',  'member-a@example.com'),
     ('Household Two', 'curry', 'curry night', 'member-c@example.com')
   ) as f(household, meal, tag, member);
@@ -190,10 +190,10 @@ select throws_ok(
   '42501', null, 'DB-L-05 C cannot insert a tag into Household One');
 select throws_ok(
   $$ insert into public.library_meal_tags (household_id, meal_id, tag_id)
-     values (tests.household_id('Household One'), pg_temp.id_of('stew'), pg_temp.id_of('dinner')) $$,
+     values (tests.household_id('Household One'), pg_temp.id_of('stew'), pg_temp.id_of('high protein')) $$,
   '42501', null, 'DB-L-05 C cannot insert a link into Household One');
 -- The insert policy is checked before the conflict, so even a repeat that would do nothing is refused.
-select throws_ok($$ select pg_temp.add_link('Household One', 'tacos', 'dinner') $$, '42501', null,
+select throws_ok($$ select pg_temp.add_link('Household One', 'tacos', 'high protein') $$, '42501', null,
   'DB-L-05 C cannot upsert an existing Household One link');
 
 -- On the conflict path, the existing row must pass the update policy's USING (finding 1).
@@ -201,8 +201,8 @@ select throws_ok($$ select pg_temp.upsert_meal('tacos', 'Household Two', 'From C
   'DB-L-06 C cannot upsert a Household One meal''s id, naming Household Two');
 select throws_ok($$ select pg_temp.upsert_meal('tacos', 'Household One', 'From C') $$, '42501', null,
   'DB-L-06 C cannot upsert a Household One meal''s id, naming Household One');
-select throws_ok($$ select pg_temp.upsert_tags('Household One', 'Dinner') $$, '42501', null,
-  'DB-L-07 C cannot upsert the tag Dinner into Household One');
+select throws_ok($$ select pg_temp.upsert_tags('Household One', 'High Protein') $$, '42501', null,
+  'DB-L-07 C cannot upsert the tag High Protein into Household One');
 
 -- Tags have no delete grant (DB-L-18) and links no update grant (DB-L-30), so those aren't tried here.
 select results_eq(
@@ -221,7 +221,7 @@ select results_eq(
   array[0], 'DB-L-08 C''s update of a Household One tag affects 0 rows');
 select results_eq(
   $$ with d as (delete from public.library_meal_tags
-                 where meal_id = pg_temp.id_of('tacos') and tag_id = pg_temp.id_of('dinner') returning 1)
+                 where meal_id = pg_temp.id_of('tacos') and tag_id = pg_temp.id_of('high protein') returning 1)
      select count(*)::int from d $$,
   array[0], 'DB-L-08 C''s delete of a Household One link affects 0 rows');
 
@@ -256,7 +256,7 @@ select throws_ok($$ update public.library_tags set name = 'From anon' $$, '42501
   'DB-L-03 anon cannot update library_tags');
 select throws_ok($$ select 1 from public.library_meal_tags $$, '42501', null,
   'DB-L-03 anon cannot read library_meal_tags');
-select throws_ok($$ select pg_temp.add_link('Household One', 'stew', 'dinner') $$, '42501', null,
+select throws_ok($$ select pg_temp.add_link('Household One', 'stew', 'high protein') $$, '42501', null,
   'DB-L-03 anon cannot add a link');
 select throws_ok($$ delete from public.library_meal_tags $$, '42501', null,
   'DB-L-03 anon cannot delete from library_meal_tags');
@@ -275,12 +275,12 @@ select bag_eq(
   $$ select name from public.library_tags
       where household_id = tests.household_id('Household One') and created_by is null and updated_by is null $$,
   $$ select name from starter_tags $$,
-  'DB-L-10 Household One''s unattributed tags are exactly the seven starter tags');
+  'DB-L-10 Household One''s unattributed tags are exactly the four starter tags');
 select bag_eq(
   $$ select name from public.library_tags
       where household_id = tests.household_id('Household Two') and created_by is null and updated_by is null $$,
   $$ select name from starter_tags $$,
-  'DB-L-10 Household Two''s unattributed tags are exactly the seven starter tags');
+  'DB-L-10 Household Two''s unattributed tags are exactly the four starter tags');
 
 create temporary table h1_tags_before on commit drop as
   select count(*)::int as tags from public.library_tags where household_id = tests.household_id('Household One');
@@ -351,12 +351,12 @@ select throws_ok($$ select pg_temp.upsert_tags('Household One', 'Fixture Soup', 
 select is_empty($$ select 1 from public.library_tags where name_key = 'fixture soup' $$, 'DB-L-14 and creates nothing');
 
 -- Renaming is out of scope (K22), so only a change that keeps the key gets through, and it changes nothing.
-select throws_ok($$ update public.library_tags set name = 'Supper' where id = pg_temp.id_of('dinner') $$,
+select throws_ok($$ update public.library_tags set name = 'Low Carb' where id = pg_temp.id_of('high protein') $$,
   '42501', null, 'DB-L-15 A cannot rename a tag');
 select results_eq(
-  $$ with u as (update public.library_tags set name = 'dinner' where id = pg_temp.id_of('dinner') returning name)
+  $$ with u as (update public.library_tags set name = 'high protein' where id = pg_temp.id_of('high protein') returning name)
      select * from u $$,
-  array['Dinner'], 'DB-L-15 a change of case only is accepted, and the tag keeps its first spelling');
+  array['High Protein'], 'DB-L-15 a change of case only is accepted, and the tag keeps its first spelling');
 
 -- Postgres's \s matches the spaces, and the CHECK lists the line breaks (R47.3).
 select throws_ok($$ select pg_temp.insert_tag('') $$, '23514', pg_temp.violates('library_tags_name_check'),
@@ -486,21 +486,21 @@ select results_eq(
 
 -- A: links. One per meal and tag, added with on conflict do nothing and never updated (DD48).
 
-select results_eq($$ select count(*)::int from pg_temp.add_link('Household One', 'stew', 'dinner') $$,
+select results_eq($$ select count(*)::int from pg_temp.add_link('Household One', 'stew', 'high protein') $$,
   array[1], 'DB-L-26 A adds a link');
-select is_empty($$ select * from pg_temp.add_link('Household One', 'stew', 'dinner') $$,
+select is_empty($$ select * from pg_temp.add_link('Household One', 'stew', 'high protein') $$,
   'DB-L-26 adding it again does nothing, without an error');
 select results_eq(
   $$ select count(*)::int from public.library_meal_tags
-      where meal_id = pg_temp.id_of('stew') and tag_id = pg_temp.id_of('dinner') $$,
+      where meal_id = pg_temp.id_of('stew') and tag_id = pg_temp.id_of('high protein') $$,
   array[1], 'DB-L-26 the meal and tag have one link');
 select throws_ok(
   $$ insert into public.library_meal_tags (household_id, meal_id, tag_id)
-     values (tests.household_id('Household One'), pg_temp.id_of('stew'), pg_temp.id_of('dinner')) $$,
+     values (tests.household_id('Household One'), pg_temp.id_of('stew'), pg_temp.id_of('high protein')) $$,
   '23505', 'duplicate key value violates unique constraint "library_meal_tags_one_per_pair"',
   'DB-L-27 a plain duplicate insert fails on library_meal_tags_one_per_pair');
 select throws_ok(
-  $$ update public.library_meal_tags set tag_id = pg_temp.id_of('dinner') where meal_id = pg_temp.id_of('tacos') $$,
+  $$ update public.library_meal_tags set tag_id = pg_temp.id_of('high protein') where meal_id = pg_temp.id_of('tacos') $$,
   '42501', 'permission denied for table library_meal_tags', 'DB-L-30 A cannot update a link');
 
 select lives_ok($$ delete from public.library_meals where id = pg_temp.id_of('chili') $$,
@@ -514,7 +514,7 @@ reset role;
 select is_empty($$ select 1 from public.library_meal_tags where meal_id = pg_temp.id_of('chili') $$,
   'DB-L-32 the deleted meal''s links are gone');
 select results_eq(
-  $$ select count(*)::int from public.library_tags where id in (pg_temp.id_of('dinner'), pg_temp.id_of('taco night')) $$,
+  $$ select count(*)::int from public.library_tags where id in (pg_temp.id_of('high protein'), pg_temp.id_of('taco night')) $$,
   array[2], 'DB-L-32 both of its tags remain');
 
 select throws_ok(
@@ -562,22 +562,25 @@ select results_eq(
 select bag_eq($$ select id, body, updated_at from public.meal_entries $$, $$ select * from entries_before $$,
   'DB-L-33 no entry was created, changed or deleted');
 
-select is_empty(
-  $$ select c.conname from pg_catalog.pg_constraint c
+-- The redesign added one link, from an entry to the meal it was chosen from (design §6.3, superseding
+-- R47.7). It's cleared, never cascaded, when the meal goes, so the entry's text stays (K19, DB-R-07).
+select results_eq(
+  $$ select c.conname::text collate "default", c.confdeltype::text collate "default" from pg_catalog.pg_constraint c
        join pg_catalog.pg_class src on src.oid = c.conrelid
        join pg_catalog.pg_class dst on dst.oid = c.confrelid
       where c.contype = 'f'
         and src.relnamespace = 'public'::regnamespace and dst.relnamespace = 'public'::regnamespace
         and ((src.relname = 'meal_entries' and dst.relname like 'library\_%')
              or (dst.relname = 'meal_entries' and src.relname like 'library\_%')) $$,
-  'DB-L-34 no foreign key joins meal_entries and a library table');
--- A copied meal is plain text in body, so nothing else in an entry could point at one.
+  $$ values ('meal_entries_library_meal_fkey', 'n') $$,
+  'DB-L-34 the only foreign key between meal_entries and the library is the link, which sets null');
+-- A copied meal is plain text in body; the only other uuid is that link.
 select set_eq(
   $$ select a.attname::text from pg_catalog.pg_attribute a
       where a.attrelid = 'public.meal_entries'::regclass and a.attnum > 0 and not a.attisdropped
         and a.atttypid = 'uuid'::regtype $$,
-  array['id', 'household_id', 'created_by', 'updated_by'],
-  'DB-L-34 meal_entries'' only uuid columns are its id, its household and its attribution');
+  array['id', 'household_id', 'library_meal_id', 'created_by', 'updated_by'],
+  'DB-L-34 meal_entries'' uuid columns are its id, its household, its link and its attribution');
 
 -- A: attribution (R47.8, R19.7, R19.8). The audit trigger overwrites whatever is sent.
 
@@ -639,7 +642,7 @@ select function_privs_are('private', 'add_starter_tags', array['uuid'], 'authent
 select function_privs_are('private', 'handle_library_tag_name', array[]::text[], 'authenticated', array[]::text[],
   'DB-L-37 authenticated cannot execute private.handle_library_tag_name');
 
--- Deleting an account (MVP design §4.3). B created Fixture Taco Night and Fixture Tacos' Dinner link,
+-- Deleting an account (MVP design §4.3). B created Fixture Taco Night and Fixture Tacos' High Protein link,
 -- and last changed Fixture Tacos. GoTrue deletes an account with no signed-in user, so clear the claims
 -- and auth.uid() is null.
 
@@ -656,7 +659,7 @@ select results_eq($$ select created_by, updated_by from public.library_tags wher
   'DB-L-38 the tag B created stays, and its created_by and updated_by become null');
 select results_eq(
   $$ select created_by, updated_by from public.library_meal_tags
-      where meal_id = pg_temp.id_of('tacos') and tag_id = pg_temp.id_of('dinner') $$,
+      where meal_id = pg_temp.id_of('tacos') and tag_id = pg_temp.id_of('high protein') $$,
   $$ values (null::uuid, null::uuid) $$,
   'DB-L-38 the link B created stays, and its created_by and updated_by become null');
 select is_empty(

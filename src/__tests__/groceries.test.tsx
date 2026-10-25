@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onlineManager } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { AccessibilityInfo, Alert, type AlertButton } from 'react-native';
@@ -5,7 +6,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import Groceries from '@/app/(app)/(tabs)/groceries';
 import { ADD_ITEM_BUTTON_CLEARANCE } from '@/features/groceries/components/add-item-button';
+import { STEP_SAVE_DELAY_MS } from '@/features/groceries/components/item-row';
 import { ProgressHeader } from '@/features/groceries/components/progress-header';
+import { EMPTY_STATE } from '@/features/groceries/constants';
 import { buildSections, type GroceryItem, progress } from '@/features/groceries/domain';
 import type { GroceryList } from '@/features/groceries/hooks';
 import { ToastProvider } from '@/lib/toast';
@@ -13,9 +16,9 @@ import { touchTarget } from '@/test/a11y';
 import { makeItem } from '@/test/factories';
 import { themes } from '@/ui/theme';
 
-// Groceries screen tests C-GRO-01–11 (4-test-plan §4.5). The screen renders whatever
-// useGroceryList returns, so the hook is mocked; its sections and progress still come from the
-// real domain.ts, which is never mocked (§8.4).
+// Groceries screen tests C-GRO-01–11 (4-test-plan §4.5), as redesigned (specs/redesign/design.md
+// §4.1). The screen renders whatever useGroceryList returns, so the hook is mocked; its sections
+// and progress still come from the real domain.ts, which is never mocked (§8.4).
 
 let mockList: GroceryList;
 const mockSetChecked = jest.fn();
@@ -33,9 +36,25 @@ jest.mock('@/features/groceries/hooks', () => ({
 }));
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+// Rendered on its own, the screen has no tab navigator to hand its header to, so the header's
+// right-hand side is drawn in place, above the list.
+jest.mock('expo-router/js-tabs', () => ({
+  Tabs: {
+    Screen: ({ options }: { options?: { headerRight?: () => import('react').ReactNode } }) =>
+      options?.headerRight?.() ?? null,
+  },
+}));
+// The pill has its own test (C-NET-02), and needs the household channel; here it only marks where
+// the screen puts it.
+jest.mock('@/features/household/components/reconnecting-pill', () => {
+  const { createElement } = jest.requireActual<typeof import('react')>('react');
+  const { Text } = jest.requireActual<typeof import('react-native')>('react-native');
+  return { ReconnectingPill: () => createElement(Text, null, 'Reconnecting pill') };
+});
 
 const { light } = themes;
 const OFFLINE_BANNER = "Offline — changes will send when you're back online";
+const HIDE_CHECKED_KEY = 'kitchin.pref.groceries.hideChecked';
 
 function listOf(items: GroceryItem[], overrides: Partial<GroceryList> = {}): GroceryList {
   return {
@@ -60,9 +79,15 @@ const ITEMS = [
   makeItem({ id: 'spinach', name: 'Spinach', category: 'produce' }),
 ];
 
-beforeEach(() => {
+const allChecked = (items: GroceryItem[]) => items.map((i) => ({ ...i, isChecked: true }));
+
+let alert: jest.SpyInstance;
+
+beforeEach(async () => {
   jest.clearAllMocks();
+  await AsyncStorage.clear();
   mockList = listOf(ITEMS);
+  alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -82,15 +107,43 @@ const renderGroceries = () => render(ui());
 
 const sectionLabels = () =>
   screen.getAllByTestId('section-header').map((header) => header.props.accessibilityLabel);
+const rowLabels = () =>
+  screen.queryAllByTestId('item-row').map((row) => row.props.accessibilityLabel);
+const row = (label: string) => screen.getByLabelText(label);
 
 const refreshControl = () => screen.getByTestId('groceries-list').props.refreshControl.props;
 
+const hideChecked = () => screen.getByTestId('hide-checked');
+const setHideChecked = (value: boolean) => fireEvent(hideChecked(), 'valueChange', value);
+
+/** The title and buttons of the latest confirmation. */
+function confirmation(): { title: string; buttons: AlertButton[] } {
+  const [title, , buttons] = alert.mock.calls.at(-1);
+  return { title, buttons };
+}
+
+const pressAlertButton = (text: string) =>
+  act(async () =>
+    confirmation()
+      .buttons.find((b) => b.text === text)
+      ?.onPress?.(),
+  );
+
 describe('Groceries', () => {
+  it('puts only the Reconnecting pill in the header, beside the title (R13.4)', async () => {
+    await renderGroceries();
+
+    expect(screen.getByText('Reconnecting pill')).toBeOnTheScreen();
+    // The header has no buttons of its own: Uncheck all and Clear checked are in the panel.
+    expect(testIds(screen.toJSON())[0]).toBe('groceries-list');
+    expect(screen.queryByRole('button', { name: 'List options' })).not.toBeOnTheScreen();
+  });
+
   it('C-GRO-01 shows sections in the fixed order, and none for empty categories', async () => {
     await renderGroceries();
 
     expect(sectionLabels()).toEqual(['Produce, 2 left', 'Dairy & Eggs, 2 left', 'Other, 1 left']);
-    for (const label of ['Meat & Fish', 'Pantry', 'Frozen', 'Bakery']) {
+    for (const label of ['Meat & Seafood', 'Pantry', 'Frozen', 'Bakery', 'Beverages']) {
       expect(screen.queryByText(label, { exact: false })).not.toBeOnTheScreen();
     }
   });
@@ -98,8 +151,7 @@ describe('Groceries', () => {
   it("C-GRO-01 lists each section's open items first, oldest first", async () => {
     await renderGroceries();
 
-    const rows = screen.getAllByTestId('item-row').map((row) => row.props.accessibilityLabel);
-    expect(rows).toEqual([
+    expect(rowLabels()).toEqual([
       'Bananas, 6, not checked',
       'Spinach, not checked',
       'Apples, checked',
@@ -109,7 +161,7 @@ describe('Groceries', () => {
     ]);
   });
 
-  it('C-GRO-02 shows the emoji, the label and an "N left" badge in each section header', async () => {
+  it('C-GRO-02 shows the emoji, the label and a sage "N left" count in each section header', async () => {
     mockList = listOf([
       ...ITEMS,
       makeItem({ id: 'yogurt', name: 'Yogurt', category: 'dairy', isChecked: true }),
@@ -117,27 +169,31 @@ describe('Groceries', () => {
     await renderGroceries();
 
     const [produce, dairy] = screen.getAllByTestId('section-header');
-    expect(within(produce).getByText('🥬 Produce')).toBeOnTheScreen();
-    expect(within(produce).getByText('2 left')).toHaveStyle({ color: light.category.produce.fg });
+    expect(within(produce).getByText('🥬')).toBeOnTheScreen();
+    expect(within(produce).getByText('Produce')).toBeOnTheScreen();
+    expect(within(produce).getByText('2 left')).toHaveStyle({ color: light.sageInk });
     // Checked items don't count.
-    expect(within(dairy).getByText('🥛 Dairy & Eggs')).toBeOnTheScreen();
+    expect(within(dairy).getByText('🥚')).toBeOnTheScreen();
+    expect(within(dairy).getByText('Dairy & Eggs')).toBeOnTheScreen();
     expect(within(dairy).getByText('2 left')).toBeOnTheScreen();
   });
 
-  it('C-GRO-02 says "0 left" for a section whose items are all checked', async () => {
+  it('C-GRO-02 says "Done" for a section whose items are all checked', async () => {
     mockList = listOf([
       makeItem({ id: 'peas', name: 'Peas', category: 'frozen', isChecked: true }),
     ]);
     await renderGroceries();
 
     expect(sectionLabels()).toEqual(['Frozen, 0 left']);
-    expect(screen.getByText('0 left')).toBeOnTheScreen();
+    expect(screen.getByText('Done')).toHaveStyle({ color: light.inkMuted });
+    expect(screen.queryByText('0 left')).not.toBeOnTheScreen();
   });
 
   it('C-GRO-03 shows the full name with no line limit, and the quantity when there is one', async () => {
     const longName = 'Extra-virgin olive oil from the little shop by the market '.repeat(3).trim();
     mockList = listOf([
       makeItem({ id: 'oil', name: longName, category: 'pantry', quantity: '2 bottles' }),
+      makeItem({ id: 'thyme', name: 'Thyme', category: 'pantry', quantity: 'a sprig' }),
       makeItem({ id: 'salt', name: 'Salt', category: 'pantry' }),
     ]);
     await renderGroceries();
@@ -145,30 +201,35 @@ describe('Groceries', () => {
     const name = screen.getByText(longName);
     expect(name).not.toHaveProp('numberOfLines');
     expect(name).not.toHaveProp('ellipsizeMode');
-    expect(screen.getByText('2 bottles')).toBeOnTheScreen();
-
-    // Without a quantity, the quantity button offers to add one.
-    const salt = screen.getByLabelText('Salt, not checked');
+    // A count steps with − and +; anything else opens the editor.
     expect(
-      within(salt)
+      within(row(`${longName}, 2 bottles, not checked`)).getByTestId('quantity-stepper'),
+    ).toHaveTextContent('2 bottles');
+    expect(
+      within(row('Thyme, a sprig, not checked')).getByTestId('quantity-button'),
+    ).toHaveTextContent('a sprig');
+
+    // Without a quantity, the row shows only the name.
+    expect(
+      within(row('Salt, not checked'))
         .getAllByText(/./)
         .map((text) => text.props.children),
-    ).toEqual(['Salt', '＋']);
+    ).toEqual(['Salt']);
   });
 
   it('C-GRO-04 strikes through, mutes and ticks a checked item, and not an open one', async () => {
     await renderGroceries();
 
-    const apples = screen.getByLabelText('Apples, checked');
+    const apples = row('Apples, checked');
     expect(within(apples).getByText('Apples')).toHaveStyle({
       textDecorationLine: 'line-through',
       color: light.inkMuted,
     });
     expect(within(apples).getByTestId('checkbox-mark')).toHaveStyle({
-      backgroundColor: light.primary,
+      backgroundColor: light.sage,
     });
 
-    const spinach = screen.getByLabelText('Spinach, not checked');
+    const spinach = row('Spinach, not checked');
     expect(within(spinach).getByText('Spinach')).toHaveStyle({ color: light.ink });
     expect(within(spinach).getByText('Spinach')).not.toHaveStyle({
       textDecorationLine: 'line-through',
@@ -179,7 +240,7 @@ describe('Groceries', () => {
     });
   });
 
-  it('C-GRO-05 shows "3 of 12 checked" and a bold cactus 25%', async () => {
+  it('C-GRO-05 shows "3 of 12 items", a bold terracotta 25% and a sage bar', async () => {
     mockList = listOf(
       Array.from({ length: 12 }, (_, i) =>
         makeItem({ id: `item-${i}`, name: `Item ${i}`, isChecked: i < 3 }),
@@ -187,16 +248,43 @@ describe('Groceries', () => {
     );
     await renderGroceries();
 
-    expect(screen.getByText('3 of 12 checked')).toBeOnTheScreen();
-    expect(screen.getByText('25%')).toHaveStyle({ color: light.cactus, fontWeight: '700' });
-    expect(screen.getByTestId('progress-fill')).toHaveStyle({ width: '25%' });
-    expect(screen.getByLabelText('3 of 12 checked, 25%')).toBeOnTheScreen();
+    expect(screen.getByText('3 of 12 items')).toBeOnTheScreen();
+    expect(screen.getByText('25%')).toHaveStyle({ color: light.accent, fontWeight: '700' });
+    expect(screen.getByTestId('progress-fill')).toHaveStyle({
+      width: '25%',
+      backgroundColor: light.sage,
+    });
+    expect(screen.getByLabelText('3 of 12 checked, 25%')).toBe(
+      screen.getByTestId('progress-header'),
+    );
+  });
+
+  it('C-GRO-05 says "All 12 items" once everything is checked', async () => {
+    mockList = listOf(
+      allChecked(
+        Array.from({ length: 12 }, (_, i) => makeItem({ id: `item-${i}`, name: `Item ${i}` })),
+      ),
+    );
+    await renderGroceries();
+
+    expect(screen.getByText('All 12 items')).toBeOnTheScreen();
+    expect(screen.getByText('100%')).toBeOnTheScreen();
   });
 
   it('C-GRO-06 gives ProgressHeader no percentage or bar for an empty list', async () => {
-    await render(<ProgressHeader progress={progress([])} />);
+    await render(
+      <ProgressHeader
+        progress={progress([])}
+        hideChecked={false}
+        onHideCheckedChange={jest.fn()}
+        uncheckCount={0}
+        onUncheckAll={jest.fn()}
+        onClearChecked={jest.fn()}
+      />,
+    );
 
     expect(screen.getByLabelText('0 of 0 checked')).toBeOnTheScreen();
+    expect(screen.getByText('0 of 0 items')).toBeOnTheScreen();
     expect(screen.queryByText(/%/)).not.toBeOnTheScreen();
     expect(screen.queryByTestId('progress-fill')).not.toBeOnTheScreen();
   });
@@ -205,9 +293,10 @@ describe('Groceries', () => {
     mockList = listOf([]);
     await renderGroceries();
 
-    expect(screen.getByText('No items yet')).toBeOnTheScreen();
-    expect(screen.getByText('Add some items to get started')).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: EMPTY_STATE.title })).toBeOnTheScreen();
+    expect(screen.getByText(EMPTY_STATE.description)).toBeOnTheScreen();
     expect(screen.queryByTestId('progress-header')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('hide-checked')).not.toBeOnTheScreen();
     expect(screen.queryByText(/%/)).not.toBeOnTheScreen();
   });
 
@@ -226,7 +315,7 @@ describe('Groceries', () => {
 
     expect(screen.getByTestId('skeleton-rows')).toBeOnTheScreen();
     expect(screen.getByLabelText('Loading groceries')).toBeOnTheScreen();
-    expect(screen.queryByText('No items yet')).not.toBeOnTheScreen();
+    expect(screen.queryByText(EMPTY_STATE.title)).not.toBeOnTheScreen();
     expect(screen.queryByTestId('progress-header')).not.toBeOnTheScreen();
   });
 
@@ -235,7 +324,7 @@ describe('Groceries', () => {
     await renderGroceries();
 
     expect(screen.getByRole('header', { name: "Couldn't load groceries" })).toBeOnTheScreen();
-    expect(screen.queryByText('No items yet')).not.toBeOnTheScreen();
+    expect(screen.queryByText(EMPTY_STATE.title)).not.toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
 
     expect(mockList.refetch).toHaveBeenCalledTimes(1);
@@ -322,30 +411,58 @@ describe('Groceries', () => {
 
     expect(screen.getByText(OFFLINE_BANNER)).toBeOnTheScreen();
     expect(screen.getByText('Waiting for connection…')).toBeOnTheScreen();
-    expect(screen.queryByText('No items yet')).not.toBeOnTheScreen();
+    expect(screen.queryByText(EMPTY_STATE.title)).not.toBeOnTheScreen();
     expect(screen.queryByTestId('skeleton-rows')).not.toBeOnTheScreen();
   });
 
   it('C-GRO-11 uses only static testIDs, none containing an item name (R26.7)', async () => {
-    const STATIC_IDS = new Set([
-      'groceries-list',
-      'progress-header',
-      'progress-fill',
-      'section-header',
-      'item-row',
-      'checkbox-mark',
-      'quantity-button',
-      'item-delete',
-      'add-item-button',
-    ]);
+    const items = [
+      ...ITEMS,
+      makeItem({ id: 'thyme', name: 'Thyme', category: 'pantry', quantity: 'a sprig' }),
+    ];
+    mockList = listOf(items);
     await renderGroceries();
 
     const ids = testIds(screen.toJSON());
-    expect(ids.length).toBeGreaterThan(0);
-    expect(new Set(ids)).toEqual(STATIC_IDS);
-    for (const { name, id } of ITEMS) {
+    expect(new Set(ids)).toEqual(
+      new Set([
+        'groceries-list',
+        'progress-header',
+        'progress-fill',
+        'hide-checked',
+        'uncheck-all',
+        'clear-checked',
+        'section-header',
+        'item-edit',
+        'item-delete',
+        'item-row',
+        'checkbox-mark',
+        'quantity-stepper',
+        'quantity-button',
+        'add-item-button',
+      ]),
+    );
+    for (const { name, id } of items) {
       expect(ids.filter((testId) => testId.includes(name) || testId.includes(id))).toEqual([]);
     }
+  });
+
+  it('C-GRO-11 uses static testIDs for the panel actions, the footer and the all-hidden state', async () => {
+    await AsyncStorage.setItem(HIDE_CHECKED_KEY, 'true');
+    mockList = listOf(allChecked(ITEMS));
+    await renderGroceries();
+
+    expect(testIds(screen.toJSON())).toEqual([
+      'groceries-list',
+      'progress-header',
+      'progress-fill',
+      'hide-checked',
+      'uncheck-all',
+      'clear-checked',
+      'groceries-all-hidden',
+      'show-checked',
+      'add-item-button',
+    ]);
   });
 
   it.each([
@@ -362,10 +479,8 @@ describe('Groceries', () => {
 });
 
 // Task 4.7: each interaction reaches the right mutation hook with the right variables.
-// item-row.test.tsx and clear-checked-button.test.tsx cover the components in detail.
+// item-row.test.tsx covers the row in detail.
 describe('Groceries item interactions', () => {
-  const row = (label: string) => screen.getByLabelText(label);
-
   it('C-ITEM-01 checks an open item and unchecks a checked one through useSetChecked', async () => {
     await renderGroceries();
 
@@ -387,22 +502,46 @@ describe('Groceries item interactions', () => {
     await fireEvent.press(row('Bananas, 6, not checked'));
     await screen.rerender(ui());
 
-    const produce = screen
-      .getAllByTestId('item-row')
-      .slice(0, 3)
-      .map((r) => r.props.accessibilityLabel);
-    expect(produce).toEqual(['Spinach, not checked', 'Apples, checked', 'Bananas, 6, checked']);
+    expect(rowLabels().slice(0, 3)).toEqual([
+      'Spinach, not checked',
+      'Apples, checked',
+      'Bananas, 6, checked',
+    ]);
   });
 
   it('C-ITEM-02 saves an edited quantity through useSetQuantity', async () => {
+    mockList = listOf([
+      ...ITEMS,
+      makeItem({ id: 'thyme', name: 'Thyme', category: 'pantry', quantity: 'a sprig' }),
+    ]);
     await renderGroceries();
 
-    await fireEvent.press(within(row('Bananas, 6, not checked')).getByTestId('quantity-button'));
+    await fireEvent.press(
+      within(row('Thyme, a sprig, not checked')).getByTestId('quantity-button'),
+    );
     const editor = screen.getByTestId('quantity-editor');
-    await fireEvent.changeText(editor, ' 8 ');
+    await fireEvent.changeText(editor, ' 2 sprigs ');
     await fireEvent(editor, 'submitEditing');
 
-    expect(mockSetQuantity).toHaveBeenCalledWith({ id: 'bananas', quantity: '8' });
+    expect(mockSetQuantity).toHaveBeenCalledWith({ id: 'thyme', quantity: '2 sprigs' });
+  });
+
+  it('steps a counted quantity through useSetQuantity once the taps pause', async () => {
+    jest.useFakeTimers();
+    try {
+      await renderGroceries();
+      const stepper = within(row('Bananas, 6, not checked')).getByTestId('quantity-stepper');
+
+      await fireEvent.press(stepper.children[2] as typeof stepper);
+      await fireEvent.press(stepper.children[2] as typeof stepper);
+      expect(mockSetQuantity).not.toHaveBeenCalled();
+      await act(async () => void jest.advanceTimersByTime(STEP_SAVE_DELAY_MS));
+
+      expect(mockSetQuantity.mock.calls).toEqual([[{ id: 'bananas', quantity: '8' }]]);
+      expect(mockSetChecked).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('C-ITEM-06 deletes through useDeleteItem from the row\'s "Delete" action', async () => {
@@ -415,50 +554,215 @@ describe('Groceries item interactions', () => {
     expect(mockDeleteItem).toHaveBeenCalledWith({ id: 'milk' });
   });
 
-  it('C-ITEM-09 clears checked items through useClearChecked, after confirming the count', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  it('opens the edit sheet for the item from its swiped-open Edit action', async () => {
     await renderGroceries();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Clear checked' }));
-    const [title, , buttons] = alert.mock.calls[0];
-    expect(title).toBe('Clear 1 checked item?');
+    // The swipe actions are drawn in row order.
+    const edits = screen.getAllByTestId('item-edit', { includeHiddenElements: true });
+    await fireEvent.press(edits[rowLabels().indexOf('Milk, 1 gallon, not checked')]);
+
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/edit-item', params: { id: 'milk' } });
+    expect(mockSetChecked).not.toHaveBeenCalled();
+  });
+
+  it('opens the edit sheet with the row\'s "Edit item" action', async () => {
+    await renderGroceries();
+
+    await fireEvent(row('Eggs, not checked'), 'accessibilityAction', {
+      nativeEvent: { actionName: 'edit' },
+    });
+
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/edit-item', params: { id: 'eggs' } });
+  });
+});
+
+describe('Hide checked items', () => {
+  it('hides checked items with the switch, keeping the counts and the progress', async () => {
+    await renderGroceries();
+    expect(hideChecked()).toHaveProp('value', false);
+    expect(hideChecked()).toHaveProp('accessibilityLabel', 'Hide checked items');
+
+    await setHideChecked(true);
+
+    expect(hideChecked()).toHaveProp('value', true);
+    expect(rowLabels()).not.toContain('Apples, checked');
+    expect(rowLabels()).toHaveLength(ITEMS.length - 1);
+    expect(sectionLabels()).toEqual(['Produce, 2 left', 'Dairy & Eggs, 2 left', 'Other, 1 left']);
+    expect(screen.getByLabelText('1 of 6 checked, 17%')).toBeOnTheScreen();
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(HIDE_CHECKED_KEY, 'true');
+  });
+
+  it('starts with checked items hidden when this device remembers the choice', async () => {
+    await AsyncStorage.setItem(HIDE_CHECKED_KEY, 'true');
+    await renderGroceries();
+
+    expect(hideChecked()).toHaveProp('value', true);
+    expect(rowLabels()).not.toContain('Apples, checked');
+  });
+
+  it('closes the list with "Show 1 checked item" while they are hidden, which shows them', async () => {
+    await renderGroceries();
+    expect(screen.queryByTestId('show-checked')).not.toBeOnTheScreen();
+
+    await setHideChecked(true);
+    const show = screen.getByRole('button', { name: 'Show 1 checked item' });
+    expect(show).toBe(screen.getByTestId('show-checked'));
+    await fireEvent.press(show);
+
+    expect(rowLabels()).toContain('Apples, checked');
+    expect(hideChecked()).toHaveProp('value', false);
+    expect(screen.queryByTestId('show-checked')).not.toBeOnTheScreen();
+    expect(AsyncStorage.setItem).toHaveBeenLastCalledWith(HIDE_CHECKED_KEY, 'false');
+  });
+
+  it('counts several hidden items in the plural, and drops a section with nothing open', async () => {
+    mockList = listOf([
+      ...ITEMS,
+      makeItem({ id: 'peas', name: 'Peas', category: 'frozen', isChecked: true }),
+    ]);
+    await renderGroceries();
+
+    await setHideChecked(true);
+
+    expect(screen.getByRole('button', { name: 'Show 2 checked items' })).toBeOnTheScreen();
+    expect(sectionLabels()).toEqual(['Produce, 2 left', 'Dairy & Eggs, 2 left', 'Other, 1 left']);
+  });
+
+  it("says everything's checked off when every item is checked and hidden", async () => {
+    mockList = listOf(allChecked(ITEMS));
+    await renderGroceries();
+
+    await setHideChecked(true);
+
+    expect(screen.getByTestId('groceries-all-hidden')).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: "Everything's checked off" })).toBeOnTheScreen();
+    expect(screen.queryAllByTestId('section-header')).toEqual([]);
+    expect(screen.getByText('All 6 items')).toBeOnTheScreen();
+    expect(screen.queryByText(EMPTY_STATE.title)).not.toBeOnTheScreen();
+  });
+});
+
+describe('Collapsing sections', () => {
+  const header = (label: string) => screen.getByRole('button', { name: label });
+
+  it('collapses a section when its heading is tapped, and expands it again', async () => {
+    await renderGroceries();
+    expect(header('Produce, 2 left')).toBeExpanded();
+    expect(header('Produce, 2 left')).toHaveProp('accessibilityHint', 'Hides this section');
+
+    await fireEvent.press(header('Produce, 2 left'));
+
+    expect(rowLabels()).toEqual([
+      'Eggs, not checked',
+      'Milk, 1 gallon, not checked',
+      'Foil, not checked',
+    ]);
+    // The heading and its count stay.
+    expect(sectionLabels()).toEqual(['Produce, 2 left', 'Dairy & Eggs, 2 left', 'Other, 1 left']);
+    expect(header('Produce, 2 left')).toBeCollapsed();
+    expect(header('Produce, 2 left')).toHaveProp('accessibilityHint', 'Shows this section');
+
+    await fireEvent.press(header('Produce, 2 left'));
+
+    expect(rowLabels()).toHaveLength(ITEMS.length);
+    expect(header('Produce, 2 left')).toBeExpanded();
+  });
+
+  it('collapses each section on its own', async () => {
+    await renderGroceries();
+
+    await fireEvent.press(header('Dairy & Eggs, 2 left'));
+    await fireEvent.press(header('Other, 1 left'));
+
+    expect(rowLabels()).toEqual([
+      'Bananas, 6, not checked',
+      'Spinach, not checked',
+      'Apples, checked',
+    ]);
+  });
+});
+
+// R10 as redesigned: Uncheck all and Clear checked sit in the progress panel, each confirmed first.
+// list-actions.test.ts and progress-header.test.tsx cover the confirmations and buttons in detail.
+describe('Uncheck all and Clear checked', () => {
+  const uncheckAll = () => screen.getByRole('button', { name: 'Uncheck all' });
+  const clearChecked = () => screen.getByRole('button', { name: 'Clear checked' });
+
+  it('C-ITEM-09 clears checked items through useClearChecked, after confirming the count', async () => {
+    await renderGroceries();
+
+    await fireEvent.press(clearChecked());
+    expect(confirmation().title).toBe('Clear 1 checked item?');
     expect(mockClearChecked).not.toHaveBeenCalled();
-    await act(async () => (buttons as AlertButton[]).find((b) => b.text === 'Clear')?.onPress?.());
+    await pressAlertButton('Clear');
 
     expect(mockClearChecked).toHaveBeenCalledTimes(1);
   });
 
-  it('C-ITEM-07 disables Clear checked while nothing is checked', async () => {
-    mockList = listOf(ITEMS.filter((i) => !i.isChecked));
+  it('C-ITEM-08 clears nothing on Cancel (R10.5)', async () => {
+    mockList = listOf(allChecked(ITEMS));
     await renderGroceries();
 
-    expect(screen.getByRole('button', { name: 'Clear checked' })).toBeDisabled();
+    await fireEvent.press(clearChecked());
+    expect(confirmation().title).toBe('Clear 6 checked items?');
+    await pressAlertButton('Cancel');
+
+    expect(mockClearChecked).not.toHaveBeenCalled();
   });
 
   it('C-ITEM-13 unchecks through useUncheckAll, keeping a checked duplicate of an open item', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     mockList = listOf([
       ...ITEMS,
       makeItem({ id: 'old-milk', name: 'Milk', category: 'dairy', isChecked: true }),
     ]);
     await renderGroceries();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Uncheck all' }));
-    const [title, , buttons] = alert.mock.calls[0];
-    expect(title).toBe('Uncheck 1 item?');
+    await fireEvent.press(uncheckAll());
+    expect(confirmation().title).toBe('Uncheck 1 item?');
     expect(mockUncheckAll).not.toHaveBeenCalled();
-    await act(async () =>
-      (buttons as AlertButton[]).find((b) => b.text === 'Uncheck')?.onPress?.(),
-    );
+    await pressAlertButton('Uncheck');
 
     expect(mockUncheckAll).toHaveBeenCalledWith({ keepIds: ['old-milk'] });
   });
 
-  it('C-ITEM-11 disables Uncheck all while nothing is checked', async () => {
+  it('C-ITEM-12 unchecks nothing on Cancel', async () => {
+    await renderGroceries();
+
+    await fireEvent.press(uncheckAll());
+    await pressAlertButton('Cancel');
+
+    expect(mockUncheckAll).not.toHaveBeenCalled();
+  });
+
+  it('C-ITEM-07 C-ITEM-11 offers neither while nothing is checked', async () => {
     mockList = listOf(ITEMS.filter((i) => !i.isChecked));
     await renderGroceries();
 
-    expect(screen.getByRole('button', { name: 'Uncheck all' })).toBeDisabled();
+    expect(screen.queryByTestId('uncheck-all')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('clear-checked')).not.toBeOnTheScreen();
+  });
+
+  it('C-ITEM-11 disables Uncheck all while every checked item has the name of an open one', async () => {
+    mockList = listOf([
+      makeItem({ id: 'milk', name: 'Milk', category: 'dairy' }),
+      makeItem({ id: 'old-milk', name: 'Milk', category: 'dairy', isChecked: true }),
+    ]);
+    await renderGroceries();
+
+    expect(uncheckAll()).toBeDisabled();
+    expect(clearChecked()).toBeEnabled();
+    await fireEvent.press(uncheckAll());
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  it('stays in the panel while checked items are hidden', async () => {
+    await AsyncStorage.setItem(HIDE_CHECKED_KEY, 'true');
+    await renderGroceries();
+
+    expect(rowLabels()).not.toContain('Apples, checked');
+    await fireEvent.press(clearChecked());
+
+    expect(confirmation().title).toBe('Clear 1 checked item?');
   });
 });
 

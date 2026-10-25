@@ -1,5 +1,6 @@
-// Labels, order and day accents from kitchin-app/src/lib/constants.ts `MEAL_TYPES` and `DAYS`
-// (design §3.3.1). The legacy icons and colour classes become SF Symbols and theme tokens (DD32).
+// Labels and order from kitchin-app/src/lib/constants.ts `MEAL_TYPES` (design §3.3.1). The legacy
+// icons and colour classes become SF Symbols and theme tokens (DD32, as redesigned in
+// specs/redesign/design.md §5.1: a glyph alone, in its type's colour, with no tinted circle).
 import type { SFSymbol } from 'expo-symbols';
 
 import type { ColourToken } from '@/ui/theme';
@@ -11,33 +12,15 @@ export interface MealTypeInfo {
   key: MealType;
   label: string;
   symbol: SFSymbol;
-  /** The icon's colour, on `tint`. Each pair passes 3:1 (DD32, N13). */
+  /** The icon's colour on a white row. Each passes 3:1 (N13). */
   glyph: ColourToken;
-  tint: ColourToken;
 }
 
 /** Every meal type, in the fixed slot order (R30.2, R36.2). */
 export const MEAL_TYPES: readonly MealTypeInfo[] = [
-  {
-    key: 'breakfast',
-    label: 'Breakfast',
-    symbol: 'cup.and.saucer.fill',
-    glyph: 'accent',
-    tint: 'accentSoft',
-  },
-  { key: 'lunch', label: 'Lunch', symbol: 'sun.max.fill', glyph: 'ink', tint: 'secondarySoft' },
-  { key: 'dinner', label: 'Dinner', symbol: 'moon.fill', glyph: 'primary', tint: 'primarySoft' },
-];
-
-/** Each day's accent edge, Monday first (R36.3). Decorative, so not contrast-checked (R36.4). */
-export const DAY_ACCENTS: readonly ColourToken[] = [
-  'primary',
-  'ink',
-  'cactus',
-  'secondary',
-  'tertiary',
-  'sand',
-  'accent',
+  { key: 'breakfast', label: 'Breakfast', symbol: 'sunrise.fill', glyph: 'breakfast' },
+  { key: 'lunch', label: 'Lunch', symbol: 'sun.max.fill', glyph: 'lunch' },
+  { key: 'dinner', label: 'Dinner', symbol: 'moon.stars.fill', glyph: 'dinner' },
 ];
 
 /** Monday first. The static parts of day and slot test IDs, which never contain meal text (R26.7). */

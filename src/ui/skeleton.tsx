@@ -39,7 +39,7 @@ export function Skeleton({ width = '100%', height = 16, radius = 6 }: SkeletonPr
     <Animated.View
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={[{ width, height, borderRadius: radius, backgroundColor: theme.border }, pulse]}
+      style={[{ width, height, borderRadius: radius, backgroundColor: theme.sunken }, pulse]}
     />
   );
 }

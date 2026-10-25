@@ -1,48 +1,77 @@
-import { StyleSheet, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { CategoryBadge } from '@/ui/category-badge';
+import { CountBadge } from '@/ui/count-badge';
 import { Text } from '@/ui/text';
+import { useTheme } from '@/ui/use-theme';
 
 import { CATEGORIES, type CategoryKey } from '../constants';
 
-/** "🥬 Produce" with an "N left" badge of the section's open items (R4.3, R16.4). */
+export interface CategorySectionHeaderProps {
+  category: CategoryKey;
+  openCount: number;
+  collapsed: boolean;
+  onToggle: (category: CategoryKey) => void;
+}
+
+/** "4 left", or "Done" once every item in the section is checked (R4.3). */
+export function leftLabel(openCount: number): string {
+  return openCount === 0 ? 'Done' : `${openCount} left`;
+}
+
+/**
+ * "🥬 Produce", a chevron, and the section's open items as a sage count (R4.3). Straight on the
+ * page, with no card, so it reads as a heading. Tapping it collapses or expands the section, which
+ * VoiceOver hears as the button's expanded state (specs/redesign/design.md §4.1).
+ */
 export function CategorySectionHeader({
   category,
   openCount,
-}: {
-  category: CategoryKey;
-  openCount: number;
-}) {
+  collapsed,
+  onToggle,
+}: CategorySectionHeaderProps) {
+  const theme = useTheme();
   const { label, emoji } = CATEGORIES.find((c) => c.key === category)!;
-  const left = `${openCount} left`;
+  const left = leftLabel(openCount);
 
   return (
     // One element for VoiceOver, without the emoji's own description.
-    <View
+    <Pressable
       testID="section-header"
-      accessible
-      accessibilityRole="header"
-      accessibilityLabel={`${label}, ${left}`}
-      style={styles.header}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}, ${openCount} left`}
+      accessibilityHint={collapsed ? 'Shows this section' : 'Hides this section'}
+      accessibilityState={{ expanded: !collapsed }}
+      onPress={() => onToggle(category)}
+      style={({ pressed }) => [styles.header, pressed && styles.pressed]}
     >
-      <Text variant="headline" style={styles.title}>
-        {emoji} {label}
-      </Text>
-      <CategoryBadge category={category} label={left} />
-    </View>
+      <Text style={styles.emoji}>{emoji}</Text>
+      <View style={styles.title}>
+        <Text variant="headline">{label}</Text>
+        <SymbolView
+          name={collapsed ? 'chevron.right' : 'chevron.down'}
+          weight="semibold"
+          tintColor={theme.inkMuted}
+          size={12}
+        />
+      </View>
+      <CountBadge label={left} tone={openCount === 0 ? 'neutral' : 'sage'} />
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
+    gap: 10,
+    minHeight: 44,
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 8,
+    paddingTop: 18,
+    paddingBottom: 6,
   },
-  title: { flexShrink: 1 },
+  emoji: { fontSize: 20, lineHeight: 26 },
+  // Wraps at large text sizes rather than clipping (N12).
+  title: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  pressed: { opacity: 0.6 },
 });

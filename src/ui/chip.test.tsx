@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Text } from 'react-native';
 
 import { touchTarget } from '@/test/a11y';
 
@@ -44,31 +45,42 @@ describe('Chip', () => {
     expect(screen.getByText('✓ 🥫')).toBeOnTheScreen();
   });
 
-  it('renders a selected chip as bold onBrand text on cactus', async () => {
+  it('DD-R3 renders a selected chip with a blush fill, a terracotta edge and a semibold accentInk label', async () => {
     await render(<Chip label="Produce" selected onPress={() => {}} />);
 
     const chip = screen.getByRole('button', { name: 'Produce' });
     expect(chip).toBeSelected();
-    expect(chip).toHaveStyle({ backgroundColor: light.cactus });
-    expect(screen.getByText('Produce')).toHaveStyle({ color: light.onBrand, fontWeight: '700' });
+    expect(chip).toHaveStyle({
+      backgroundColor: light.accentSoft,
+      borderColor: light.accent,
+      borderRadius: light.radius.pill,
+    });
+    expect(screen.getByText('Produce')).toHaveStyle({
+      color: light.accentInk,
+      fontWeight: '600',
+    });
   });
 
-  it('C-UI-09 renders a selected accent chip as bold onBrand text on terracotta', async () => {
-    await render(<Chip label="Dinner" tone="accent" selected onPress={() => {}} />);
+  it('renders an unselected chip as regular ink text on white with a soft edge (DD-R4)', async () => {
+    await render(<Chip label="Dinner" onPress={() => {}} />);
 
     const chip = screen.getByRole('button', { name: 'Dinner' });
-    expect(chip).toBeSelected();
-    expect(chip).toHaveStyle({ backgroundColor: light.accent, borderColor: light.accent });
-    expect(screen.getByText('Dinner')).toHaveStyle({ color: light.onBrand, fontWeight: '700' });
+    expect(chip).not.toBeSelected();
+    expect(chip).toHaveStyle({ backgroundColor: light.background, borderColor: light.border });
+    expect(screen.getByText('Dinner')).toHaveStyle({ color: light.ink, fontWeight: '400' });
   });
 
-  it('C-UI-09 renders an unselected accent chip as the default unselected chip', async () => {
-    await render(<Chip label="Dinner" tone="accent" onPress={() => {}} />);
+  it('shows a leading glyph before the label', async () => {
+    await render(<Chip label="Family Favorite" leading={<Text>♥</Text>} onPress={() => {}} />);
 
-    expect(screen.getByRole('button', { name: 'Dinner' })).toHaveStyle({
-      backgroundColor: light.background,
-      borderColor: light.border,
-    });
-    expect(screen.getByText('Dinner')).toHaveStyle({ color: light.ink, fontWeight: '400' });
+    expect(screen.getByRole('button', { name: 'Family Favorite' })).toHaveTextContent(
+      '♥Family Favorite',
+    );
+  });
+
+  it('carries its test ID', async () => {
+    await render(<Chip testID="filter-all" label="All" onPress={() => {}} />);
+
+    expect(screen.getByTestId('filter-all')).toHaveAccessibleName('All');
   });
 });

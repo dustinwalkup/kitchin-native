@@ -1,21 +1,29 @@
 import { useRouter } from 'expo-router';
-import { AccessibilityInfo, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, StyleSheet, View } from 'react-native';
 
-import { AddItemForm, type NewItem } from '@/features/groceries/components/add-item-form';
-import { QuickAddChips } from '@/features/groceries/components/quick-add-chips';
-import { quickAddGroups } from '@/features/groceries/domain';
+import {
+  ItemForm,
+  type ItemFormHandle,
+  type NewItem,
+} from '@/features/groceries/components/item-form';
 import { useAddItem, useGroceryList } from '@/features/groceries/hooks';
 import { ToastProvider } from '@/lib/toast';
 import { FormScrollView } from '@/ui/form-scroll-view';
 import { KeyboardToolbar } from '@/ui/keyboard-toolbar';
 import { Screen } from '@/ui/screen';
+import { SheetHeader } from '@/ui/sheet-header';
 import { Text } from '@/ui/text';
 
+/** How long "Added Milk" stays under the header. */
+export const ADDED_NOTE_MS = 2500;
+
 /**
- * The add-item form sheet (§3.4, DD10). It stays open, so several items can go in one after
- * another. The sheet covers the root's toasts, so it shows its own, such as a failed add, at the
- * top where the keyboard can't hide them. It covers the root's keyboard toolbar too, so it mounts
- * its own, last so it paints on top, outside the Screen's bottom safe-area padding.
+ * The add-item form sheet (§3.4, DD10, specs/redesign/design.md §4.2). It stays open, so several
+ * items can go in one after another, and says each one was added just under its header. The sheet
+ * covers the root's toasts, so it shows its own, such as a failed add, at the top where the keyboard
+ * can't hide them. It covers the root's keyboard toolbar too, so it mounts its own, last so it paints
+ * on top, outside the Screen's bottom safe-area padding.
  */
 export default function AddItem() {
   return (
@@ -33,55 +41,65 @@ function AddItemSheet() {
   const { items, status } = useGroceryList();
   const addItem = useAddItem();
   const ready = status === 'ready';
+  const form = useRef<ItemFormHandle>(null);
+  const [canSubmit, setCanSubmit] = useState(false);
+  const [added, setAdded] = useState<{ id: number; name: string } | null>(null);
 
-  // The item shows on the list at once (R5.5); the sheet is in front of it, so VoiceOver says so.
+  useEffect(() => {
+    if (added === null) return;
+    const timer = setTimeout(() => setAdded(null), ADDED_NOTE_MS);
+    return () => clearTimeout(timer);
+  }, [added]);
+
+  // The item shows on the list at once (R5.5); the sheet is in front of it, so it says so.
   const add = (item: NewItem) => {
     addItem(item);
+    setAdded((current) => ({ id: (current?.id ?? 0) + 1, name: item.name }));
     AccessibilityInfo.announceForAccessibility(`Added ${item.name}`);
   };
 
   return (
     <Screen edges={['bottom']}>
-      <View style={styles.header}>
-        <Text variant="headline" accessibilityRole="header">
-          Add item
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Done"
-          onPress={() => router.back()}
-          style={styles.done}
-        >
-          <Text variant="headline">Done</Text>
-        </Pressable>
+      <SheetHeader
+        title="Add item"
+        left={{ label: 'Done', onPress: () => router.back(), testID: 'add-item-done' }}
+        right={{
+          label: 'Add',
+          onPress: () => form.current?.submit(),
+          disabled: !ready || !canSubmit,
+          testID: 'add-item-submit',
+        }}
+      />
+      <View
+        style={styles.note}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
+        {added ? (
+          <Text testID="added-note" variant="footnote" color="sageInk" weight="semibold">
+            ✓ Added {added.name}
+          </Text>
+        ) : null}
       </View>
       <FormScrollView
         contentContainerStyle={styles.content}
-        // Chips and Add take the first tap while the keyboard is up.
+        // Chips and tiles take the first tap while the keyboard is up.
         keyboardShouldPersistTaps="handled"
       >
-        <AddItemForm items={items} onAdd={add} disabled={!ready} />
-        {/* Until the list loads, no chip can say whether its item is on the list (R6.2). */}
-        {ready ? (
-          <QuickAddChips
-            groups={quickAddGroups(items)}
-            onAdd={({ name, category }) => add({ name, category, quantity: null })}
-          />
-        ) : null}
+        <ItemForm
+          ref={form}
+          items={items}
+          onSubmit={add}
+          onQuickAdd={add}
+          disabled={!ready}
+          onCanSubmitChange={setCanSubmit}
+        />
       </FormScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 16,
-    paddingLeft: 16,
-    paddingRight: 4,
-  },
-  done: { minHeight: 44, minWidth: 44, paddingHorizontal: 12, justifyContent: 'center' },
-  content: { padding: 16, gap: 32 },
+  note: { minHeight: 18, alignItems: 'center' },
+  content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32 },
 });

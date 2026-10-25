@@ -10,7 +10,7 @@ export interface HeaderActionProps {
   /** What VoiceOver reads, when it says more than the visible label (R40.1). */
   accessibilityLabel?: string;
   onPress: () => void;
-  /** Ink in the regular weight, for Cancel beside the form's Save. */
+  /** Muted, in the regular weight, for Cancel beside the form's Save. */
   plain?: boolean;
   disabled?: boolean;
   /** Shows a spinner in place of the label, and blocks presses, while a save is pending (R42.8). */
@@ -18,8 +18,9 @@ export interface HeaderActionProps {
 }
 
 /**
- * A text action in a native header, such as Library or Add meal: bold terracotta on the white
- * header (R40.12, N13), with a visible label (N26) and a 44 × 44 pt target (N11).
+ * A text action in a native header, such as Add meal or Save: semibold terracotta on the ivory
+ * header, in `accentInk`, which carries text at any weight (R40.12, N13), with a visible label (N26)
+ * and a 44 × 44 pt target (N11).
  */
 export function HeaderAction({
   testID,
@@ -44,7 +45,11 @@ export function HeaderAction({
       style={({ pressed }) => [styles.action, (pressed || disabled) && styles.pressed]}
     >
       {/* The label keeps its space under the spinner, so the header doesn't shift. */}
-      <Text color={plain ? 'ink' : 'accent'} bold={!plain} style={busy && styles.hidden}>
+      <Text
+        color={plain ? 'inkMuted' : 'accentInk'}
+        weight={plain ? 'regular' : 'semibold'}
+        style={busy && styles.hidden}
+      >
         {label}
       </Text>
       {busy ? (

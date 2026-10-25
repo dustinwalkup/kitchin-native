@@ -6,6 +6,7 @@ import { ApiError } from '@/lib/errors';
 import { queryClient } from '@/lib/query-client';
 import { touchTarget } from '@/test/a11y';
 import { MEMBERSHIP, mockHouseholdApi, resetBackend } from '@/test/mock-backend';
+import { themes } from '@/ui/theme';
 
 // The Week starts on screen, C-WKS-01 to C-WKS-06 (specs/meals/4-test-plan.md §14.3), on the real
 // routes with the real household hooks. The household API is the mock backend's, so a change goes
@@ -135,6 +136,26 @@ describe('Week starts on', () => {
 
     await waitFor(() => expect(screen.queryByText(ERROR)).toBeNull());
     await waitFor(() => expect(selectedDays()).toEqual(['tue']));
+  });
+
+  it('draws the checkmark in terracotta on white, an ICON_PAIRS pair (N13)', async () => {
+    await renderWeekStart();
+
+    const check = day('mon').children.find(
+      (child) => typeof child !== 'string' && child.props.name === 'checkmark',
+    );
+    expect(check).toHaveProp('tintColor', themes.light.accent);
+    expect(day('mon').parent).toHaveStyle({ backgroundColor: themes.light.background });
+  });
+
+  it('lists the days as one group, with a note that the day is the household’s', async () => {
+    await renderWeekStart();
+
+    expect(
+      screen.getByText('Meals lays out each week from this day, on both phones.'),
+    ).toBeOnTheScreen();
+    // No chevrons: choosing a day stays on the screen.
+    for (const key of KEYS) expect(symbols(key)).not.toContain('chevron.right');
   });
 
   it('C-WKS-05 makes every row a button at least 44 pt high, with static test IDs', async () => {

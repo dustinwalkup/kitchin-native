@@ -127,7 +127,7 @@ function SplashController() {
   return null;
 }
 
-/** Headers, tab bars and screen backgrounds take their colours from the desert theme (R16.7). */
+/** Headers, tab bars and screen backgrounds take their colours from the theme (R16.7). */
 function useNavigationTheme(): NavigationTheme {
   const theme = useTheme();
 
@@ -135,13 +135,14 @@ function useNavigationTheme(): NavigationTheme {
     ...DefaultTheme,
     colors: {
       ...DefaultTheme.colors,
-      // Header buttons use `primary` in regular weight, which cactus can't carry (N13).
-      primary: theme.ink,
+      // Header buttons, such as Back, use `primary` in regular weight, which accentInk can carry.
+      primary: theme.accentInk,
       background: theme.screen,
-      card: theme.background,
+      // Headers sit on the page's ivory, so the title reads as part of the screen.
+      card: theme.screen,
       text: theme.ink,
       border: theme.border,
-      notification: theme.cactus,
+      notification: theme.accent,
     },
   };
 }

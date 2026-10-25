@@ -102,9 +102,8 @@ select bag_eq(
   $$ select t.name, t.created_by, t.updated_by from public.library_tags t
        join public.households h on h.id = t.household_id where h.name = 'Household Three' $$,
   $$ select s.name, null::uuid as created_by, null::uuid as updated_by
-       from unnest(array['Quick & Easy', 'Family Favorite', 'High Protein', 'Breakfast', 'Lunch', 'Dinner',
-                         'Meal Prep']) as s(name) $$,
-  'DB-P-08 the household provisioned in DB-P-01 has exactly the seven starter tags, unattributed');
+       from unnest(array['Quick & Easy', 'Family Favorite', 'High Protein', 'Meal Prep']) as s(name) $$,
+  'DB-P-08 the household provisioned in DB-P-01 has exactly the four starter tags, unattributed');
 
 create temporary table tags_before on commit drop as select count(*) as tags from public.library_tags;
 

@@ -8,13 +8,23 @@ import {
   makePostgrestFetchError,
 } from '@/test/factories';
 
-import { clearEntry, fetchWeek, saveEntry } from './api';
+import { clearEntry, fetchRecentLibraryMealIds, fetchWeek, saveEntry } from './api';
 
 jest.mock('@/lib/supabase', () => ({ supabase: { from: jest.fn() } }));
 
 beforeEach(() => jest.clearAllMocks());
 
-const METHODS = ['select', 'upsert', 'delete', 'eq', 'gte', 'lte'] as const;
+const METHODS = [
+  'select',
+  'upsert',
+  'delete',
+  'eq',
+  'gte',
+  'lte',
+  'not',
+  'order',
+  'limit',
+] as const;
 
 type Builder = Record<(typeof METHODS)[number], jest.Mock> & PromiseLike<unknown>;
 
@@ -46,7 +56,9 @@ describe('fetchWeek', () => {
 
     expect(supabase.from).toHaveBeenCalledTimes(1);
     expect(supabase.from).toHaveBeenCalledWith('meal_entries');
-    expect(builder.select).toHaveBeenCalledWith('id, meal_date, meal_type, body, updated_at');
+    expect(builder.select).toHaveBeenCalledWith(
+      'id, meal_date, meal_type, body, library_meal_id, updated_at',
+    );
     expect(builder.eq.mock.calls).toEqual([['household_id', 'household-1']]);
     expect(builder.gte.mock.calls).toEqual([['meal_date', '2026-10-19']]);
     expect(builder.lte.mock.calls).toEqual([['meal_date', '2026-10-25']]);
@@ -54,10 +66,10 @@ describe('fetchWeek', () => {
 });
 
 describe('saveEntry', () => {
-  it('U-MAPI-02 upserts exactly the slot key and body, on the slot key', async () => {
+  it('U-MAPI-02 upserts exactly the slot key, body and link, on the slot key', async () => {
     const builder = stubQuery({ data: null, error: null, status: 201 });
 
-    await saveEntry({ ...SLOT, body: 'Tacos' });
+    await saveEntry({ ...SLOT, body: 'Tacos', libraryMealId: 'meal-3' });
 
     expect(supabase.from).toHaveBeenCalledWith('meal_entries');
     // toStrictEqual fails on any extra key, such as id, created_by or updated_at.
@@ -68,9 +80,59 @@ describe('saveEntry', () => {
           meal_date: '2026-10-22',
           meal_type: 'dinner',
           body: 'Tacos',
+          library_meal_id: 'meal-3',
         },
         { onConflict: 'household_id,meal_date,meal_type' },
       ],
+    ]);
+  });
+
+  it('U-MAPI-02 sends a null link for typed text, so an edit clears an old one (DD-R10)', async () => {
+    const builder = stubQuery({ data: null, error: null, status: 201 });
+
+    await saveEntry({ ...SLOT, body: 'Leftovers', libraryMealId: null });
+
+    expect(builder.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ body: 'Leftovers', library_meal_id: null }),
+      { onConflict: 'household_id,meal_date,meal_type' },
+    );
+  });
+});
+
+describe('fetchRecentLibraryMealIds', () => {
+  it("selects the household's linked entries, newest change first, capped at 40", async () => {
+    const builder = stubQuery({
+      data: [{ library_meal_id: 'meal-2' }, { library_meal_id: 'meal-1' }],
+      error: null,
+      status: 200,
+    });
+
+    await expect(fetchRecentLibraryMealIds('household-1')).resolves.toEqual(['meal-2', 'meal-1']);
+
+    expect(supabase.from).toHaveBeenCalledWith('meal_entries');
+    expect(builder.select).toHaveBeenCalledWith('library_meal_id');
+    expect(builder.eq.mock.calls).toEqual([['household_id', 'household-1']]);
+    expect(builder.not.mock.calls).toEqual([['library_meal_id', 'is', null]]);
+    expect(builder.order.mock.calls).toEqual([['updated_at', { ascending: false }]]);
+    expect(builder.limit.mock.calls).toEqual([[40]]);
+  });
+
+  it('keeps repeats in order and drops a null link', async () => {
+    stubQuery({
+      data: [
+        { library_meal_id: 'meal-1' },
+        { library_meal_id: null },
+        { library_meal_id: 'meal-2' },
+        { library_meal_id: 'meal-1' },
+      ],
+      error: null,
+      status: 200,
+    });
+
+    await expect(fetchRecentLibraryMealIds('household-1')).resolves.toEqual([
+      'meal-1',
+      'meal-2',
+      'meal-1',
     ]);
   });
 });
@@ -104,8 +166,9 @@ describe('failures', () => {
       () => fetchWeek('household-1', '2026-10-19' as IsoDate, '2026-10-25' as IsoDate),
       'select',
     ],
-    ['saveEntry', () => saveEntry({ ...SLOT, body: 'Tacos' }), 'upsert'],
+    ['saveEntry', () => saveEntry({ ...SLOT, body: 'Tacos', libraryMealId: null }), 'upsert'],
     ['clearEntry', () => clearEntry(SLOT), 'delete'],
+    ['fetchRecentLibraryMealIds', () => fetchRecentLibraryMealIds('household-1'), 'select'],
   ] as const;
 
   it.each(CALLS)(
@@ -137,7 +200,9 @@ describe('failures', () => {
       status: 400,
     });
 
-    const error = await saveEntry({ ...SLOT, body: 'Tacos ' }).catch((e: unknown) => e);
+    const error = await saveEntry({ ...SLOT, body: 'Tacos ', libraryMealId: null }).catch(
+      (e: unknown) => e,
+    );
 
     expect(error).toBeInstanceOf(ApiError);
     expect(error).toMatchObject({
@@ -152,7 +217,7 @@ describe('failures', () => {
     const offline = makePostgrestFetchError(new TypeError('Network request failed'));
     stubQuery({ data: null, error: offline, status: 0 });
 
-    await expect(saveEntry({ ...SLOT, body: 'Tacos' })).rejects.toMatchObject({
+    await expect(saveEntry({ ...SLOT, body: 'Tacos', libraryMealId: null })).rejects.toMatchObject({
       category: 'network',
       meta: { table: 'meal_entries', operation: 'upsert' },
     });

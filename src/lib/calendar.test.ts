@@ -3,6 +3,7 @@ import {
   addDays,
   deviceTimeZone,
   formatDay,
+  formatDayShort,
   formatWeekRange,
   isValidTimeZone,
   parseIsoDate,
@@ -359,6 +360,35 @@ describe('formatDay', () => {
   it('U-CAL-15 keeps the date whatever the device zone', () => {
     // A date's UTC midnight is the previous evening in Chicago; formatting in UTC never shows that.
     expect(formatDay(iso('2027-01-01'))).toEqual({ weekday: 'Friday', date: 'January 1' });
+  });
+});
+
+describe('formatDayShort', () => {
+  it('formats the compact day heading in UTC with the device locale (redesign §5.1)', () => {
+    const constructor = jest.spyOn(Intl, 'DateTimeFormat');
+
+    expect(formatDayShort(iso('2026-10-22'))).toEqual({ weekday: 'Thu', date: 'Oct 22' });
+    expect(constructor).toHaveBeenCalledWith(undefined, { weekday: 'short', timeZone: 'UTC' });
+    expect(constructor).toHaveBeenCalledWith(undefined, {
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'UTC',
+    });
+  });
+
+  it('keeps the date whatever the device zone', () => {
+    // A date's UTC midnight is the previous evening in Chicago; formatting in UTC never shows that.
+    expect(formatDayShort(iso('2027-01-01'))).toEqual({ weekday: 'Fri', date: 'Jan 1' });
+  });
+
+  it('names the same day as formatDay, shortened', () => {
+    for (const date of isoList('2026-10-19', '2026-10-25', '2028-02-29')) {
+      const long = formatDay(date);
+      const short = formatDayShort(date);
+
+      expect(long.weekday.startsWith(short.weekday)).toBe(true);
+      expect(short.date.split(' ')[1]).toBe(long.date.split(' ')[1]);
+    }
   });
 });
 

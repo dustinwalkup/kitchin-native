@@ -10,20 +10,24 @@ import {
   clampTo,
   cleanTagName,
   compareNames,
+  compareTags,
   constraintField,
   copiedText,
   filterMeals,
   foldForSearch,
   formValuesOf,
+  imagePathOf,
   isDirty,
   maxLengthFor,
   oneLine,
   planSave,
+  recentMeals,
   tagKey,
   trimField,
   validateMeal,
   type CleanMeal,
   type FormValues,
+  type ImageValue,
   type MealRow,
   type TagChoice,
   type TagRow,
@@ -246,16 +250,32 @@ describe('filterMeals', () => {
     ['jala', [poppers]],
     ['JALA', [poppers]],
     ['jalapeño', [poppers]],
-    ['  TACO ', [tacos]],
     ['ken ta', [tacos]],
     ['e', [stew, tacos, poppers]],
     ['pizza', []],
-  ])('U-LDOM-08 searching %j shows only the names that contain it', (query, expected) => {
+  ])('U-LDOM-08 searching %j shows only the meals that contain it', (query, expected) => {
     expect(filterMeals(meals, { query, tagIds: noTags })).toEqual(expected);
   });
 
-  it('U-LDOM-08 searches names only, not descriptions (K23)', () => {
-    expect(filterMeals(meals, { query: 'leftover', tagIds: noTags })).toEqual([]);
+  it('DD-R9 searches the description too', () => {
+    expect(filterMeals(meals, { query: 'LEFTOVER', tagIds: noTags })).toEqual([stew]);
+  });
+
+  it('DD-R9 lists meals whose names match before those that match only in their details', () => {
+    // Beef stew comes first in the list, but only its description says tacos.
+    expect(filterMeals(meals, { query: '  TACO ', tagIds: noTags })).toEqual([tacos, stew]);
+  });
+
+  it('DD-R9 searches ingredients and tag names, through the detail key', () => {
+    const chili = makeLibraryMeal({
+      id: 'chili',
+      name: 'Chili',
+      ingredients: 'Kidney beans\nCumin',
+      detailKey: foldForSearch('Kidney beans\nCumin\nFixture Taco Night'),
+    });
+    expect(filterMeals([chili], { query: 'cumin', tagIds: noTags })).toEqual([chili]);
+    expect(filterMeals([chili], { query: 'taco night', tagIds: noTags })).toEqual([chili]);
+    expect(filterMeals([chili], { query: 'rice', tagIds: noTags })).toEqual([]);
   });
 
   it.each(['', '   '])('U-LDOM-08 shows every meal for the search %j with no tags', (query) => {
@@ -273,6 +293,75 @@ describe('filterMeals', () => {
     expect(filterMeals(meals, { query: 'beef', tagIds: tags('dinner', 'quick') })).toEqual([]);
     expect(filterMeals(meals, { query: 'jala', tagIds: tags('dinner') })).toEqual([]);
     expect(filterMeals(meals, { query: 'TACOS', tagIds: tags('quick') })).toEqual([tacos]);
+  });
+
+  describe('by meal type (DD-R6)', () => {
+    const pancakes = makeLibraryMeal({ id: 'pancakes', name: 'Pancakes', mealType: 'breakfast' });
+    const lasagna = makeLibraryMeal({
+      id: 'lasagna',
+      name: 'Lasagna',
+      mealType: 'dinner',
+      tagIds: ['quick'],
+    });
+    const soup = makeLibraryMeal({ id: 'soup', name: 'Tomato soup', mealType: 'dinner' });
+    const typed = [pancakes, lasagna, soup, poppers];
+
+    it('shows every meal, typed or not, for no type', () => {
+      expect(filterMeals(typed, { query: '', tagIds: noTags })).toEqual(typed);
+      expect(filterMeals(typed, { query: '', tagIds: noTags, mealType: null })).toEqual(typed);
+    });
+
+    it('shows only the meals of the chosen type', () => {
+      expect(filterMeals(typed, { query: '', tagIds: noTags, mealType: 'dinner' })).toEqual([
+        lasagna,
+        soup,
+      ]);
+      expect(filterMeals(typed, { query: '', tagIds: noTags, mealType: 'breakfast' })).toEqual([
+        pancakes,
+      ]);
+      expect(filterMeals(typed, { query: '', tagIds: noTags, mealType: 'lunch' })).toEqual([]);
+    });
+
+    it('combines the type with the search and the tags', () => {
+      expect(filterMeals(typed, { query: 'soup', tagIds: noTags, mealType: 'dinner' })).toEqual([
+        soup,
+      ]);
+      expect(filterMeals(typed, { query: '', tagIds: tags('quick'), mealType: 'dinner' })).toEqual([
+        lasagna,
+      ]);
+      expect(filterMeals(typed, { query: 'pancakes', tagIds: noTags, mealType: 'dinner' })).toEqual(
+        [],
+      );
+    });
+  });
+});
+
+describe('recentMeals', () => {
+  const meals = ['a', 'b', 'c', 'd'].map((id) => makeLibraryMeal({ id, name: `Meal ${id}` }));
+  const [a, b, c, d] = meals;
+
+  it('DD-R10 keeps the order of the planned links, newest first', () => {
+    expect(recentMeals(meals, ['c', 'a', 'd'])).toEqual([c, a, d]);
+  });
+
+  it('DD-R10 lists a meal planned more than once only once, where it was newest', () => {
+    expect(recentMeals(meals, ['b', 'c', 'b', 'c', 'a'])).toEqual([b, c, a]);
+  });
+
+  it('DD-R10 skips meals that have been deleted since', () => {
+    expect(recentMeals(meals, ['gone', 'd', 'also-gone', 'b'])).toEqual([d, b]);
+  });
+
+  it('DD-R10 stops at the limit, eight by default', () => {
+    const many = Array.from({ length: 10 }, (_, i) => makeLibraryMeal({ id: `m${i}` }));
+    const ids = many.map((meal) => meal.id);
+    expect(recentMeals(many, ids)).toEqual(many.slice(0, 8));
+    expect(recentMeals(meals, ['d', 'c', 'b', 'a'], 2)).toEqual([d, c]);
+  });
+
+  it('DD-R10 is empty with nothing planned from the library', () => {
+    expect(recentMeals(meals, [])).toEqual([]);
+    expect(recentMeals([], ['a'])).toEqual([]);
   });
 });
 
@@ -316,6 +405,39 @@ describe('compareNames', () => {
   });
 });
 
+describe('compareTags', () => {
+  const favourite = makeLibraryTag({ id: 'tag-fav', name: 'Family Favorite' });
+  const sortedNames = (...tags: ReturnType<typeof makeLibraryTag>[]) =>
+    tags.sort(compareTags).map((tag) => tag.name);
+
+  it('DD-R8 puts Family Favorite first, and the rest in alphabetical order', () => {
+    expect(
+      sortedNames(
+        makeLibraryTag({ id: 'tag-1', name: 'Quick & Easy' }),
+        makeLibraryTag({ id: 'tag-2', name: 'Appetizer' }),
+        favourite,
+        makeLibraryTag({ id: 'tag-3', name: 'Meal Prep' }),
+      ),
+    ).toEqual(['Family Favorite', 'Appetizer', 'Meal Prep', 'Quick & Easy']);
+  });
+
+  it('DD-R8 knows Family Favorite by its key, whatever its spelling', () => {
+    const spelled = makeLibraryTag({ id: 'tag-fav', name: 'family FAVORITE' });
+    expect(sortedNames(makeLibraryTag({ id: 'tag-1', name: 'Appetizer' }), spelled)).toEqual([
+      'family FAVORITE',
+      'Appetizer',
+    ]);
+  });
+
+  it('R43.10 orders tags by name when neither is Family Favorite', () => {
+    const a = makeLibraryTag({ id: 'tag-2', name: 'Appetizer' });
+    const b = makeLibraryTag({ id: 'tag-1', name: 'Brunch' });
+    expect(compareTags(a, b)).toBeLessThan(0);
+    expect(compareTags(b, a)).toBeGreaterThan(0);
+    expect(compareTags(favourite, { ...favourite })).toBe(0);
+  });
+});
+
 describe('copiedText', () => {
   it('U-LDOM-12 is the name alone when there is no description', () => {
     expect(copiedText({ name: 'Tacos', description: null })).toBe('Tacos');
@@ -354,12 +476,14 @@ describe('buildLibrary', () => {
     const tagRows = [
       makeTagRow({ id: 'tag-2', name: 'Quick & Easy' }),
       makeTagRow({ id: 'tag-1', name: 'Taco Night' }),
-      makeTagRow({ id: 'tag-3', name: 'Dinner' }),
+      makeTagRow({ id: 'tag-4', name: 'Family Favorite' }),
+      makeTagRow({ id: 'tag-3', name: 'Appetizer' }),
     ];
     const mealRows = [
       makeMealRow({
         id: 'meal-1',
         name: 'Jalapeño poppers',
+        meal_type: null,
         updated_at: '2026-10-19T13:00:00+00:00',
       }),
       makeMealRow({
@@ -367,14 +491,23 @@ describe('buildLibrary', () => {
         name: 'Chicken tacos',
         description: 'Beef, corn tortillas',
         ingredients: 'Tortillas\nBeef',
-        library_meal_tags: [{ tag_id: 'tag-2' }, { tag_id: 'tag-1' }, { tag_id: 'tag-3' }],
+        meal_type: 'dinner',
+        image_path: 'household-1/photo.jpg',
+        library_meal_tags: [
+          { tag_id: 'tag-2' },
+          { tag_id: 'tag-1' },
+          { tag_id: 'tag-3' },
+          { tag_id: 'tag-4' },
+        ],
       }),
     ];
 
     const { library, reportKeys } = buildLibrary(mealRows, tagRows);
 
+    // Family Favorite leads (DD-R8).
     expect(library.tags).toEqual([
-      makeLibraryTag({ id: 'tag-3', name: 'Dinner' }),
+      makeLibraryTag({ id: 'tag-4', name: 'Family Favorite' }),
+      makeLibraryTag({ id: 'tag-3', name: 'Appetizer' }),
       makeLibraryTag({ id: 'tag-2', name: 'Quick & Easy' }),
       makeLibraryTag({ id: 'tag-1', name: 'Taco Night' }),
     ]);
@@ -384,8 +517,12 @@ describe('buildLibrary', () => {
         name: 'Chicken tacos',
         description: 'Beef, corn tortillas',
         ingredients: 'Tortillas\nBeef',
-        tagIds: ['tag-3', 'tag-2', 'tag-1'],
+        mealType: 'dinner',
+        imagePath: 'household-1/photo.jpg',
+        tagIds: ['tag-4', 'tag-3', 'tag-2', 'tag-1'],
         searchKey: 'chicken tacos',
+        detailKey:
+          'beef, corn tortillas\ntortillas\nbeef\nfamily favorite\nappetizer\nquick & easy\ntaco night',
         updatedAt: '2026-10-19T12:00:00+00:00',
       },
       {
@@ -393,19 +530,70 @@ describe('buildLibrary', () => {
         name: 'Jalapeño poppers',
         description: null,
         ingredients: null,
+        mealType: null,
+        imagePath: null,
         tagIds: [],
         searchKey: 'jalapeno poppers',
+        detailKey: '',
         updatedAt: '2026-10-19T13:00:00+00:00',
       },
     ]);
-    expect(library.tagsById.size).toBe(3);
-    expect(library.tagsById.get('tag-2')).toBe(library.tags[1]);
+    expect(library.tagsById.size).toBe(4);
+    expect(library.tagsById.get('tag-2')).toBe(library.tags[2]);
     expect(reportKeys).toEqual([]);
   });
 
   it("U-LDOM-13 takes each tag's key from name_key", () => {
-    const { library } = buildLibrary([], [makeTagRow({ name: 'Dinner', name_key: 'dinner' })]);
-    expect(library.tags[0].key).toBe('dinner');
+    const { library } = buildLibrary(
+      [],
+      [makeTagRow({ name: 'Taco Night', name_key: 'fixture stored key' })],
+    );
+    expect(library.tags[0].key).toBe('fixture stored key');
+  });
+
+  it.each(['breakfast', 'lunch', 'dinner'] as const)(
+    'reads the meal type %s (DD-R6)',
+    (mealType) => {
+      const { library, reportKeys } = buildLibrary([makeMealRow({ meal_type: mealType })], []);
+      expect(library.meals[0].mealType).toBe(mealType);
+      expect(reportKeys).toEqual([]);
+    },
+  );
+
+  it('reads a meal type from a newer build as none, and reports it, keeping the meal', () => {
+    const { library, reportKeys } = buildLibrary(
+      [makeMealRow({ id: 'meal-brunch', meal_type: 'brunch' }), makeMealRow({ id: 'meal-2' })],
+      [],
+    );
+    expect(library.meals.map((m) => [m.id, m.mealType])).toEqual([
+      ['meal-2', null],
+      ['meal-brunch', null],
+    ]);
+    expect(reportKeys).toEqual(['unknown_meal_type:meal-brunch']);
+  });
+
+  it('DD-R7 neither lists the legacy Breakfast, Lunch and Dinner tags nor keeps them on meals', () => {
+    const { library, reportKeys } = buildLibrary(
+      [
+        makeMealRow({
+          meal_type: 'dinner',
+          library_meal_tags: [{ tag_id: 'tag-dinner' }, { tag_id: 'tag-quick' }],
+        }),
+      ],
+      [
+        makeTagRow({ id: 'tag-breakfast', name: 'Breakfast' }),
+        makeTagRow({ id: 'tag-lunch', name: 'LUNCH' }),
+        makeTagRow({ id: 'tag-dinner', name: 'Dinner' }),
+        makeTagRow({ id: 'tag-quick', name: 'Quick & Easy' }),
+      ],
+    );
+
+    expect(library.tags.map((t) => t.id)).toEqual(['tag-quick']);
+    expect(library.tagsById.has('tag-dinner')).toBe(false);
+    expect(library.meals[0].tagIds).toEqual(['tag-quick']);
+    // Nor does the search find a meal by the hidden tag's name.
+    expect(library.meals[0].detailKey).toBe('quick & easy');
+    expect(reportKeys).toEqual([]);
   });
 
   it("U-LDOM-13 drops a link to a tag it doesn't have, without reporting it", () => {
@@ -427,6 +615,9 @@ describe('buildLibrary', () => {
     ['description', { description: 42 }],
     ['description', { description: '' }],
     ['ingredients', { ingredients: ['Beef'] }],
+    ['meal_type', { meal_type: 7 }],
+    ['image_path', { image_path: '' }],
+    ['image_path', { image_path: 42 }],
     ['updated_at', { updated_at: null }],
     ['library_meal_tags', { library_meal_tags: null }],
     ['library_meal_tags', { library_meal_tags: [{ tag_id: 7 }] }],
@@ -455,7 +646,7 @@ describe('buildLibrary', () => {
     ['name_key', { name_key: null }],
   ])('U-LDOM-14 leaves out a tag with a bad %s, naming it', (field, overrides) => {
     const bad = { ...makeTagRow({ id: 'tag-bad' }), ...overrides } as TagRow;
-    const good = makeTagRow({ id: 'tag-good', name: 'Lunch' });
+    const good = makeTagRow({ id: 'tag-good', name: 'Meal Prep' });
 
     const { library, reportKeys } = buildLibrary([], [bad, good]);
 
@@ -488,7 +679,14 @@ const tacoNight: TagChoice = { kind: 'new', name: 'Fixture Taco Night' };
 
 describe('formValuesOf', () => {
   it('U-LDOM-15 starts a new meal empty', () => {
-    expect(formValuesOf(null)).toEqual({ name: '', description: '', ingredients: '', tags: [] });
+    expect(formValuesOf(null)).toEqual({
+      name: '',
+      description: '',
+      ingredients: '',
+      mealType: null,
+      image: { kind: 'none' },
+      tags: [],
+    });
   });
 
   it('U-LDOM-15 starts a new meal with the trimmed search text as its name', () => {
@@ -496,9 +694,19 @@ describe('formValuesOf', () => {
       name: 'lasag',
       description: '',
       ingredients: '',
+      mealType: null,
+      image: { kind: 'none' },
       tags: [],
     });
     expect(formValuesOf(null, '   ').name).toBe('');
+  });
+
+  it("DD-R6 starts a new meal from a slot with the slot's type", () => {
+    expect(formValuesOf(null, undefined, 'lunch')).toMatchObject({ name: '', mealType: 'lunch' });
+    expect(formValuesOf(null, 'Soup', 'dinner')).toMatchObject({
+      name: 'Soup',
+      mealType: 'dinner',
+    });
   });
 
   it('U-LDOM-15 keeps the search text to what the name field accepts', () => {
@@ -518,20 +726,32 @@ describe('formValuesOf', () => {
       name: 'Chicken tacos',
       description: 'Beef, corn tortillas',
       ingredients: '',
+      mealType: null,
+      image: { kind: 'none' },
       tags: [dinner, quick],
     });
     expect(formValuesOf(makeLibraryMeal({ description: null, ingredients: 'Beef' }))).toEqual({
       name: 'Tacos',
       description: '',
       ingredients: 'Beef',
+      mealType: null,
+      image: { kind: 'none' },
       tags: [],
+    });
+  });
+
+  it("starts an edit with the meal's own type and stored photo, ignoring a slot's type", () => {
+    const meal = makeLibraryMeal({ mealType: 'breakfast', imagePath: 'household-1/a.jpg' });
+    expect(formValuesOf(meal, undefined, 'dinner')).toMatchObject({
+      mealType: 'breakfast',
+      image: { kind: 'stored', path: 'household-1/a.jpg' },
     });
   });
 });
 
 describe('addTypedTag', () => {
   const householdTags = [
-    makeLibraryTag({ id: 'tag-dinner', name: 'Dinner' }),
+    makeLibraryTag({ id: 'tag-dinner', name: 'Taco Tuesday' }),
     makeLibraryTag({ id: 'tag-quick', name: 'Quick & Easy' }),
   ];
   const start = formValuesOf(null, 'Tacos');
@@ -544,7 +764,7 @@ describe('addTypedTag', () => {
     expect(start.tags).toEqual([]);
   });
 
-  it.each([' dinner ', 'DINNER'])(
+  it.each([' taco tuesday ', 'TACO TUESDAY'])(
     'U-LDOM-16 selects the household tag for %j instead of adding one',
     (typed) => {
       expect(addTypedTag(start, householdTags, typed)).toEqual({
@@ -559,8 +779,8 @@ describe('addTypedTag', () => {
   });
 
   it('U-LDOM-16 changes nothing for a household tag already selected', () => {
-    const selected = addTypedTag(start, householdTags, 'Dinner').values;
-    expect(addTypedTag(selected, householdTags, 'Dinner')).toEqual({
+    const selected = addTypedTag(start, householdTags, 'Taco Tuesday').values;
+    expect(addTypedTag(selected, householdTags, 'Taco Tuesday')).toEqual({
       values: selected,
       result: 'already-selected',
     });
@@ -585,6 +805,21 @@ describe('addTypedTag', () => {
       values: added,
       result: 'already-selected',
     });
+  });
+
+  it.each([' Dinner ', 'BREAKFAST', 'lunch', 'Lunch\n'])(
+    'DD-R7 adds nothing for the meal type %j, and says it is one',
+    (typed) => {
+      expect(addTypedTag(start, householdTags, typed)).toEqual({
+        values: start,
+        result: 'meal-type',
+      });
+    },
+  );
+
+  it('DD-R7 refuses a meal type even when the household still has the legacy tag', () => {
+    const legacy = [makeLibraryTag({ id: 'tag-legacy', name: 'Dinner' })];
+    expect(addTypedTag(start, legacy, 'dinner').result).toBe('meal-type');
   });
 
   it.each(['', '   ', '\n\t'])('U-LDOM-16 adds nothing for %j', (typed) => {
@@ -619,6 +854,8 @@ describe('isDirty', () => {
     ['the description', { description: 'Fish' }],
     ['the description, emptied', { description: '' }],
     ['the ingredients', { ingredients: 'Tortillas' }],
+    ['the meal type', { mealType: 'dinner' }],
+    ['the photo, picked', { image: { kind: 'picked', uri: 'file:///a.jpg', path: 'h/a.jpg' } }],
   ])('U-LDOM-17 is true after a change to %s', (_, change) => {
     expect(isDirty(initial, { ...initial, ...change })).toBe(true);
   });
@@ -638,6 +875,23 @@ describe('isDirty', () => {
       false,
     );
     expect(isDirty(initial, { ...initial, tags: [quick, dinner] })).toBe(false);
+  });
+
+  it('is true after the meal type is cleared, or the photo removed or replaced', () => {
+    const stored = formValuesOf(
+      makeLibraryMeal({ mealType: 'lunch', imagePath: 'household-1/old.jpg' }),
+    );
+    expect(isDirty(stored, { ...stored, mealType: null })).toBe(true);
+    expect(isDirty(stored, { ...stored, image: { kind: 'none' } })).toBe(true);
+    expect(
+      isDirty(stored, {
+        ...stored,
+        image: { kind: 'picked', uri: 'file:///new.jpg', path: 'household-1/new.jpg' },
+      }),
+    ).toBe(true);
+    expect(
+      isDirty(stored, { ...stored, image: { kind: 'stored', path: 'household-1/old.jpg' } }),
+    ).toBe(false);
   });
 
   it('U-LDOM-17 ignores whitespace that saving trims', () => {
@@ -660,11 +914,40 @@ describe('validateMeal', () => {
       ),
     ).toEqual({
       ok: true,
-      meal: { name: 'Lasagna', description: 'Beef and ricotta', ingredients: null, tags: [] },
+      meal: {
+        name: 'Lasagna',
+        description: 'Beef and ricotta',
+        ingredients: null,
+        mealType: null,
+        imagePath: null,
+        tags: [],
+      },
     });
     expect(validateMeal(values())).toEqual({
       ok: true,
-      meal: { name: 'Lasagna', description: null, ingredients: null, tags: [] },
+      meal: {
+        name: 'Lasagna',
+        description: null,
+        ingredients: null,
+        mealType: null,
+        imagePath: null,
+        tags: [],
+      },
+    });
+  });
+
+  it.each<[string, ImageValue, string | null]>([
+    ['no photo', { kind: 'none' }, null],
+    ['a stored photo', { kind: 'stored', path: 'household-1/old.jpg' }, 'household-1/old.jpg'],
+    [
+      'a picked photo',
+      { kind: 'picked', uri: 'file:///new.jpg', path: 'household-1/new.jpg' },
+      'household-1/new.jpg',
+    ],
+  ])('keeps the meal type, and saves %s as its Storage key', (_, image, imagePath) => {
+    expect(validateMeal(values({ mealType: 'breakfast', image }))).toMatchObject({
+      ok: true,
+      meal: { mealType: 'breakfast', imagePath },
     });
   });
 
@@ -684,6 +967,8 @@ describe('validateMeal', () => {
         name: 'Lasagna',
         description: 'Beef\nand ricotta',
         ingredients: '1 lb beef\r\n1 box noodles',
+        mealType: null,
+        imagePath: null,
         tags,
       },
     });
@@ -733,6 +1018,8 @@ describe('planSave', () => {
     name: 'Chicken tacos',
     description: 'Beef',
     ingredients: null,
+    mealType: null,
+    imagePath: null,
     tags: [dinner, quick],
   };
 
@@ -741,6 +1028,8 @@ describe('planSave', () => {
       name: 'Lasagna',
       description: 'Beef and ricotta',
       ingredients: null,
+      mealType: 'dinner',
+      imagePath: 'household-1/new.jpg',
       tags: [dinner, tacoNight],
     };
     expect(planSave(null, meal, 'meal-new')).toEqual({
@@ -752,6 +1041,8 @@ describe('planSave', () => {
           name: 'Lasagna',
           description: 'Beef and ricotta',
           ingredients: null,
+          mealType: 'dinner',
+          imagePath: 'household-1/new.jpg',
         },
       },
       addTags: [dinner, tacoNight],
@@ -764,7 +1055,14 @@ describe('planSave', () => {
       newTags: [],
       meal: {
         kind: 'upsert',
-        row: { id: 'meal-new', name: 'Chicken tacos', description: 'Beef', ingredients: null },
+        row: {
+          id: 'meal-new',
+          name: 'Chicken tacos',
+          description: 'Beef',
+          ingredients: null,
+          mealType: null,
+          imagePath: null,
+        },
       },
       addTags: [],
       removeTagIds: [],
@@ -787,6 +1085,38 @@ describe('planSave', () => {
       id: 'meal-1',
       changes: { name: 'Fish tacos', description: null, ingredients: 'Fish' },
     });
+  });
+
+  it('updates only the meal type when only it changed, including to none', () => {
+    expect(planSave(base, { ...unchanged, mealType: 'lunch' }, 'meal-1')?.meal).toEqual({
+      kind: 'update',
+      id: 'meal-1',
+      changes: { mealType: 'lunch' },
+    });
+    const typed = { ...base, mealType: 'lunch' as const };
+    expect(planSave(typed, unchanged, 'meal-1')?.meal).toEqual({
+      kind: 'update',
+      id: 'meal-1',
+      changes: { mealType: null },
+    });
+  });
+
+  it('updates only the photo when it was added, replaced or removed', () => {
+    expect(planSave(base, { ...unchanged, imagePath: 'household-1/new.jpg' }, 'meal-1')).toEqual({
+      newTags: [],
+      meal: { kind: 'update', id: 'meal-1', changes: { imagePath: 'household-1/new.jpg' } },
+      addTags: [],
+      removeTagIds: [],
+    });
+    const withPhoto = { ...base, imagePath: 'household-1/old.jpg' };
+    expect(planSave(withPhoto, unchanged, 'meal-1')?.meal).toEqual({
+      kind: 'update',
+      id: 'meal-1',
+      changes: { imagePath: null },
+    });
+    expect(
+      planSave(withPhoto, { ...unchanged, imagePath: 'household-1/old.jpg' }, 'meal-1'),
+    ).toBeNull();
   });
 
   it('U-LDOM-21 checks an edit of tags only, adding and removing just those', () => {
@@ -824,8 +1154,8 @@ describe('planSave', () => {
   });
 
   it('U-LDOM-23 never sends a typed tag that matches a household tag as a new tag', () => {
-    const household = [makeLibraryTag({ id: 'tag-dinner', name: 'Dinner' })];
-    const { values } = addTypedTag(formValuesOf(null, 'Lasagna'), household, ' dinner ');
+    const household = [makeLibraryTag({ id: 'tag-dinner', name: 'Taco Tuesday' })];
+    const { values } = addTypedTag(formValuesOf(null, 'Lasagna'), household, ' taco TUESDAY ');
     const validated = validateMeal(values);
     if (!validated.ok) throw new Error(validated.message);
 
@@ -862,6 +1192,7 @@ describe('constraintField', () => {
     ['library_meals_name_check', 'name'],
     ['library_meals_description_check', 'description'],
     ['library_meals_ingredients_check', 'ingredients'],
+    ['library_meals_image_path_check', 'image'],
     ['library_tags_name_check', 'tags'],
   ])('U-LDOM-25 maps %s to %s', (constraint, field) => {
     expect(constraintField(constraint)).toBe(field);
@@ -876,6 +1207,16 @@ describe('constraintField', () => {
     'constructor',
   ])('U-LDOM-25 maps %p to null', (constraint) => {
     expect(constraintField(constraint)).toBeNull();
+  });
+});
+
+describe('imagePathOf', () => {
+  it('is none without a photo, and the Storage key of a stored or picked one', () => {
+    expect(imagePathOf({ kind: 'none' })).toBeNull();
+    expect(imagePathOf({ kind: 'stored', path: 'household-1/a.jpg' })).toBe('household-1/a.jpg');
+    expect(imagePathOf({ kind: 'picked', uri: 'file:///b.jpg', path: 'household-1/b.jpg' })).toBe(
+      'household-1/b.jpg',
+    );
   });
 });
 

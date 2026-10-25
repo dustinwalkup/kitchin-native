@@ -1,9 +1,10 @@
 // Pure library rules (design §3.2, N28): no React, React Native, Supabase or TanStack imports.
 // charLength, clampTo, trimField and the counter rule repeat the meals helpers instead of importing
 // across features.
+import type { MealType } from '@/features/meals/constants';
 import type { Tables } from '@/types/database';
 
-import { COPY, LIMITS } from './constants';
+import { COPY, FAVORITE_TAG_KEY, LIMITS, MEAL_TYPE_TAG_KEYS } from './constants';
 
 export interface Tag {
   id: string;
@@ -17,10 +18,16 @@ export interface Meal {
   name: string;
   description: string | null;
   ingredients: string | null;
+  /** Breakfast, lunch or dinner, or none for a meal saved without one (specs/redesign DD-R6). */
+  mealType: MealType | null;
+  /** The photo's Storage key, or none (design §6.4). */
+  imagePath: string | null;
   /** In alphabetical order of tag name (R40.4). */
   tagIds: string[];
   /** `foldForSearch(name)`, computed once per load (N25). */
   searchKey: string;
+  /** The description, ingredients and tag names folded the same way, for the wider search (DD-R9). */
+  detailKey: string;
   updatedAt: string;
 }
 
@@ -33,7 +40,7 @@ export interface Library {
 // Rows as `api.ts` selects them (design §3.2). `buildLibrary` checks them at runtime (R14.8).
 export type MealRow = Pick<
   Tables<'library_meals'>,
-  'id' | 'name' | 'description' | 'ingredients' | 'updated_at'
+  'id' | 'name' | 'description' | 'ingredients' | 'meal_type' | 'image_path' | 'updated_at'
 > & { library_meal_tags: Pick<Tables<'library_meal_tags'>, 'tag_id'>[] };
 
 export type TagRow = Pick<Tables<'library_tags'>, 'id' | 'name' | 'name_key'>;
@@ -44,6 +51,7 @@ const isString = (v: unknown): v is string => typeof v === 'string';
 const isText = (v: unknown) => isString(v) && v !== '';
 // The CHECKs allow null or text, never an empty string (R47.2).
 const isOptionalText = (v: unknown) => v === null || isText(v);
+const isOptionalString = (v: unknown) => v === null || isString(v);
 const isLink = (v: unknown) =>
   typeof v === 'object' && v !== null && isString((v as { tag_id?: unknown }).tag_id);
 
@@ -60,15 +68,22 @@ const MEAL_CHECKS: RowCheck<MealRow>[] = [
   ['name', isText],
   ['description', isOptionalText],
   ['ingredients', isOptionalText],
+  ['meal_type', isOptionalString],
+  ['image_path', isOptionalText],
   ['updated_at', isString],
   ['library_meal_tags', (v) => Array.isArray(v) && v.every(isLink)],
 ];
+
+const MEAL_TYPE_KEYS: ReadonlySet<string> = new Set<MealType>(['breakfast', 'lunch', 'dinner']);
+
+const isMealType = (v: string | null): v is MealType => v !== null && MEAL_TYPE_KEYS.has(v);
 
 /**
  * The library from its rows (R40.3). A row that breaks the app's expectations is left out and
  * named in `reportKeys` by table, ID and field (R46.9). A link to a tag this load doesn't have is
  * dropped, since a tag created moments ago arrives with the next refetch. Both lists are sorted
- * (R40.4).
+ * (R40.4). The legacy Breakfast, Lunch and Dinner tags aren't listed: a meal's type has its own field
+ * now (DD-R7). A meal type from a newer build reads as none, and is reported, so the meal still shows.
  */
 export function buildLibrary(
   mealRows: MealRow[],
@@ -88,23 +103,36 @@ export function buildLibrary(
   }
 
   const tags: Tag[] = valid('library_tags', tagRows, TAG_CHECKS)
+    .filter((row) => !MEAL_TYPE_TAG_KEYS.has(row.name_key))
     .map((row) => ({ id: row.id, name: row.name, key: row.name_key }))
-    .sort(compareNames);
+    .sort(compareTags);
   const tagsById = new Map(tags.map((tag) => [tag.id, tag]));
 
   const meals: Meal[] = valid('library_meals', mealRows, MEAL_CHECKS)
-    .map((row) => ({
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      ingredients: row.ingredients,
-      tagIds: row.library_meal_tags
+    .map((row) => {
+      if (row.meal_type !== null && !isMealType(row.meal_type)) {
+        reportKeys.push(`unknown_meal_type:${row.id}`);
+      }
+      const mealTags = row.library_meal_tags
         .flatMap(({ tag_id }) => tagsById.get(tag_id) ?? [])
-        .sort(compareNames)
-        .map((tag) => tag.id),
-      searchKey: foldForSearch(row.name),
-      updatedAt: row.updated_at,
-    }))
+        .sort(compareTags);
+      return {
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        ingredients: row.ingredients,
+        mealType: isMealType(row.meal_type) ? row.meal_type : null,
+        imagePath: row.image_path,
+        tagIds: mealTags.map((tag) => tag.id),
+        searchKey: foldForSearch(row.name),
+        detailKey: foldForSearch(
+          [row.description, row.ingredients, ...mealTags.map((tag) => tag.name)]
+            .filter(Boolean)
+            .join('\n'),
+        ),
+        updatedAt: row.updated_at,
+      };
+    })
     .sort(compareNames);
 
   return { library: { meals, tags, tagsById }, reportKeys };
@@ -203,18 +231,62 @@ export function compareNames(
 }
 
 /**
- * The meals whose names contain the search and that have every selected tag (R41.1, R41.4–R41.6,
- * K23). An empty search matches every name.
+ * Tags in alphabetical order (R43.10), except Family Favorite, which leads: it's the household's
+ * shortcut to its favourites (specs/redesign DD-R8).
+ */
+export function compareTags(a: Tag, b: Tag): number {
+  const favourite = Number(b.key === FAVORITE_TAG_KEY) - Number(a.key === FAVORITE_TAG_KEY);
+  return favourite || compareNames(a, b);
+}
+
+export interface MealFilters {
+  query: string;
+  tagIds: ReadonlySet<string>;
+  /** One type, or null for every meal, typed or not. */
+  mealType?: MealType | null;
+}
+
+/**
+ * The meals that match the search, have every selected tag and are of the selected type (R41.1,
+ * R41.4–R41.6, K23 as widened by DD-R9). The search looks in the name first, then the description,
+ * ingredients and tag names: meals whose names match come first, each run alphabetical. An empty
+ * search matches every meal.
  */
 export function filterMeals(
   meals: Meal[],
-  { query, tagIds }: { query: string; tagIds: ReadonlySet<string> },
+  { query, tagIds, mealType = null }: MealFilters,
 ): Meal[] {
   const search = foldForSearch(query);
   const required = [...tagIds];
-  return meals.filter(
-    (meal) => meal.searchKey.includes(search) && required.every((id) => meal.tagIds.includes(id)),
+  const candidates = meals.filter(
+    (meal) =>
+      (mealType === null || meal.mealType === mealType) &&
+      required.every((id) => meal.tagIds.includes(id)),
   );
+  if (search === '') return candidates;
+  const byName = candidates.filter((meal) => meal.searchKey.includes(search));
+  const byDetail = candidates.filter(
+    (meal) => !meal.searchKey.includes(search) && meal.detailKey.includes(search),
+  );
+  return [...byName, ...byDetail];
+}
+
+/**
+ * The library meals most recently planned, newest first, from the planned meals' links (DD-R10).
+ * `recentIds` comes newest first and may repeat or name meals that have since been deleted.
+ */
+export function recentMeals(meals: Meal[], recentIds: string[], limit = 8): Meal[] {
+  const byId = new Map(meals.map((meal) => [meal.id, meal]));
+  const seen = new Set<string>();
+  const recent: Meal[] = [];
+  for (const id of recentIds) {
+    const meal = byId.get(id);
+    if (meal === undefined || seen.has(id)) continue;
+    seen.add(id);
+    recent.push(meal);
+    if (recent.length === limit) break;
+  }
+  return recent;
 }
 
 /**
@@ -228,22 +300,40 @@ export function copiedText({ name, description }: Pick<Meal, 'name' | 'descripti
 /** A tag chosen in the form: a household tag, or a new one that saving creates (R43.7). */
 export type TagChoice = { kind: 'existing'; id: string } | { kind: 'new'; name: string };
 
+/**
+ * The form's photo: none, the one the meal has stored, or one just picked on the phone. A picked
+ * photo's Storage key is made when it's picked, so a retried save uploads to the same key (DD46).
+ */
+export type ImageValue =
+  | { kind: 'none' }
+  | { kind: 'stored'; path: string }
+  | { kind: 'picked'; uri: string; path: string };
+
 /** The meal form's fields, as the member typed them. */
 export interface FormValues {
   name: string;
   description: string;
   ingredients: string;
+  mealType: MealType | null;
+  image: ImageValue;
   tags: TagChoice[];
 }
 
-export type FormField = 'name' | 'description' | 'ingredients' | 'tags';
+export type FormField = 'name' | 'description' | 'ingredients' | 'tags' | 'image';
 
 /** A meal as it's saved: trimmed, with an empty description or ingredients as none (R42.4). */
 export interface CleanMeal {
   name: string;
   description: string | null;
   ingredients: string | null;
+  mealType: MealType | null;
+  imagePath: string | null;
   tags: TagChoice[];
+}
+
+/** The Storage key a form's photo saves as, or none. */
+export function imagePathOf(image: ImageValue): string | null {
+  return image.kind === 'none' ? null : image.path;
 }
 
 type MealFields = Omit<CleanMeal, 'tags'>;
@@ -282,15 +372,28 @@ const cleanName = (s: string) => trimField(oneLine(s));
  * what the name field accepts. An edit starts from the meal with its tags selected, and ignores
  * the search text.
  */
-export function formValuesOf(meal: Meal | null, prefill?: string): FormValues {
+export function formValuesOf(
+  meal: Meal | null,
+  prefill?: string,
+  prefillType: MealType | null = null,
+): FormValues {
   if (meal === null) {
     const name = clampTo(cleanName(prefill ?? ''), LIMITS.name);
-    return { name, description: '', ingredients: '', tags: [] };
+    return {
+      name,
+      description: '',
+      ingredients: '',
+      mealType: prefillType,
+      image: { kind: 'none' },
+      tags: [],
+    };
   }
   return {
     name: meal.name,
     description: meal.description ?? '',
     ingredients: meal.ingredients ?? '',
+    mealType: meal.mealType,
+    image: meal.imagePath === null ? { kind: 'none' } : { kind: 'stored', path: meal.imagePath },
     tags: meal.tagIds.map((id) => ({ kind: 'existing', id })),
   };
 }
@@ -305,11 +408,16 @@ export function addTypedTag(
   values: FormValues,
   tags: Tag[],
   typed: string,
-): { values: FormValues; result: 'added' | 'selected-existing' | 'already-selected' | 'empty' } {
+): {
+  values: FormValues;
+  result: 'added' | 'selected-existing' | 'already-selected' | 'empty' | 'meal-type';
+} {
   const name = cleanTagName(clampTo(typed, LIMITS.tag));
   if (name === '') return { values, result: 'empty' };
 
   const key = tagKey(name);
+  // Breakfast, Lunch and Dinner are the meal type, not tags (DD-R7).
+  if (MEAL_TYPE_TAG_KEYS.has(key)) return { values, result: 'meal-type' };
   const keyOf = (choice: TagChoice) =>
     choice.kind === 'new' ? tagKey(choice.name) : tags.find((tag) => tag.id === choice.id)?.key;
   if (values.tags.some((choice) => keyOf(choice) === key)) {
@@ -337,6 +445,8 @@ export function isDirty(initial: FormValues, current: FormValues): boolean {
     cleanName(initial.name) !== cleanName(current.name) ||
     trimField(initial.description) !== trimField(current.description) ||
     trimField(initial.ingredients) !== trimField(current.ingredients) ||
+    initial.mealType !== current.mealType ||
+    imagePathOf(initial.image) !== imagePathOf(current.image) ||
     before.size !== after.size ||
     [...after].some((key) => !before.has(key))
   );
@@ -371,6 +481,8 @@ export function validateMeal(
       name,
       description: description || null,
       ingredients: ingredients || null,
+      mealType: v.mealType,
+      imagePath: imagePathOf(v.image),
       tags: v.tags,
     },
   };
@@ -401,6 +513,8 @@ export function planSave(base: Meal | null, meal: CleanMeal, mealId: string): Sa
     ...(fields.name !== base.name && { name: fields.name }),
     ...(fields.description !== base.description && { description: fields.description }),
     ...(fields.ingredients !== base.ingredients && { ingredients: fields.ingredients }),
+    ...(fields.mealType !== base.mealType && { mealType: fields.mealType }),
+    ...(fields.imagePath !== base.imagePath && { imagePath: fields.imagePath }),
   };
   const before = new Set(base.tagIds);
   const kept = new Set(chosen.flatMap((choice) => (choice.kind === 'existing' ? [choice.id] : [])));
@@ -422,6 +536,7 @@ const CONSTRAINT_FIELDS = new Map<string, FormField>([
   ['library_meals_name_check', 'name'],
   ['library_meals_description_check', 'description'],
   ['library_meals_ingredients_check', 'ingredients'],
+  ['library_meals_image_path_check', 'image'],
   ['library_tags_name_check', 'tags'],
 ]);
 

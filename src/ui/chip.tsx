@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
 import { Text } from './text';
@@ -8,30 +9,33 @@ export interface ChipProps {
   /** What VoiceOver reads, when the visible label is shorter, such as an emoji alone. */
   accessibilityLabel?: string;
   onPress: () => void;
-  /** White bold text on the tone's colour, for the chosen category or tag. */
+  /** Blush with a terracotta edge and label, for the chosen filter, category or tag. */
   selected?: boolean;
-  /** A selected chip's colour: cactus by default, or terracotta for the meal library (DD57). */
-  tone?: 'cactus' | 'accent';
   /** Shown as ✓ in `inkMuted`, for an item that's already on the list (R6.2). */
   disabled?: boolean;
+  /** A glyph or emoji before the label. Decorative. */
+  leading?: ReactNode;
   /** Static parts and IDs only, never household text (R26.7). */
   testID?: string;
 }
 
-// Chips are 32 pt tall; the slop brings the touch target to 44 pt (N11).
-const HIT_SLOP = { top: 6, bottom: 6, left: 0, right: 0 };
+// Chips are 34 pt tall; the slop brings the touch target to 44 pt (N11).
+const HIT_SLOP = { top: 5, bottom: 5, left: 0, right: 0 };
 
+/**
+ * A rounded choice: a filter, a quick-add item or a tag. Selection shows by its edge, fill and label
+ * weight together, so colour is never the only sign (N13).
+ */
 export function Chip({
   label,
   accessibilityLabel = label,
   onPress,
   selected = false,
   disabled = false,
-  tone = 'cactus',
+  leading,
   testID,
 }: ChipProps) {
   const theme = useTheme();
-  const fill = theme[tone];
 
   return (
     <Pressable
@@ -44,15 +48,21 @@ export function Chip({
       onPress={onPress}
       style={({ pressed }) => [
         styles.chip,
+        { borderRadius: theme.radius.pill },
         selected
-          ? { backgroundColor: fill, borderColor: fill }
+          ? { backgroundColor: theme.accentSoft, borderColor: theme.accent }
           : {
-              backgroundColor: pressed ? theme.secondarySoft : theme.background,
+              backgroundColor: pressed ? theme.sunken : theme.background,
               borderColor: theme.border,
             },
       ]}
     >
-      <Text variant="subhead" color={selected ? 'onBrand' : disabled ? 'inkMuted' : 'ink'}>
+      {leading}
+      <Text
+        variant="subhead"
+        color={selected ? 'accentInk' : disabled ? 'inkMuted' : 'ink'}
+        weight={selected ? 'semibold' : 'regular'}
+      >
         {disabled ? `✓ ${label}` : label}
       </Text>
     </Pressable>
@@ -61,11 +71,12 @@ export function Chip({
 
 const styles = StyleSheet.create({
   chip: {
-    minHeight: 32,
+    flexDirection: 'row',
+    gap: 6,
+    minHeight: 34,
     minWidth: 44,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 16,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

@@ -16,12 +16,13 @@ import { classifyError, isRetryable } from '@/lib/errors';
 import { report, reportOnce } from '@/lib/reporting';
 import { useToast } from '@/lib/toast';
 
-import { clearEntry, fetchWeek, saveEntry } from './api';
+import { clearEntry, fetchRecentLibraryMealIds, fetchWeek, saveEntry } from './api';
 import { COPY, type MealType } from './constants';
 import { buildWeek, type Day, type MealEntry, type MealEntryRow, parseEntryRow } from './domain';
 
 export const mealKeys = {
   all: (hid: string) => ['household', hid, 'meals'] as const,
+  recent: (hid: string) => ['household', hid, 'meals', 'recent'] as const,
   week: (hid: string, weekStart: IsoDate) =>
     ['household', hid, 'meals', 'week', weekStart] as const,
 };
@@ -133,6 +134,8 @@ export interface SetMealVariables {
   date: IsoDate;
   mealType: MealType;
   body: string | null;
+  /** The library meal the text was chosen from; absent or null for typed text (DD-R10). */
+  libraryMealId?: string | null;
 }
 
 interface Applied {
@@ -169,10 +172,10 @@ export function useSetMeal(start: Weekday): (v: SetMealVariables) => void {
     networkMode: 'online', // pauses while offline (R13.2)
     // Up to 3 retries, with back-off, and only for network failures (R14.1).
     retry: (failureCount, error) => isRetryable(classifyError(error)) && failureCount < 3,
-    mutationFn: ({ date, mealType, body }: SetMealVariables) =>
+    mutationFn: ({ date, mealType, body, libraryMealId = null }: SetMealVariables) =>
       body === null
         ? clearEntry({ householdId: hid, date, mealType })
-        : saveEntry({ householdId: hid, date, mealType, body }),
+        : saveEntry({ householdId: hid, date, mealType, body, libraryMealId }),
 
     onMutate: async (v): Promise<Applied | undefined> => {
       const weekKey = mealKeys.week(hid, weekStartOf(v.date, start));
@@ -185,13 +188,15 @@ export function useSetMeal(start: Weekday): (v: SetMealVariables) => void {
       let row: MealEntryRow | null = null;
       if (v.body !== null) {
         // An empty slot gets a placeholder row, which the refetch replaces with the real one.
+        const libraryMealId = v.libraryMealId ?? null;
         row = before
-          ? { ...before, body: v.body }
+          ? { ...before, body: v.body, library_meal_id: libraryMealId }
           : {
               id: `pending:${v.date}:${v.mealType}`,
               meal_date: v.date,
               meal_type: v.mealType,
               body: v.body,
+              library_meal_id: libraryMealId,
               updated_at: new Date().toISOString(),
             };
       }
@@ -240,4 +245,21 @@ export function useSetMeal(start: Weekday): (v: SetMealVariables) => void {
     },
     [householdId, mutate],
   );
+}
+
+const NO_IDS: string[] = [];
+
+/**
+ * The library meals planned most recently, newest first, from the planned meals' links (DD-R10).
+ * Under the meals key, so a plan saved on either phone refreshes it. Empty until loaded or on a
+ * failure: Recently used is a shortcut, so it never shows an error of its own.
+ */
+export function useRecentLibraryMealIds(): string[] {
+  const householdId = useHouseholdId();
+  const { data } = useQuery({
+    queryKey: mealKeys.recent(householdId ?? ''),
+    queryFn: householdId === null ? skipToken : () => fetchRecentLibraryMealIds(householdId),
+    staleTime: 30_000,
+  });
+  return data ?? NO_IDS;
 }

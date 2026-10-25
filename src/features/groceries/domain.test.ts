@@ -6,13 +6,18 @@ import {
   charLength,
   findOpenItemNamed,
   hasOpenItemNamed,
+  isSteppable,
   normalizeName,
   parseItemRow,
   planUncheckAll,
   progress,
-  quickAddGroups,
+  quickAddChips,
+  STEP_MAX,
+  stepQuantity,
+  SUGGESTION_LIMIT,
   suggestCategory,
   validateItemInput,
+  visibleSections,
   type GroceryItemRow,
 } from './domain';
 
@@ -97,7 +102,9 @@ describe('suggestCategory', () => {
     [' Bananas ', 'produce'],
     ['Half & Half', 'dairy'],
     ['FROZEN PIZZA', 'frozen'],
-    ['kombucha', 'other'],
+    ['kombucha', 'beverages'],
+    ['Oat milk', 'beverages'],
+    ['birthday candles', 'other'],
     ['', 'other'],
   ] as const)('U-DOM-06 suggests %j → %s', (name, category) => {
     expect(suggestCategory(name)).toBe(category);
@@ -269,21 +276,190 @@ describe('planUncheckAll', () => {
   });
 });
 
-describe('quickAddGroups', () => {
-  it('U-DOM-11 has 7 groups in the fixed order and 78 chips', () => {
-    const groups = quickAddGroups([]);
-    expect(groups.map((g) => g.category)).toEqual(CATEGORIES.map((c) => c.key));
-    expect(groups.flatMap((g) => g.chips)).toHaveLength(78);
-    expect(groups[0].chips[0]).toEqual({ name: 'Bananas', disabled: false });
+describe('quickAddChips', () => {
+  const names = (chips: ReturnType<typeof quickAddChips>) => chips.map((c) => c.name);
+  const none = { query: '', category: null };
+
+  it('U-DOM-11 offers the popular staples, in catalogue order, before a name or category', () => {
+    const chips = quickAddChips([], none);
+    expect(chips).toEqual([
+      { name: 'Bananas', category: 'produce', disabled: false },
+      { name: 'Apples', category: 'produce', disabled: false },
+      { name: 'Spinach', category: 'produce', disabled: false },
+      { name: 'Onions', category: 'produce', disabled: false },
+      { name: 'Avocado', category: 'produce', disabled: false },
+      { name: 'Chicken Breast', category: 'meat', disabled: false },
+      { name: 'Milk', category: 'dairy', disabled: false },
+      { name: 'Eggs', category: 'dairy', disabled: false },
+      { name: 'Bread', category: 'bakery', disabled: false },
+      { name: 'Coffee', category: 'beverages', disabled: false },
+    ]);
   });
 
-  it('U-DOM-11 disables a chip only while an open item has its name', () => {
-    const groups = quickAddGroups([
+  it.each(CATEGORIES.map(({ key }) => key))(
+    'U-DOM-11 offers every common %s item once that category is picked',
+    (category) => {
+      const chips = quickAddChips([], { query: '', category });
+      expect(names(chips)).toEqual(COMMON_ITEMS[category]);
+      expect(chips.every((c) => c.category === category)).toBe(true);
+    },
+  );
+
+  it('U-DOM-11 suggests the common items containing a typed name, those starting with it first', () => {
+    // Bell Peppers comes first in the catalogue, but Pepper starts with what was typed.
+    expect(names(quickAddChips([], { query: 'pepper', category: null }))).toEqual([
+      'Pepper',
+      'Bell Peppers',
+    ]);
+    expect(quickAddChips([], { query: 'cream', category: null })).toEqual([
+      { name: 'Cream', category: 'dairy', disabled: false },
+      { name: 'Sour Cream', category: 'dairy', disabled: false },
+      { name: 'Heavy Cream', category: 'dairy', disabled: false },
+      { name: 'Ice Cream', category: 'frozen', disabled: false },
+    ]);
+  });
+
+  it('U-DOM-11 matches a typed name whatever its case and surrounding spaces, over a picked category', () => {
+    expect(names(quickAddChips([], { query: '  MILK ', category: 'bakery' }))).toEqual([
+      'Milk',
+      'Oat Milk',
+    ]);
+  });
+
+  it('U-DOM-11 keeps typed suggestions to the limit, starts-with matches first', () => {
+    const chips = quickAddChips([], { query: 'e', category: null });
+    expect(chips).toHaveLength(SUGGESTION_LIMIT);
+    expect(names(chips).slice(0, 2)).toEqual(['Eggs', 'English Muffins']);
+  });
+
+  it('U-DOM-11 suggests nothing for a name no common item contains', () => {
+    expect(quickAddChips([], { query: 'kimchi', category: null })).toEqual([]);
+  });
+
+  it('U-DOM-11 disables a chip only while an open item has its name (R6.2)', () => {
+    const items = [
       makeItem({ id: 'a', name: 'milk ' }),
       makeItem({ id: 'b', name: 'Eggs', isChecked: true }),
+    ];
+    const disabled = (query: string, category: (typeof CATEGORIES)[number]['key'] | null) =>
+      quickAddChips(items, { query, category })
+        .filter((c) => c.disabled)
+        .map((c) => c.name);
+
+    expect(disabled('', null)).toEqual(['Milk']);
+    expect(disabled('', 'dairy')).toEqual(['Milk']);
+    expect(disabled('mil', null)).toEqual(['Milk']);
+  });
+});
+
+describe('stepQuantity', () => {
+  it.each([
+    ['2', 1, '3'],
+    ['2', -1, '1'],
+    ['2 lbs', 1, '3 lbs'],
+    ['12 pack', -1, '11 pack'],
+    ['9 cans', 1, '10 cans'],
+    ['998', 1, '999'],
+    ['2\nlarge', 1, '3\nlarge'],
+  ] as const)('steps %j by %i to %j, keeping the unit as typed', (quantity, delta, next) => {
+    expect(stepQuantity(quantity, delta)).toBe(next);
+  });
+
+  it('counts no quantity as one, so + makes it 2 and − does nothing', () => {
+    expect(stepQuantity(null, 1)).toBe('2');
+    expect(stepQuantity(null, -1)).toBeUndefined();
+  });
+
+  it(`stops at 1 and at ${STEP_MAX}`, () => {
+    expect(stepQuantity('1', -1)).toBeUndefined();
+    expect(stepQuantity('1 lb', -1)).toBeUndefined();
+    expect(stepQuantity(String(STEP_MAX), 1)).toBeUndefined();
+    expect(stepQuantity(String(STEP_MAX), -1)).toBe('998');
+  });
+
+  it.each(['a bunch', '1.5 kg', '1,000', '1/2 cup', '2-3', '1000', ' 2', ''])(
+    "can't step %j, which only the editor changes",
+    (quantity) => {
+      expect(stepQuantity(quantity, 1)).toBeUndefined();
+      expect(stepQuantity(quantity, -1)).toBeUndefined();
+    },
+  );
+});
+
+describe('isSteppable', () => {
+  it.each(['1', '2 lbs', '12 pack', '999'])('is true for %j, which starts with a count', (q) => {
+    expect(isSteppable(q)).toBe(true);
+  });
+
+  it.each([null, '', 'a bunch', '1.5 kg', '1/2 cup', '1000'])('is false for %j', (q) => {
+    expect(isSteppable(q)).toBe(false);
+  });
+});
+
+describe('visibleSections', () => {
+  const ITEMS = [
+    makeItem({ id: 'apples', category: 'produce' }),
+    makeItem({ id: 'pears', category: 'produce', isChecked: true }),
+    makeItem({ id: 'milk', category: 'dairy' }),
+    makeItem({ id: 'peas', category: 'frozen', isChecked: true }),
+  ];
+  const sections = buildSections(ITEMS);
+  const none = new Set<(typeof CATEGORIES)[number]['key']>();
+  const shown = (visible: ReturnType<typeof visibleSections>) =>
+    visible.map(({ category, collapsed, data }) => ({
+      category,
+      collapsed,
+      ids: data.map((i) => i.id),
+    }));
+
+  it('draws every section and row while nothing is hidden or collapsed', () => {
+    const visible = visibleSections(sections, { hideChecked: false, collapsed: none });
+
+    expect(shown(visible)).toEqual([
+      { category: 'produce', collapsed: false, ids: ['apples', 'pears'] },
+      { category: 'dairy', collapsed: false, ids: ['milk'] },
+      { category: 'frozen', collapsed: false, ids: ['peas'] },
     ]);
-    const disabled = groups.flatMap((g) => g.chips.filter((c) => c.disabled).map((c) => c.name));
-    expect(disabled).toEqual(['Milk']);
+  });
+
+  it('leaves out checked rows, and a section with nothing open, when checked items are hidden', () => {
+    const visible = visibleSections(sections, { hideChecked: true, collapsed: none });
+
+    expect(shown(visible)).toEqual([
+      { category: 'produce', collapsed: false, ids: ['apples'] },
+      { category: 'dairy', collapsed: false, ids: ['milk'] },
+    ]);
+    // The counts still come from every item.
+    expect(visible[0]).toMatchObject({ openCount: 1, items: sections[0].items });
+  });
+
+  it('keeps a collapsed section heading with no rows', () => {
+    const visible = visibleSections(sections, {
+      hideChecked: false,
+      collapsed: new Set(['produce']),
+    });
+
+    expect(shown(visible)).toEqual([
+      { category: 'produce', collapsed: true, ids: [] },
+      { category: 'dairy', collapsed: false, ids: ['milk'] },
+      { category: 'frozen', collapsed: false, ids: ['peas'] },
+    ]);
+  });
+
+  it('leaves out a collapsed section whose items are all hidden', () => {
+    const visible = visibleSections(sections, {
+      hideChecked: true,
+      collapsed: new Set(['frozen', 'dairy']),
+    });
+
+    expect(shown(visible)).toEqual([
+      { category: 'produce', collapsed: false, ids: ['apples'] },
+      { category: 'dairy', collapsed: true, ids: [] },
+    ]);
+  });
+
+  it('draws nothing for an empty list', () => {
+    expect(visibleSections([], { hideChecked: true, collapsed: none })).toEqual([]);
   });
 });
 

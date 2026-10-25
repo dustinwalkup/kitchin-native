@@ -1,7 +1,8 @@
-import { render } from '@testing-library/react-native';
+import { render, screen } from '@testing-library/react-native';
 import { useReducedMotion, withRepeat } from 'react-native-reanimated';
 
 import { Skeleton } from './skeleton';
+import { themes } from './theme';
 
 // Reanimated's Jest mock, with Reduce Motion and the repeating shimmer under the test's control.
 jest.mock('react-native-reanimated', () => {
@@ -29,5 +30,20 @@ describe('Skeleton', () => {
     await render(<Skeleton height={20} />);
 
     expect(repeat).not.toHaveBeenCalled();
+  });
+
+  it('is a block on the sunken tone, hidden from VoiceOver', async () => {
+    reduceMotion.mockReturnValue(true);
+
+    await render(<Skeleton width={120} height={20} radius={4} />);
+
+    expect(screen.root).toHaveStyle({
+      width: 120,
+      height: 20,
+      borderRadius: 4,
+      backgroundColor: themes.light.sunken,
+    });
+    expect(screen.root).toHaveProp('accessibilityElementsHidden', true);
+    expect(screen.root).toHaveProp('importantForAccessibility', 'no-hide-descendants');
   });
 });

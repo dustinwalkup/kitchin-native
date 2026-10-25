@@ -1,10 +1,9 @@
 import { randomUUID } from 'expo-crypto';
-import { Stack, useLocalSearchParams, usePreventRemove, useRouter } from 'expo-router';
+import { useLocalSearchParams, usePreventRemove, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { ActionSheetIOS, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 
 import type { FormProblem } from '@/features/meal-library/components/form-error';
-import { HeaderAction } from '@/features/meal-library/components/header-action';
 import {
   LoadError,
   MissingMeal,
@@ -14,22 +13,27 @@ import { MealForm, type MealFormHandle } from '@/features/meal-library/component
 import { COPY } from '@/features/meal-library/constants';
 import {
   type CleanMeal,
+  type FormValues,
   formValuesOf,
   isDirty,
   type Meal,
   planSave,
   type Tag,
 } from '@/features/meal-library/domain';
-import { lastSaved, newMealName } from '@/features/meal-library/handoff';
+import { lastSaved, newMealName, newMealType } from '@/features/meal-library/handoff';
 import {
   type LibraryView,
   useDeleteMeal,
   useLibrary,
+  useMealImageUrls,
+  useNewImagePath,
   useSaveMeal,
 } from '@/features/meal-library/hooks';
+import { pickPhoto } from '@/features/meal-library/photo';
 import { FormScrollView } from '@/ui/form-scroll-view';
 import { KeyboardToolbar } from '@/ui/keyboard-toolbar';
 import { Screen } from '@/ui/screen';
+import { SheetHeader } from '@/ui/sheet-header';
 import { useTheme } from '@/ui/use-theme';
 
 /**
@@ -48,16 +52,15 @@ export default function MealFormScreen() {
   }
 
   return (
-    <Screen edges={['left', 'right', 'bottom']}>
-      <Stack.Screen
-        options={{
-          title: 'Edit meal',
-          // The missing meal's Close is the only way on.
-          headerLeft:
-            opened.kind === 'missing'
-              ? undefined
-              : () => <CancelAction disabled={false} onPress={() => router.back()} />,
-        }}
+    <Screen>
+      <SheetHeader
+        title="Edit meal"
+        // The missing meal's Close is the only way on.
+        left={
+          opened.kind === 'missing'
+            ? undefined
+            : { label: 'Cancel', onPress: () => router.back(), testID: 'meal-form-cancel' }
+        }
       />
       {opened.kind === 'missing' ? (
         <MissingMeal onClose={() => router.back()} />
@@ -123,7 +126,10 @@ function MealEditor({ base, tags }: { base: Meal | null; tags: Tag[] }) {
   const deleteMeal = useDeleteMeal();
   const form = useRef<MealFormHandle>(null);
 
-  const [initial] = useState(() => formValuesOf(base, newMealName.read()?.value)); // R42.6, R42.7
+  // R42.6, R42.7. A meal added from a slot's sheet starts as that slot's type (DD-R6).
+  const [initial] = useState(() =>
+    formValuesOf(base, newMealName.read()?.value, newMealType.read()?.value ?? null),
+  );
   const [values, setValues] = useState(initial);
   // What Save writes. A new meal's ID is made now, so every Save from this form, Retry included,
   // repeats the same upsert (DD46, R46.4). Save as new meal replaces both (R46.7).
@@ -132,6 +138,10 @@ function MealEditor({ base, tags }: { base: Meal | null; tags: Tag[] }) {
   const [problem, setProblem] = useState<FormProblem | null>(null);
   // 'discard' once the member discards; 'done' after a save or delete, which then goes back.
   const [leaving, setLeaving] = useState<'discard' | 'done' | null>(null);
+  const choosePhoto = usePhotoChoice(values, setValues);
+  const storedPath = values.image.kind === 'stored' ? values.image.path : null;
+  const storedUrl = useMealImageUrls([storedPath])[storedPath ?? ''];
+  const photoUri = values.image.kind === 'picked' ? values.image.uri : (storedUrl ?? undefined);
 
   // Cancel with changes asks first (R42.12). Discard repeats what was blocked.
   usePreventRemove(isDirty(initial, values) && leaving === null, ({ repeat }) =>
@@ -161,7 +171,10 @@ function MealEditor({ base, tags }: { base: Meal | null; tags: Tag[] }) {
     }
     setProblem(null);
     setPending('save'); // R42.8
-    const outcome = await saveMeal({ ...to, meal });
+    // A photo picked in this form goes up with the save, to the key made when it was picked.
+    const upload =
+      values.image.kind === 'picked' ? { uri: values.image.uri, path: values.image.path } : null;
+    const outcome = await saveMeal({ ...to, meal, upload });
     if (outcome.ok) {
       lastSaved.set({ mealId: outcome.mealId, kind: 'saved' }); // R42.9
       setLeaving('done');
@@ -173,16 +186,23 @@ function MealEditor({ base, tags }: { base: Meal | null; tags: Tag[] }) {
   }
 
   // The meal was deleted on the other phone: write every field and tag under a new ID (R46.7).
+  // The other phone's delete removed the meal's stored photo with it, so the new meal keeps only a
+  // photo picked in this form (design §6.4).
   function saveAsNew(meal: CleanMeal) {
     const to = { base: null, mealId: randomUUID() };
     setTarget(to);
+    if (values.image.kind === 'stored') {
+      setValues({ ...values, image: { kind: 'none' } });
+      void save({ ...meal, imagePath: null }, to);
+      return;
+    }
     void save(meal, to);
   }
 
   async function remove() {
     setProblem(null);
     setPending('delete');
-    const outcome = await deleteMeal(target.mealId);
+    const outcome = await deleteMeal(target.mealId, target.base?.imagePath ?? null);
     if (outcome.ok) {
       lastSaved.set({ mealId: target.mealId, kind: 'deleted' }); // R44.3
       setLeaving('done');
@@ -204,22 +224,22 @@ function MealEditor({ base, tags }: { base: Meal | null; tags: Tag[] }) {
 
   return (
     <>
-      <Screen edges={['left', 'right', 'bottom']}>
-        <Stack.Screen
-          options={{
-            title: base === null ? 'New meal' : 'Edit meal', // R42.1
-            headerLeft: () => (
-              <CancelAction disabled={pending !== null} onPress={() => router.back()} />
-            ),
-            headerRight: () => (
-              <HeaderAction
-                testID="meal-form-save"
-                label="Save"
-                busy={pending === 'save'}
-                disabled={pending === 'delete'}
-                onPress={() => form.current?.save()}
-              />
-            ),
+      <Screen>
+        {/* The form's own header, as the grocery and plan sheets have (design §3.4). */}
+        <SheetHeader
+          title={base === null ? 'New meal' : 'Edit meal'} // R42.1
+          left={{
+            label: 'Cancel',
+            onPress: () => router.back(),
+            disabled: pending !== null,
+            testID: 'meal-form-cancel',
+          }}
+          right={{
+            label: 'Save',
+            onPress: () => form.current?.save(),
+            busy: pending === 'save',
+            disabled: pending === 'delete',
+            testID: 'meal-form-save',
           }}
         />
         <FormScrollView
@@ -232,6 +252,8 @@ function MealEditor({ base, tags }: { base: Meal | null; tags: Tag[] }) {
             values={values}
             onChange={setValues}
             tags={tags}
+            photoUri={photoUri}
+            onPhotoPress={choosePhoto}
             editing={target.base !== null}
             problem={problem}
             busy={pending !== null}
@@ -248,16 +270,51 @@ function MealEditor({ base, tags }: { base: Meal | null; tags: Tag[] }) {
   );
 }
 
-function CancelAction({ disabled, onPress }: { disabled: boolean; onPress: () => void }) {
-  return (
-    <HeaderAction
-      testID="meal-form-cancel"
-      label="Cancel"
-      plain
-      disabled={disabled}
-      onPress={onPress}
-    />
-  );
+/**
+ * The photo's choices, in a native action sheet: Take photo, Choose from library and, once there's a
+ * photo, Remove photo (design §5.3). A new photo gets its Storage key now, so every save from this
+ * form, Retry included, uploads to the same place.
+ */
+function usePhotoChoice(values: FormValues, setValues: (values: FormValues) => void) {
+  const newImagePath = useNewImagePath();
+
+  async function take(source: 'camera' | 'library') {
+    const picked = await pickPhoto(source);
+    if (picked.kind === 'denied') {
+      Alert.alert(COPY.photoPermission);
+      return;
+    }
+    if (picked.kind === 'failed') {
+      Alert.alert(COPY.photoError);
+      return;
+    }
+    const path = picked.kind === 'picked' ? newImagePath() : null;
+    if (picked.kind === 'picked' && path !== null) {
+      setValues({ ...values, image: { kind: 'picked', uri: picked.uri, path } });
+    }
+  }
+
+  return () => {
+    const hasPhoto = values.image.kind !== 'none';
+    const options = [
+      COPY.takePhoto,
+      COPY.choosePhoto,
+      ...(hasPhoto ? [COPY.removePhoto] : []),
+      'Cancel',
+    ];
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        options,
+        cancelButtonIndex: options.length - 1,
+        destructiveButtonIndex: hasPhoto ? 2 : undefined,
+      },
+      (index) => {
+        if (index === 0) void take('camera');
+        if (index === 1) void take('library');
+        if (hasPhoto && index === 2) setValues({ ...values, image: { kind: 'none' } });
+      },
+    );
+  };
 }
 
 const styles = StyleSheet.create({

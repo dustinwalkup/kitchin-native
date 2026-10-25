@@ -5,15 +5,19 @@ import ReanimatedSwipeable, {
   type SwipeableMethods,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
 
+import { MEAL_TYPES } from '@/features/meals/constants';
 import { Text } from '@/ui/text';
 import { useTheme } from '@/ui/use-theme';
 
 import type { Meal, Tag } from '../domain';
-import { TagPill } from './tag-pill';
+import { MealImage } from './meal-image';
+import { TagPill, TypePill } from './tag-pill';
 
 export interface MealRowProps {
   meal: Meal;
   tagsById: ReadonlyMap<string, Tag>;
+  /** The photo's signed URL, if it has one yet. */
+  imageUri?: string;
   /** What a tap does, for VoiceOver: "Edits this meal" in the library, "Chooses this meal" in the picker. */
   hint: string;
   // The screen's handlers, passed down unchanged so the memoised rows stay put (N25).
@@ -27,21 +31,28 @@ export interface MealRowProps {
   disclosure?: boolean;
 }
 
-/** What VoiceOver reads for a meal: "Tacos. Tags: Dinner, Quick & Easy", or "Tacos" (N27). */
-export function mealLabel(name: string, tagNames: string[]): string {
-  return tagNames.length === 0 ? name : `${name}. Tags: ${tagNames.join(', ')}`;
+/**
+ * What VoiceOver reads for a meal: "Tacos, dinner. Tags: Quick & Easy", or "Tacos" (N27). The type
+ * comes first, apart from the tags (DD-R6).
+ */
+export function mealLabel(name: string, tagNames: string[], typeLabel?: string): string {
+  const named = typeLabel ? `${name}, ${typeLabel.toLowerCase()}` : name;
+  return tagNames.length === 0 ? named : `${named}. Tags: ${tagNames.join(', ')}`;
 }
 
 // VoiceOver reaches Delete through this, as the row is one element (N10).
 const DELETE_ACTION = [{ name: 'delete', label: 'Delete' }];
 
 /**
- * A meal as a white card: its name, then its tags in alphabetical order as pills (R40.3, R40.4).
- * Neither has a line limit, so a long name wraps and the pills continue on the next line (R40.5).
+ * A meal as a compact row on the page (R40.3, specs/redesign/design.md §5.2): its photo or the
+ * placeholder, its name, then its type and tags as small pills in alphabetical order. Neither name
+ * nor pills have a line limit, so a long name wraps and the pills continue on the next line
+ * (R40.5). Rows are divided by hairlines, not cards.
  */
 export const MealRow = memo(function MealRow({
   meal,
   tagsById,
+  imageUri,
   hint,
   onPress,
   onDelete,
@@ -51,7 +62,7 @@ export const MealRow = memo(function MealRow({
   const swipeable = useRef<SwipeableMethods>(null);
   // `meal.tagIds` is already in tag order, and names only tags this load has (design §3.2).
   const tags = meal.tagIds.flatMap((id) => tagsById.get(id) ?? []);
-  const card = [styles.card, { borderColor: theme.tertiary, borderRadius: theme.radius.card }];
+  const typeLabel = MEAL_TYPES.find((t) => t.key === meal.mealType)?.label;
 
   const deletable = onDelete !== undefined;
 
@@ -73,6 +84,7 @@ export const MealRow = memo(function MealRow({
       accessibilityLabel={mealLabel(
         meal.name,
         tags.map((tag) => tag.name),
+        typeLabel,
       )}
       accessibilityHint={hint}
       accessibilityActions={deletable ? DELETE_ACTION : undefined}
@@ -80,15 +92,22 @@ export const MealRow = memo(function MealRow({
       onPress={() => onPress(meal)}
       style={({ pressed }) => [
         styles.row,
-        { backgroundColor: pressed ? theme.screen : theme.background },
-        // A swipeable row's edge is on its container, which clips the row as it slides.
-        !deletable && card,
+        { backgroundColor: pressed ? theme.sunken : theme.screen },
       ]}
     >
+      <MealImage
+        path={meal.imagePath}
+        uri={imageUri}
+        mealType={meal.mealType}
+        width={56}
+        height={56}
+        radius={12}
+      />
       <View style={styles.body}>
         <Text variant="headline">{meal.name}</Text>
-        {tags.length === 0 ? null : (
+        {meal.mealType === null && tags.length === 0 ? null : (
           <View style={styles.tags}>
+            {meal.mealType ? <TypePill mealType={meal.mealType} /> : null}
             {tags.map((tag) => (
               <TagPill key={tag.id} name={tag.name} />
             ))}
@@ -96,13 +115,7 @@ export const MealRow = memo(function MealRow({
         )}
       </View>
       {disclosure ? (
-        <SymbolView
-          name="chevron.right"
-          weight="semibold"
-          tintColor={theme.inkMuted}
-          size={13}
-          style={styles.chevron}
-        />
+        <SymbolView name="chevron.right" weight="semibold" tintColor={theme.inkMuted} size={12} />
       ) : null}
     </Pressable>
   );
@@ -112,7 +125,6 @@ export const MealRow = memo(function MealRow({
   return (
     <ReanimatedSwipeable
       ref={swipeable}
-      containerStyle={card}
       friction={2}
       overshootRight={false}
       rightThreshold={40}
@@ -144,17 +156,15 @@ function DeleteAction({ mealId, onPress }: { mealId: string; onPress: () => void
 }
 
 const styles = StyleSheet.create({
-  card: { borderWidth: 1 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    minHeight: 44,
+    gap: 14,
+    minHeight: 72,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
-  body: { flex: 1, gap: 8 },
+  body: { flex: 1, gap: 6 },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chevron: { width: 13, height: 13 },
   delete: { width: 88, alignItems: 'center', justifyContent: 'center' },
 });

@@ -3,7 +3,7 @@
 A private iOS app shared by two household members: groceries first, then meals, chores and notes.
 Stack: Expo + React Native + TypeScript (strict) + Expo Router, with Supabase (Postgres, Auth, Realtime, RLS), TanStack Query, Sentry, GitHub Actions, and EAS → TestFlight.
 
-- `specs/mvp/` is the authoritative spec for the MVP, `specs/meals/` for meal planning and `specs/meal-library/` for the meal library. All three are written with the EARS spec-driven process: `1-requirements.md` → `2-design.md` → `3-tasks.md` → `4-test-plan.md`. Meals numbering continues from the MVP's (R30, N21, DD23, OI-15 and task 9 onwards), and the meal library's continues from both (R40, N25, DD43, OI-20 and task 15 onwards), so a number means one thing across all three. Read the relevant requirement and design section before changing anything they cover, and cite requirement numbers (for example R7.3 or R32.3) in commits and PRs.
+- `specs/mvp/` is the authoritative spec for the MVP, `specs/meals/` for meal planning and `specs/meal-library/` for the meal library. All three are written with the EARS spec-driven process: `1-requirements.md` → `2-design.md` → `3-tasks.md` → `4-test-plan.md`. Meals numbering continues from the MVP's (R30, N21, DD23, OI-15 and task 9 onwards), and the meal library's continues from both (R40, N25, DD43, OI-20 and task 15 onwards), so a number means one thing across all three. Read the relevant requirement and design section before changing anything they cover, and cite requirement numbers (for example R7.3 or R32.3) in commits and PRs. `specs/redesign/design.md` records the 2026-10-25 app-wide redesign (design system, screens and data) and lists the earlier requirements it supersedes; its numbers carry an `R` prefix (`DD-R4`, task `R3`).
 - New features (meals, chores, notes) get their own `specs/<feature>/` folder and go through the same four phases, with explicit owner approval between each phase.
 - `docs/SPEC.md` is the research record: legacy assessment, risks, costs and documentation links. Its §3–§11 are superseded by `specs/mvp/2-design.md`.
 - `docs/TASKS.md` is the owner runbook. 👤 = an owner-only manual step (stop and give exact instructions). Its M1–M8 🤖 steps are superseded by `specs/mvp/3-tasks.md`. Its Phase 2 🤖 lines mirror `specs/meals/3-tasks.md`, and its Meal library 🤖 lines `specs/meal-library/3-tasks.md`, under the same numbers, so tick both together.
@@ -38,7 +38,7 @@ Stack: Expo + React Native + TypeScript (strict) + Expo Router, with Supabase (P
 - Migrations must stay backward compatible with the TestFlight build currently installed (expand → migrate → contract).
 - Install Expo-managed native packages with `npx expo install <pkg>` so versions stay aligned with the SDK.
 - Screens never import `supabase` directly. Go through `src/features/<feature>/hooks.ts` → `api.ts`.
-- Use the legacy desert palette (SPEC §4.6) through `src/ui/theme.ts` tokens only. Never hard-code hex values in components.
+- Use the redesign's palette (`specs/redesign/design.md` §2) through `src/ui/theme.ts` tokens only. Never hard-code hex values in components. Build screens from the shared components in `src/ui/` (§3) rather than one-off styles.
 - Use development builds (`npx expo run:ios`), not Expo Go. Expo SDK 58; routes live in `src/app/`.
 - React Native Testing Library 14 is async: always `await render(...)` and `await fireEvent...`.
 

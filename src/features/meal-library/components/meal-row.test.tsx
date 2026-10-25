@@ -7,18 +7,24 @@ import { themes } from '@/ui/theme';
 import type { Meal } from '../domain';
 import { mealLabel, MealRow, type MealRowProps } from './meal-row';
 
-// Browser components C-LBR-08, 12 and 13 for rows (4-test-plan §4.1), and the library's swipe to
-// delete and chevron (C-LIB-11). jest-setup.ts draws the swipeable's Delete beside the row, as if
-// swiped open.
+// Browser components C-LBR-08, 12 and 13 for rows (4-test-plan §4.1, as redesigned in
+// specs/redesign/design.md §5.2), and the library's swipe to delete and chevron (C-LIB-11).
+// jest-setup.ts draws the swipeable's Delete beside the row, as if swiped open.
 
 const theme = themes.light;
 const onPress = jest.fn();
 
-const DINNER = makeLibraryTag({ id: 'tag-dinner', name: 'Dinner' });
+const FAVOURITE = makeLibraryTag({ id: 'tag-favourite', name: 'Family Favorite' });
 const QUICK = makeLibraryTag({ id: 'tag-quick', name: 'Quick & Easy' });
-const tagsById = new Map([DINNER, QUICK].map((tag) => [tag.id, tag]));
+const tagsById = new Map([FAVOURITE, QUICK].map((tag) => [tag.id, tag]));
 
-const TACOS = makeLibraryMeal({ id: 'meal-tacos', name: 'Tacos', tagIds: [DINNER.id, QUICK.id] });
+const TACOS = makeLibraryMeal({
+  id: 'meal-tacos',
+  name: 'Tacos',
+  mealType: 'dinner',
+  tagIds: [FAVOURITE.id, QUICK.id],
+});
+const PHOTO = 'household-1/tacos.jpg';
 
 const onDelete = jest.fn();
 
@@ -31,15 +37,32 @@ const row = () => screen.getByRole('button');
 beforeEach(() => jest.clearAllMocks());
 
 describe('MealRow', () => {
-  it('C-LBR-08 shows the name, then its tags as pills in order', async () => {
+  it('C-LBR-08 shows the name, then its type and its tags as pills in order', async () => {
     await render(ui(TACOS));
 
     expect(within(row()).getByText('Tacos')).toBeOnTheScreen();
     expect(
       within(row())
-        .getAllByText(/^(Dinner|Quick & Easy)$/)
+        .getAllByText(/^(Dinner|Family Favorite|Quick & Easy)$/)
         .map((t) => t.props.children),
-    ).toEqual(['Dinner', 'Quick & Easy']);
+    ).toEqual(['Dinner', 'Family Favorite', 'Quick & Easy']);
+  });
+
+  it('DD-R6 draws the type apart from the tags: its glyph and muted name on the sunken tone', async () => {
+    await render(ui(TACOS));
+
+    const pill = within(row()).getByTestId('type-pill');
+    expect(pill).toHaveStyle({ backgroundColor: theme.sunken });
+    expect(within(pill).getByText('Dinner')).toHaveStyle({ color: theme.inkMuted });
+    expect(pill.children[0]).toHaveProp('name', 'moon.stars.fill');
+    expect(pill.children[0]).toHaveProp('tintColor', theme.dinner);
+  });
+
+  it('DD-R6 shows no type pill for a meal with no type', async () => {
+    await render(ui({ ...TACOS, mealType: null }));
+
+    expect(screen.queryByTestId('type-pill')).toBeNull();
+    expect(screen.getByText('Quick & Easy')).toBeOnTheScreen();
   });
 
   it('C-LBR-08 wraps a long name and long tags rather than truncating them', async () => {
@@ -50,31 +73,68 @@ describe('MealRow', () => {
     expect(screen.getByText('Quick & Easy')).not.toHaveProp('numberOfLines');
   });
 
-  it('C-LBR-08 reads "Tacos. Tags: Dinner, Quick & Easy", as a button with a hint', async () => {
+  it('C-LBR-08 reads "Tacos, dinner. Tags: Family Favorite, Quick & Easy", as a button with a hint', async () => {
     await render(ui(TACOS));
 
-    expect(row()).toHaveProp('accessibilityLabel', 'Tacos. Tags: Dinner, Quick & Easy');
+    expect(row()).toHaveProp(
+      'accessibilityLabel',
+      'Tacos, dinner. Tags: Family Favorite, Quick & Easy',
+    );
     expect(row()).toHaveProp('accessibilityHint', 'Edits this meal');
   });
 
-  it('C-LBR-08 shows and reads only the name of a meal with no tags', async () => {
-    await render(ui({ ...TACOS, tagIds: [] }));
+  it('C-LBR-08 shows and reads only the name of a meal with no type or tags', async () => {
+    await render(ui({ ...TACOS, mealType: null, tagIds: [] }));
 
     expect(row()).toHaveProp('accessibilityLabel', 'Tacos');
     expect(screen.queryByText('Dinner')).toBeNull();
+    expect(screen.queryByText('Quick & Easy')).toBeNull();
   });
 
-  it('mealLabel joins the tag names after the name', () => {
-    expect(mealLabel('Soup', ['Lunch'])).toBe('Soup. Tags: Lunch');
+  it('C-LBR-08 reads the type of a meal with no tags', async () => {
+    await render(ui({ ...TACOS, tagIds: [] }));
+
+    expect(row()).toHaveProp('accessibilityLabel', 'Tacos, dinner');
+  });
+
+  it('mealLabel puts the type after the name, and the tag names after both', () => {
+    expect(mealLabel('Soup', ['Quick & Easy'], 'Lunch')).toBe('Soup, lunch. Tags: Quick & Easy');
+    expect(mealLabel('Soup', [], 'Dinner')).toBe('Soup, dinner');
+    expect(mealLabel('Soup', ['Quick & Easy'])).toBe('Soup. Tags: Quick & Easy');
     expect(mealLabel('Soup', [])).toBe('Soup');
   });
 
-  it('DD57 draws its pills as ink on accentSoft', async () => {
+  it('DD57 draws its tag pills as ink on accentSoft', async () => {
     await render(ui(TACOS));
 
-    const text = screen.getByText('Dinner');
+    const text = screen.getByText('Quick & Easy');
     expect(text).toHaveStyle({ color: theme.ink });
     expect(text.parent).toHaveStyle({ backgroundColor: theme.accentSoft });
+  });
+
+  it("§5.2 shows the meal's photo at 56 pt, from its signed URL", async () => {
+    await render(ui({ ...TACOS, imagePath: PHOTO }, { imageUri: 'https://storage.test/tacos' }));
+
+    const photos = screen.root!.queryAll((node) => node.props.recyclingKey === PHOTO);
+    expect(photos).toHaveLength(1);
+    expect(photos[0]).toHaveProp('source', [
+      { uri: 'https://storage.test/tacos', cacheKey: PHOTO },
+    ]);
+    expect(photos[0]?.parent).toHaveStyle({ width: 56, height: 56 });
+  });
+
+  it("§5.2 shows the type's glyph in place of a photo it doesn't have", async () => {
+    await render(ui(TACOS, { imageUri: 'https://storage.test/stale' }));
+
+    expect(screen.root!.queryAll((node) => node.props.recyclingKey !== undefined)).toEqual([]);
+    expect(screen.root!.queryAll((node) => node.props.name === 'moon.stars.fill')).toHaveLength(2); // the placeholder and the type pill
+  });
+
+  it('§5.2 sits on the page, not on a card', async () => {
+    await render(ui(TACOS));
+
+    expect(row()).toHaveStyle({ backgroundColor: theme.screen });
+    expect(row()).not.toHaveStyle({ borderWidth: 1 });
   });
 
   it('R40.7 passes the meal to onPress when tapped', async () => {
@@ -136,13 +196,6 @@ describe('MealRow in the library (C-LIB-11)', () => {
     );
   });
 
-  it('keeps the card edge on the swipeable, so the row slides inside it', async () => {
-    await render(ui(TACOS, { onDelete }));
-
-    expect(row()).not.toHaveStyle({ borderWidth: 1 });
-    expect(row().parent).toHaveStyle({ borderWidth: 1, borderColor: theme.tertiary });
-  });
-
   it('R40.7 shows a chevron when the row opens the meal, and none otherwise', async () => {
     await render(ui(TACOS, { disclosure: true }));
     expect(row().children.at(-1)).toHaveProp('name', 'chevron.right');
@@ -158,6 +211,5 @@ describe('MealRow in the library (C-LIB-11)', () => {
       screen.queryByTestId('meal-delete-meal-tacos', { includeHiddenElements: true }),
     ).toBeNull();
     expect(row().props.accessibilityActions).toBeUndefined();
-    expect(row()).toHaveStyle({ borderWidth: 1, borderColor: theme.tertiary });
   });
 });

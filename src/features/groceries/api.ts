@@ -60,7 +60,10 @@ export async function insertItem(v: {
 // An update that matches no row means another device deleted the item (R12.5).
 async function updateItem(
   id: string,
-  change: { is_checked: boolean } | { quantity: string | null },
+  change:
+    | { is_checked: boolean }
+    | { quantity: string | null }
+    | { name?: string; category?: CategoryKey; quantity?: string | null },
 ): Promise<void> {
   const ctx = { table: ITEMS, operation: 'update', recordId: id };
   const { data, error, status } = await supabase
@@ -80,6 +83,17 @@ export function setItemChecked(id: string, isChecked: boolean): Promise<void> {
 /** Sets or clears the quantity; `null` clears it (R8.2, R8.3). */
 export function setItemQuantity(id: string, quantity: string | null): Promise<void> {
   return updateItem(id, { quantity });
+}
+
+/**
+ * Changes an item's name, category or quantity from the edit sheet, sending only what changed
+ * (R12.4, specs/redesign/design.md §4.3).
+ */
+export function updateItemDetails(
+  id: string,
+  changes: { name?: string; category?: CategoryKey; quantity?: string | null },
+): Promise<void> {
+  return updateItem(id, changes);
 }
 
 /** Deleting an item that's already gone counts as success (R9.3). */
