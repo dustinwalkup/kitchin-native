@@ -22,11 +22,16 @@ jest.mock('@/lib/reporting', () => ({
 const SIGNED_IN: AuthState = { status: 'signedIn', session: makeSession('user-a') };
 
 const OLDEST: Membership = {
-  household: { id: 'household-1', name: 'Household One', timeZone: 'America/Denver' },
+  household: {
+    id: 'household-1',
+    name: 'Household One',
+    timeZone: 'America/Denver',
+    weekStart: 6,
+  },
   displayName: 'Member A',
 };
 const NEWER: Membership = {
-  household: { id: 'household-2', name: 'Household Two', timeZone: 'UTC' },
+  household: { id: 'household-2', name: 'Household Two', timeZone: 'UTC', weekStart: 0 },
   displayName: 'Member A (2)',
 };
 
@@ -114,6 +119,14 @@ describe('HouseholdProvider', () => {
       }),
     );
     expect(reportOnce).not.toHaveBeenCalled();
+  });
+
+  it('U-HH-10 carries the start of the week (meals R48.2)', async () => {
+    fetchMock.mockResolvedValue([OLDEST]);
+    const { result } = await renderHousehold();
+
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(result.current).toMatchObject({ household: { weekStart: 6 } });
   });
 
   it('U-HH-04 uses the oldest of two memberships and warns once', async () => {

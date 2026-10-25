@@ -3,7 +3,9 @@
 -- These fail until migrations groceries_init (task 4.2) and realtime_household_broadcast (task 5.2) land.
 -- Meals task 9.1 added DB-R-11 to DB-R-13 (meals 4-test-plan §2.3), which fail until migration
 -- meals_init (task 9.2) lands. Meal library task 15.1 added DB-R-14 to DB-R-18 (meal library
--- 4-test-plan §2.3), which fail until migration meal_library_init (task 15.2) lands.
+-- 4-test-plan §2.3), which fail until migration meal_library_init (task 15.2) lands. Meals task 22.1
+-- added DB-R-19 and DB-R-20 (meals 4-test-plan §14.1), which fail until migration
+-- household_week_start lands.
 --
 -- realtime.messages is partitioned by UTC day. The test can't create a missing partition (OI-7):
 -- postgres doesn't own the table and has no CREATE on schema realtime. The Realtime server creates
@@ -13,7 +15,7 @@
 -- realtime.send() sets realtime.topic for the rest of the transaction, so the topic checks run
 -- before any broadcast, and each section sets the topic it needs.
 begin;
-select plan(46);
+select plan(50);
 
 -- Fixtures, as postgres: a broadcast message on each household's topic, and a presence message on H1's.
 select lives_ok(
@@ -343,6 +345,38 @@ select tests.authenticate_as('member-c@example.com');
 
 select is_empty($$ select * from pg_temp.library_broadcasts() $$,
   'DB-R-17 C can read none of the library broadcasts on Household One''s topic');
+
+reset role;
+
+-- Household broadcasts (R48.5). A households row has no household_id, so its trigger takes the topic
+-- from id (meals design §11.1, DD63), and broadcasts_about finds the messages by the household's id.
+
+select tests.authenticate_as('member-a@example.com');
+
+select lives_ok(
+  $$ update public.households set week_start = 'sunday' where id = tests.household_id('Household One') $$,
+  'DB-R-19 A changes Household One''s start of the week');
+
+reset role;
+
+select results_eq(
+  $$ select * from pg_temp.broadcasts_about(tests.household_id('Household One')) $$,
+  $$ values ('household:' || tests.household_id('Household One'), 'UPDATE', 'households', true) $$,
+  'DB-R-19 the update sends one private broadcast on Household One''s topic');
+
+select tests.set_topic(tests.household_id('Household One'));
+select tests.authenticate_as('member-a@example.com');
+
+select results_eq(
+  $$ select count(*)::int from pg_temp.broadcasts_about(tests.household_id('Household One')) $$, array[1],
+  'DB-R-20 control: A can read the household broadcast on Household One''s topic');
+
+reset role;
+select tests.set_topic(tests.household_id('Household One'));
+select tests.authenticate_as('member-c@example.com');
+
+select is_empty($$ select * from pg_temp.broadcasts_about(tests.household_id('Household One')) $$,
+  'DB-R-20 C can read none of the household broadcast on Household One''s topic');
 
 reset role;
 

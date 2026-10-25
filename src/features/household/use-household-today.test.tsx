@@ -15,7 +15,7 @@ jest.mock('@/lib/reporting', () => ({ reportOnce: jest.fn() }));
 function household(timeZone: string): HouseholdState {
   return {
     status: 'ready',
-    household: { id: 'household-1', name: 'Household One', timeZone },
+    household: { id: 'household-1', name: 'Household One', timeZone, weekStart: 0 },
     member: { userId: 'user-a', displayName: 'Member A' },
   };
 }

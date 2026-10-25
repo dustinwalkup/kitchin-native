@@ -3,6 +3,7 @@
 > **Phase 3 of 4** in the EARS spec-driven process: 1-requirements → 2-design → **3-tasks** → 4-test-plan.
 > **Status:** Draft for owner review, 2026-10-19. Implements [2-design.md](./2-design.md) and [1-requirements.md](./1-requirements.md), both approved 2026-10-19. Implementation waits until the owner approves this document and [4-test-plan.md](./4-test-plan.md), which cites every task by number.
 > **Amended during test planning:** G10 marked done; task 11.1 adds `trimEntry` and the meal factories (design finding 6, OI-18).
+> **Amended at the owner's request, 2026-10-25:** section 22 and gate G16 added for the start of the week (Requirement 48, design §11). **Approved by the owner, 2026-10-25**, with the matching additions to 1-requirements, 2-design and 4-test-plan.
 
 The tasks are ordered by dependency. Numbering continues from [`specs/mvp/3-tasks.md`](../mvp/3-tasks.md): sections start at **9** and owner gates at **G10**, so "task 9.1" means one thing anywhere in the project. Each task fits in one focused session. Tests are written with the code, or before it where a task is marked **TDD**. A task is done when its tests pass locally and the CI `app` and `database` checks pass (CLAUDE.md, Commands).
 
@@ -32,6 +33,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
 | G10 | MVP task 4.8 (the add-item sheet) ticked in `specs/mvp/3-tasks.md`. **Done**: ticked by 2026-10-19 | 12.4, which opens that sheet from Meals |
 | G11 | `docs/TASKS.md` P2.5: the time-zone check on a physical iPhone (OI-15) | Phase 2 sign-off. If it fails, the fallback in OI-15 becomes a new task |
 | G12 | `docs/TASKS.md` P2.3: the production deploy of `meals_init` | The first TestFlight build with Meals (P2.4) |
+| G16 | `docs/TASKS.md` WS.3: the production deploy of `household_week_start` *(added 2026-10-25)* | The over-the-air update with section 22 (WS.4) |
 
 **Timing.** `docs/TASKS.md` suggests using the MVP for a couple of weeks before starting Phase 2, and requirements Assumption 1 expects it to be in daily use. Sections 9–13 work only against the local stack, so the owner decides when they start. Nothing reaches production before G12.
 
@@ -235,6 +237,57 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
     - *Checked 2026-10-19. Tasks 9.1–12.4 are ticked in both files, and every file, rule and test they list exists. The CI `app` and `database` checks pass locally. Two parts had not been done: the Simulator check in 12.2 (OI-16) and the Simulator checks in 12.3 (OI-17 and N22). Both were run the same day. 12.3's checks passed (MT-12-12, MT-12-13), so OI-17 is resolved. 12.2's check failed (MT-12-08): typing in a full slot flickers and moves the cursor. OI-16's fallback becomes a new task once the owner settles its emoji trade-off with R32.5. OI-15 waits for gate G11, and OI-18 and OI-19 are resolved. The §8.2 long-text data in the test plan now fills 500 characters, as N22 specifies, instead of 498.*
   - _Requirements: none directly; it keeps the spec and the code in step_ — _Design: §10_
 
+## 22. Start of the week (owner request, 2026-10-25)
+
+Implements [Requirement 48](./1-requirements.md#requirement-48-settings--start-of-the-week) and [design §11](./2-design.md#11-start-of-the-week). Numbered after the meal library's section 21. Test IDs are in [4-test-plan.md §14](./4-test-plan.md#14-start-of-the-week).
+
+- [x] **22.1 Write the start-of-the-week database tests, then the migration** · M
+  - Tests first:
+    - `10_households.test.sql`: DB-H-19–DB-H-23. Run them before DB-H-12 renames Household One, or look it up by id.
+    - `30_realtime.test.sql`: DB-R-19 and DB-R-20.
+    - The new cases fail until the migration lands. The existing structural checks cover the new definer function (`search_path`, revoked execute) without new cases.
+  - Create the migration with `npx supabase migration new household_week_start`. Per §11.1, it holds the `week_start` column and its check, `private.broadcast_household_row_change()` with execute revoked, and the `households_90_broadcast` trigger.
+  - Regenerate `src/types/database.ts`.
+  - Done when the new cases pass, the structural tests stay green, and `supabase db lint --local --schema public,private --fail-on error` and `supabase db advisors --local --type security --fail-on warn` are clean.
+  - _Requirements: R48.2, R48.3, R48.5, R48.6, R48.12, R20.4 and R20.5 (amended)_ — _Design: §11.1, DD62, DD63_
+
+- [x] **22.2 Make the calendar take the start day (TDD)** · S
+  - Write U-CAL-17–U-CAL-21 first in `src/lib/calendar.test.ts`, and change U-CAL-04 to pass Monday (`0`).
+  - In `src/lib/calendar.ts`, add `Weekday`, give `weekStartOf` a required `start`, and add `reanchorWeek`, per §11.2.
+  - Pass `0` at the existing call sites for now, so the app behaves as before until 22.4.
+  - _Requirements: R48.4, R48.7, R34.4, N23 (amended)_ — _Design: §11.2, DD66, DD67_
+
+- [x] **22.3 Read, change and follow the household's start day (TDD)** · M
+  - Needs 22.1's types and 22.2's `Weekday`.
+  - Write `src/features/household/week-start.ts` and its tests (U-WKS-01, U-WKS-02).
+  - In `api.ts`, add `week_start` to the membership select and write `updateWeekStart` (U-HH-07–U-HH-09). Pass `weekStart` through `household-provider.tsx` (U-HH-10).
+  - Write `use-week-start.ts` per §11.3, with its tests first (U-WKS-03–U-WKS-09).
+  - Write the household's `realtime.ts` (U-WKS-10, U-WKS-11), and merge `householdTableHandlers` into `TABLE_HANDLERS` in `src/app/(app)/_layout.tsx`.
+  - Update `src/test/mock-backend.ts` and `src/test/factories.ts`.
+  - In `jest.config.js`, put `week-start.ts` in the 95/90 group and `use-week-start.ts` in the 90/85 group.
+  - _Requirements: R48.2–R48.5, R48.10, R48.11, R11.2 (amended), R26.3_ — _Design: §11.3, §11.6, DD63, DD65_
+
+- [x] **22.4 Lay Meals out from the household's start day** · M
+  - Needs 22.2 and 22.3.
+  - Per §11.4:
+    - `MealsWeek` reads `useWeekStart()`, keeps `start` beside `weekStart`, and re-anchors with `reanchorWeek` once no slot is open
+    - `WeekHeader` takes `start`
+    - `useSetMeal` takes `start`
+  - Tests: C-WEEK-16, C-WEEK-17, C-MEAL-23–C-MEAL-28 and U-MMUT-17.
+  - _Requirements: R30.1 (amended), R31.2, R31.3, R48.4, R48.6–R48.9, R35.2_ — _Design: §11.4, DD66, DD67_
+
+- [x] **22.5 Add Week starts on to Settings** · M
+  - Needs 22.3.
+  - Per §11.5, add the Settings row and footnote. Write `src/app/(app)/week-start.tsx` and add it to the (app) stack.
+  - Tests: C-SET-06 and C-SET-07 in `settings.test.tsx`, and C-WKS-01–C-WKS-06 in `src/__tests__/week-start.test.tsx`.
+  - _Requirements: R48.1, R48.4, R48.5, R48.10, R15.1 (amended), N10–N12_ — _Design: §11.5, DD64_
+
+- [x] **22.6 Bring the docs up to date** · S
+  - Write the MVP amendments (11.2, 13.2, 14.1, 15.1, 20.4, 20.5) into `specs/mvp/1-requirements.md`, and 4-test-plan §12's additions into `specs/mvp/4-test-plan.md`, marked *(Amended for the start of the week.)*
+  - Change the amendment's "Draft for owner review" status lines in this spec's four files to the date the owner approved it.
+  - Check that 22.1–22.5 and their 🤖 lines in `docs/TASKS.md` are ticked, and list any that weren't done.
+  - _Requirements: none directly; it keeps the spec and the code in step_ — _Design: §11_
+
 ---
 
 ## Requirements coverage matrix
@@ -253,7 +306,9 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
 | MVP amendments: R1.5, R11.2, R26.4 | 12.3, 11.4, 11.2 and 10.2 |
 | N21–N22 Performance | 12.2, 12.3 |
 | N23 Date rules | 10.1, 11.1 |
-| N24 Additive | 9.2, 11.3; design §1.5 lists every existing file that changes |
+| N24 Additive | 9.2, 11.3; design §1.5 lists every existing file that changes, and §11.7 those the start of the week changes |
+| R48 Start of the week *(added 2026-10-25)* | 22.1–22.5; the two-device checks are owner steps WS.1 and WS.5 |
+| MVP amendments for R48: R11.2, R13.2, R14.1, R15.1, R20.4, R20.5 | 22.3, 22.3, 22.3, 22.5, 22.1, 22.1; written into the MVP spec by 22.6 |
 
 ## Parallelization opportunities
 
@@ -265,3 +320,4 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Pha
 - **The screen:** 12.1 and 12.2 need only 11.1, so they can run alongside 11.2–11.4. 12.3 needs 10.2, 11.3, 11.4, 12.1 and 12.2. 12.4 needs 12.3 and gate G10.
 - **Files shared between tracks:** `jest.config.js` (10.1, 11.3), `eslint.config.js` (10.1) and `src/app/(app)/_layout.tsx` (11.4). Edit only the lines a task owns, because agents share one working tree.
 - **13.1** comes last.
+- **Section 22:** 22.1 and 22.2 can start at once. 22.3 needs both. 22.4 and 22.5 need 22.3 and can run side by side. 22.3 and 22.5 both edit `src/app/(app)/_layout.tsx`, so each edits only the lines it owns. 22.6 comes last.

@@ -22,12 +22,14 @@ const mockSetChecked = jest.fn();
 const mockSetQuantity = jest.fn();
 const mockDeleteItem = jest.fn();
 const mockClearChecked = jest.fn();
+const mockUncheckAll = jest.fn();
 jest.mock('@/features/groceries/hooks', () => ({
   useGroceryList: () => mockList,
   useSetChecked: () => mockSetChecked,
   useSetQuantity: () => mockSetQuantity,
   useDeleteItem: () => mockDeleteItem,
   useClearChecked: () => mockClearChecked,
+  useUncheckAll: () => mockUncheckAll,
 }));
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -431,6 +433,32 @@ describe('Groceries item interactions', () => {
     await renderGroceries();
 
     expect(screen.getByRole('button', { name: 'Clear checked' })).toBeDisabled();
+  });
+
+  it('C-ITEM-13 unchecks through useUncheckAll, keeping a checked duplicate of an open item', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockList = listOf([
+      ...ITEMS,
+      makeItem({ id: 'old-milk', name: 'Milk', category: 'dairy', isChecked: true }),
+    ]);
+    await renderGroceries();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Uncheck all' }));
+    const [title, , buttons] = alert.mock.calls[0];
+    expect(title).toBe('Uncheck 1 item?');
+    expect(mockUncheckAll).not.toHaveBeenCalled();
+    await act(async () =>
+      (buttons as AlertButton[]).find((b) => b.text === 'Uncheck')?.onPress?.(),
+    );
+
+    expect(mockUncheckAll).toHaveBeenCalledWith({ keepIds: ['old-milk'] });
+  });
+
+  it('C-ITEM-11 disables Uncheck all while nothing is checked', async () => {
+    mockList = listOf(ITEMS.filter((i) => !i.isChecked));
+    await renderGroceries();
+
+    expect(screen.getByRole('button', { name: 'Uncheck all' })).toBeDisabled();
   });
 });
 

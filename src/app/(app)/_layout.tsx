@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 
 import { groceryTableHandlers } from '@/features/groceries/realtime';
+import { householdTableHandlers } from '@/features/household/realtime';
 import { useRealtimeDegradedReport } from '@/features/household/use-connection-state';
 import {
   type TableHandlers,
@@ -18,6 +19,7 @@ const TABLE_HANDLERS: TableHandlers = {
   ...groceryTableHandlers,
   ...mealTableHandlers,
   ...libraryTableHandlers,
+  ...householdTableHandlers,
 };
 
 export default function AppLayout() {
@@ -47,6 +49,12 @@ export default function AppLayout() {
       <Stack.Screen
         name="meal-picker"
         options={{ presentation: 'modal', title: 'Choose a meal' }}
+      />
+      {/* Pushed from Settings, with Back (meals R48.1, §11.5). */}
+      {/* The tabs have no title, so Back would read "(tabs)". */}
+      <Stack.Screen
+        name="week-start"
+        options={{ title: 'Week starts on', headerBackTitle: 'Settings' }}
       />
       {/* The production variant has no theme preview (R15.4). */}
       <Stack.Protected guard={env.variant === 'development'}>

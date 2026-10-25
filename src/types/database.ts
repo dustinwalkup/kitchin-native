@@ -91,14 +91,14 @@ isOneToOne: false
                   ]
                 },"households": {
                   Row: {
-                    "created_at": string,"id": string,"name": string,"time_zone": string,"updated_at": string
+                    "created_at": string,"id": string,"name": string,"time_zone": string,"updated_at": string,"week_start": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id"?: string,"name": string,"time_zone"?: string,"updated_at"?: string
+                    "created_at"?: string,"id"?: string,"name": string,"time_zone"?: string,"updated_at"?: string,"week_start"?: string
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"name"?: string,"time_zone"?: string,"updated_at"?: string
+                    "created_at"?: string,"id"?: string,"name"?: string,"time_zone"?: string,"updated_at"?: string,"week_start"?: string
                   }
                   Relationships: [
                     

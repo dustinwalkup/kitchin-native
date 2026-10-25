@@ -42,15 +42,32 @@ export function addDays(d: IsoDate, n: number): IsoDate {
   return fromDayNumber(toDayNumber(d) + n);
 }
 
-/** 0 = Monday … 6 = Sunday (K10). */
-export function weekday(d: IsoDate): 0 | 1 | 2 | 3 | 4 | 5 | 6 {
+/** 0 = Monday … 6 = Sunday, whatever day the household's week starts on (K10, DD67). */
+export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+export function weekday(d: IsoDate): Weekday {
   // Day number 0, 1970-01-01, was a Thursday (3).
-  return ((((toDayNumber(d) + 3) % 7) + 7) % 7) as 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  return ((((toDayNumber(d) + 3) % 7) + 7) % 7) as Weekday;
 }
 
-/** The Monday on or before `d`. */
-export function weekStartOf(d: IsoDate): IsoDate {
-  return addDays(d, -weekday(d));
+/** The `start` day on or before `d` (R48.4). No default, so no caller falls back to Monday. */
+export function weekStartOf(d: IsoDate, start: Weekday): IsoDate {
+  return addDays(d, -((weekday(d) - start + 7) % 7));
+}
+
+/**
+ * The week to show once the start day changes from `from` to `to` (R48.7, DD66): the new current
+ * week if the current week was showing, and otherwise the new week holding the old one's fourth date.
+ * That week shares at least four dates with the old one, and no other week starting on `to` shares more.
+ */
+export function reanchorWeek(v: {
+  weekStart: IsoDate;
+  today: IsoDate;
+  from: Weekday;
+  to: Weekday;
+}): IsoDate {
+  if (v.weekStart === weekStartOf(v.today, v.from)) return weekStartOf(v.today, v.to);
+  return weekStartOf(addDays(v.weekStart, 3), v.to);
 }
 
 /** Seven consecutive dates from `weekStart` (30.1, 34.4). */
@@ -114,6 +131,14 @@ export function formatDay(d: IsoDate): { weekday: string; date: string } {
     weekday: display(d, { weekday: 'long' }),
     date: display(d, { day: 'numeric', month: 'long' }),
   };
+}
+
+// 2026-10-19 was a Monday, so adding a Weekday to it gives a date on that day.
+const A_MONDAY = Date.UTC(2026, 9, 19) / DAY_MS;
+
+/** "Sunday" in en-US, or the device locale's equivalent (R48.1, 30.12). */
+export function weekdayName(day: Weekday): string {
+  return display(fromDayNumber(A_MONDAY + day), { weekday: 'long' });
 }
 
 /**

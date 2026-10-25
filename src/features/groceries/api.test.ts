@@ -14,13 +14,24 @@ import {
   insertItem,
   setItemChecked,
   setItemQuantity,
+  uncheckAllItems,
 } from './api';
 
 jest.mock('@/lib/supabase', () => ({ supabase: { from: jest.fn() } }));
 
 beforeEach(() => jest.clearAllMocks());
 
-const METHODS = ['select', 'insert', 'update', 'delete', 'eq', 'order', 'limit', 'single'] as const;
+const METHODS = [
+  'select',
+  'insert',
+  'update',
+  'delete',
+  'eq',
+  'not',
+  'order',
+  'limit',
+  'single',
+] as const;
 
 type Builder = Record<(typeof METHODS)[number], jest.Mock> & PromiseLike<unknown>;
 
@@ -201,6 +212,32 @@ describe('clearCheckedItems', () => {
   });
 });
 
+describe('uncheckAllItems', () => {
+  it('U-API-08 unchecks the checked items on that list except those to keep, and returns their ids', async () => {
+    const builder = stubQuery({ data: [{ id: 'item-1' }], error: null, status: 200 });
+
+    await expect(uncheckAllItems('list-1', ['item-2', 'item-3'])).resolves.toEqual(['item-1']);
+
+    expect(supabase.from).toHaveBeenCalledTimes(1);
+    expect(supabase.from).toHaveBeenCalledWith('grocery_items');
+    expect(builder.update.mock.calls).toStrictEqual([[{ is_checked: false }]]);
+    expect(builder.eq.mock.calls).toEqual([
+      ['list_id', 'list-1'],
+      ['is_checked', true],
+    ]);
+    expect(builder.not).toHaveBeenCalledWith('id', 'in', '(item-2,item-3)');
+    expect(builder.select).toHaveBeenCalledWith('id');
+  });
+
+  it('U-API-08 sends no id filter when there is nothing to keep', async () => {
+    const builder = stubQuery({ data: [], error: null, status: 200 });
+
+    await expect(uncheckAllItems('list-1', [])).resolves.toEqual([]);
+
+    expect(builder.not).not.toHaveBeenCalled();
+  });
+});
+
 describe('failures', () => {
   it.each([
     ['fetchList', () => fetchList('household-1'), 'grocery_lists', 'select'],
@@ -209,6 +246,7 @@ describe('failures', () => {
     ['setItemQuantity', () => setItemQuantity('item-1', null), 'grocery_items', 'update'],
     ['deleteItem', () => deleteItem('item-1'), 'grocery_items', 'delete'],
     ['clearCheckedItems', () => clearCheckedItems('list-1'), 'grocery_items', 'delete'],
+    ['uncheckAllItems', () => uncheckAllItems('list-1', []), 'grocery_items', 'update'],
   ])(
     'U-API-07 %s throws an ApiError with its table and operation, and no server text',
     async (_, call, table, operation) => {

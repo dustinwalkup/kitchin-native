@@ -99,3 +99,19 @@ export async function clearCheckedItems(listId: string): Promise<string[]> {
   if (error) throw fail(error, status, { table: ITEMS, operation: 'delete', recordId: listId });
   return data.map((row) => row.id);
 }
+
+/**
+ * Unchecks every checked item on the list except `keepIds` in one statement, and returns their ids
+ * (R10.9). Sending the few to keep, not the many to uncheck, keeps the URL short.
+ */
+export async function uncheckAllItems(listId: string, keepIds: string[]): Promise<string[]> {
+  let query = supabase
+    .from(ITEMS)
+    .update({ is_checked: false })
+    .eq('list_id', listId)
+    .eq('is_checked', true);
+  if (keepIds.length > 0) query = query.not('id', 'in', `(${keepIds.join(',')})`);
+  const { data, error, status } = await query.select('id');
+  if (error) throw fail(error, status, { table: ITEMS, operation: 'update', recordId: listId });
+  return data.map((row) => row.id);
+}

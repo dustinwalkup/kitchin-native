@@ -22,6 +22,7 @@ import {
   insertItem,
   setItemChecked,
   setItemQuantity,
+  uncheckAllItems,
 } from './api';
 import type { CategoryKey } from './constants';
 import {
@@ -167,9 +168,10 @@ interface Optimistic {
 
 /**
  * Expected failures. `duplicate`: undo, and say the name is already on the list (5.6, edge case
- * 22). `gone`: another device deleted the item, so remove it too (12.5). Neither is reported.
+ * 22). `gone`: another device deleted the item, so remove it too (12.5). `changed`: undo, and say
+ * the other device changed the list (10.10). None is reported.
  */
-type Outcome = 'duplicate' | 'gone' | undefined;
+type Outcome = 'duplicate' | 'gone' | 'changed' | undefined;
 
 interface MutationSpec<V> {
   mutationFn: (v: V, list: ListRef) => Promise<unknown>;
@@ -239,6 +241,10 @@ function useGroceryMutation<V>(spec: MutationSpec<V>): (v: V) => void {
         case 'gone':
           setRows((rows) => rows.filter((r) => r.id !== applied?.id));
           toast.show({ message: 'That item was removed on another device' });
+          return;
+        case 'changed':
+          undo();
+          toast.show({ message: 'The list changed on another device, so nothing was unchecked' });
           return;
       }
       undo();
@@ -388,4 +394,30 @@ export function useClearChecked(): () => void {
     },
   });
   return useCallback(() => clear(), [clear]);
+}
+
+/** `keepIds` are the checked items that stay checked, from `planUncheckAll` (R10.7). */
+export function useUncheckAll(): (v: { keepIds: string[] }) => void {
+  return useGroceryMutation<{ keepIds: string[] }>({
+    mutationFn: ({ keepIds }, list) => uncheckAllItems(list.listId, keepIds),
+    optimistic: (rows, { keepIds }) => {
+      const keep = new Set(keepIds);
+      const before = new Map(
+        rows.filter((r) => r.is_checked && !keep.has(r.id)).map((r) => [r.id, r]),
+      );
+      return {
+        rows: rows.map((r) =>
+          before.has(r.id) ? { ...r, is_checked: false, checked_at: null } : r,
+        ),
+        // Puts back only the checked state, so a quantity edit made meanwhile survives (DD14).
+        undo: (current) =>
+          current.map((r) => {
+            const b = before.get(r.id);
+            return b ? { ...r, is_checked: b.is_checked, checked_at: b.checked_at } : r;
+          }),
+      };
+    },
+    // Another device opened an item with the same name after this phone planned the uncheck (10.10).
+    outcome: (e) => (isOpenNameDuplicate(e) ? 'changed' : undefined),
+  });
 }

@@ -4,6 +4,7 @@
 > **Status:** Approved by the owner, 2026-10-19, including decisions K9–K17.
 > **Amendment proposed during design** (approved together with `2-design.md`): 32.7 changed. See [2-design.md §1.4](./2-design.md#14-requirement-amendments).
 > **Amended for the meal library** (approved with `specs/meal-library/2-design.md`, 2026-10-19): N24 and Out of Scope. See [specs/meal-library/1-requirements.md](../meal-library/1-requirements.md#amendments-to-earlier-requirements).
+> **Amended at the owner's request, 2026-10-25** (the start of the week): K10, the glossary's "Week", 30.1, N23, N24 and Out of Scope changed, and Requirement 48, edge cases 17–20 and success criterion 10 added. **Approved by the owner, 2026-10-25**, together with [2-design.md §11](./2-design.md#11-start-of-the-week), [3-tasks.md §22](./3-tasks.md#22-start-of-the-week-owner-request-2026-10-25) and [4-test-plan.md §14](./4-test-plan.md#14-start-of-the-week). See [Amendments after Approval](#amendments-after-approval).
 
 ## Introduction
 
@@ -24,7 +25,8 @@ These terms add to the [MVP glossary](../mvp/1-requirements.md#glossary).
 | **Entry** | The text planned for a slot. A slot with an entry is **planned**; a slot without one is **empty**. |
 | **Household date** | The calendar date in the household's time zone (K5, K13). |
 | **Today** | The current household date. |
-| **Week** | Seven consecutive dates, Monday to Sunday (K10). |
+| **Week** | Seven consecutive dates, from the household's start of the week to the day before it: Monday to Sunday unless a member changes it (K10). *(Changed 2026-10-25.)* |
+| **Start of the week** | The weekday the household's weeks begin on, chosen in Settings ([Requirement 48](#requirement-48-settings--start-of-the-week)). *(Added 2026-10-25.)* |
 | **Current week** | The week that contains today. |
 
 ### Scope
@@ -40,6 +42,7 @@ These terms add to the [MVP glossary](../mvp/1-requirements.md#glossary).
 - Isolation and integrity for meal entries, enforced by the database and proven by automated tests.
 - The legacy Meals look: terracotta, day accents and meal-type icons.
 - Optional, assumed included (K17): an Add to groceries shortcut from Meals that opens the existing add-item sheet.
+- The household's choice of the day its week starts on, in Settings. *(Added 2026-10-25.)*
 
 **Out of scope:** see [Out of Scope (Meal Planning)](#out-of-scope-meal-planning). The main exclusions are recipes and ingredients, creating grocery items from meals automatically, meal types beyond breakfast, lunch and dinner, saved or favourite meals, moving meals between slots, a month view, reminders and widgets.
 
@@ -50,7 +53,7 @@ The requirements below depend on these decisions. Each is a recommendation drawn
 | # | Decision | Assumed here | Source |
 |---|---|---|---|
 | K9 | Calendar model | Real dates. Each entry belongs to a calendar date, not a weekday, so every week is separate and past weeks stay as a record | SPEC §2.12 and §5.6; TASKS.md "date-based" |
-| K10 | Start of the week | Monday, as in the legacy app. Not configurable. Entries are stored by date, so the start day only affects the display, and making it configurable later moves no data | Legacy `DAYS`; research.md §6 |
+| K10 | Start of the week | The household's choice of any of the seven days, made in Settings and shared by both members. Monday until a member changes it, as in the legacy app. Entries are stored by date, so the start day only changes how dates group into weeks, and changing it moves no data. *(Changed 2026-10-25 at the owner's request. It was Monday, and not configurable.)* | Legacy `DAYS`; research.md §6; the owner, 2026-10-25 |
 | K11 | Meal types | Breakfast, lunch and dinner only, with at most one entry each per date | Legacy `MEAL_TYPES` |
 | K12 | Entry content | Free text of up to 500 characters. No recipes, ingredients or other structured fields | Legacy; research.md §5 |
 | K13 | Whose "today" | The household's time zone decides today and the current week, on both phones | K5; SPEC §5.1 |
@@ -71,6 +74,7 @@ The requirements below depend on these decisions. Each is a recommendation drawn
 | App | 36 Visual identity for Meals |
 | Groceries | 37 Add groceries while planning (optional) |
 | Data protection | 38 Meal data integrity |
+| Settings | 48 Start of the week *(added 2026-10-25)* |
 
 ### Requirement 30: Meals — Week View
 
@@ -78,7 +82,7 @@ The requirements below depend on these decisions. Each is a recommendation drawn
 
 #### Acceptance Criteria
 
-1. WHEN a member opens Meals THEN the app SHALL show one week (K10) as seven days, Monday to Sunday, each with its weekday name and date.
+1. WHEN a member opens Meals THEN the app SHALL show one week (K10) as seven days, from the household's start of the week to the day before it ([Requirement 48](#requirement-48-settings--start-of-the-week)), each with its weekday name and date. *(Changed 2026-10-25: it was always Monday to Sunday.)*
 2. Each day SHALL show its three slots in this fixed order: Breakfast, Lunch, Dinner. Each slot SHALL show its meal-type label and icon ([Requirement 36](#requirement-36-app--visual-identity-for-meals)).
 3. A planned slot SHALL show its full entry, wrapping long text rather than truncating it.
 4. An empty slot SHALL show placeholder text that names its meal type (for example "Add dinner"), styled so that it can't be mistaken for an entry.
@@ -199,6 +203,27 @@ This requirement applies only if the owner confirms K17. Other apps link meals t
 6. The database SHALL reject a change to an existing entry's date or meal type. An entry stays in its slot until it's cleared.
 7. Meal planning SHALL NOT need a provisioning step. A household starts with no entries, and Requirement 23 is unchanged.
 
+### Requirement 48: Settings — Start of the Week
+
+*(Added 2026-10-25 at the owner's request. Numbered after the meal library's R47, so the number means one thing across the specs.)*
+
+**User Story:** As a member, I want to choose the day our week starts on, so that Meals lays out the week the way our household plans it.
+
+#### Acceptance Criteria
+
+1. Settings SHALL show "Week starts on" with the household's start of the week, and SHALL let a member choose any of the seven days. Day names SHALL follow the device's language and region settings (30.12), and VoiceOver SHALL say which day is selected.
+2. The start of the week SHALL belong to the household, not to a member or a phone, and a change by either member SHALL apply on both phones. IF both members change it at about the same time THEN the last change SHALL win, and both phones SHALL end up showing it.
+3. A household's week SHALL start on Monday until a member changes it. Provisioning SHALL NOT need a new step; Requirement 23 is unchanged.
+4. WHEN a member chooses a start day THEN Settings SHALL show it immediately (12.1), and Meals SHALL show weeks that begin on that day. That includes the header's date range (30.7) and which week is current (34.1).
+5. WHEN the other member changes the start of the week THEN the app SHALL show the new day within about 2 seconds while it's open (11.2 as amended), and otherwise when it next returns to the foreground.
+6. Changing the start of the week SHALL NOT create, change or delete any entry. Every entry SHALL keep its date (K9, 34.2).
+7. WHEN the start of the week changes while the member is viewing the current week THEN Meals SHALL show the new current week. WHEN it changes while they're viewing another week THEN Meals SHALL show the new week that shares the most dates with the one they were viewing.
+8. WHILE the member is editing a slot, a change to the start of the week SHALL NOT close the editor or change its text (35.2). Meals SHALL rearrange the week once the editor closes.
+9. Each weekday SHALL keep its own accent colour (36.3) wherever it falls in the week.
+10. IF saving a new start day fails, or the device is offline, THEN Settings SHALL show the day from before the change and say "Couldn't change the start of the week". The app SHALL NOT hold the change or retry it automatically.
+11. IF the backend returns a start of the week that the app doesn't recognize THEN the app SHALL use Monday and report it once, with no personal data (14.8, [Requirement 26](../mvp/1-requirements.md#requirement-26-delivery--error-reporting-and-privacy)).
+12. The database SHALL store a household's start of the week as one of the seven days, and SHALL reject any other value.
+
 ---
 
 ## Amendments to the MVP Requirements
@@ -213,6 +238,29 @@ Approving this document approves these changes to [`specs/mvp/1-requirements.md`
 | 26.4 | The list of household content that reports must never contain adds "meal entries" |
 | Out of Scope (MVP) | Meal planning moves into scope under this document |
 
+## Amendments after Approval
+
+The owner asked for these on 2026-10-25, after meal planning had shipped: their household plans Sunday to Saturday, and Meals could only show Monday to Sunday. They're written into the items above, each marked with its date. Approving them also approves [2-design.md §11](./2-design.md#11-start-of-the-week) (DD62–DD67), [3-tasks.md §22](./3-tasks.md#22-start-of-the-week-owner-request-2026-10-25) and [4-test-plan.md §14](./4-test-plan.md#14-start-of-the-week).
+
+| Item | Change | Reason |
+|---|---|---|
+| K10, glossary, 30.1 | The week starts on the household's chosen day, Monday by default | The owner's household plans Sunday to Saturday |
+| 48 | Added: choosing the start of the week in Settings | Follows K10 |
+| N23 | The date rules also cover the start of the week holding a date, for each start day, and which week to show after the start day changes | Follows K10 |
+| N24 | Meal planning's one change to a core table: `households` gains the start of the week, and a broadcast trigger so the other phone follows a change | The setting belongs to the household, like its time zone (design DD62, DD63) |
+| Out of Scope | A configurable start of the week moves into scope | Follows K10 |
+| Edge cases 17–20, success criterion 10 | Added | Follows 48 |
+
+These MVP changes were written into [`specs/mvp/1-requirements.md`](../mvp/1-requirements.md) by task 22.6, on 2026-10-25, marked *(Amended for the start of the week.)*
+
+| MVP item | Change |
+|---|---|
+| 11.2 | Live updates also cover a change to the household's start of the week (48.5) |
+| 13.2, 14.1 | Like a library save, a change to the start of the week fails at once while offline, and isn't held or retried automatically (48.10). *(Added while implementing, 2026-10-25.)* |
+| 15.1 | Settings also shows "Week starts on", and lets a member change it (48.1) |
+| 20.4 | A member can change only their household's name, time zone and start of the week |
+| 20.5 | Each household also stores its start of the week, one of the seven days, Monday by default (48.3, 48.12) |
+
 ---
 
 ## Non-Functional Requirements
@@ -226,8 +274,8 @@ N1–N20 apply to meal planning unchanged. These add to them.
 
 ### Maintainability & Extensibility
 
-- **N23.** Date rules SHALL be pure functions with unit tests (N17). They include today in a given time zone, the dates of a week, the current week across daylight-saving changes and year ends, and the planned count.
-- **N24.** Meal planning SHALL be additive (N16): new tables, a new feature module and a new tab. No core table or policy, and no grocery code, SHALL need to change, apart from the tab list in 1.5. The meal library adds a Library tab and a Choose from Meal Library button to the slot editor (meal library N30). *(Amended for the meal library; the tab replaced a Library button in the Meals header on 2026-10-24.)*
+- **N23.** Date rules SHALL be pure functions with unit tests (N17). They include today in a given time zone, the dates of a week, the current week across daylight-saving changes and year ends, and the planned count. They also include the start of the week holding a date, for each start day, and which week to show after the start day changes (48.7). *(Amended 2026-10-25.)*
+- **N24.** Meal planning SHALL be additive (N16): new tables, a new feature module and a new tab. No core table or policy, and no grocery code, SHALL need to change, apart from the tab list in 1.5. The meal library adds a Library tab and a Choose from Meal Library button to the slot editor (meal library N30). *(Amended for the meal library; the tab replaced a Library button in the Meals header on 2026-10-24.)* The start of the week (Requirement 48) is the one change to a core table: `households` gains a column and a broadcast trigger. Settings gains a row for it. No policy and no grocery code change. *(Amended 2026-10-25.)*
 
 ---
 
@@ -265,6 +313,10 @@ N1–N20 apply to meal planning unchanged. These add to them.
 14. **A newer build adds a meal type this build doesn't know.** Those entries are left out and reported once (35.7).
 15. **One phone still runs a build without Meals.** That member sees no Meals tab until they update. Groceries work as before on both phones (Constraint 3).
 16. **A member opens a week far in the past or future.** It shows empty slots wherever nothing was planned (31.4).
+17. **The other member changes the start of the week while this member is typing in a slot.** The editor stays open and keeps the text. The week rearranges when it closes (48.8). *(Added 2026-10-25, as are 18–20.)*
+18. **Both members change the start of the week at about the same time.** The last change wins, and both phones end on it (48.2).
+19. **One phone runs a build or update without the setting.** That phone keeps showing Monday-to-Sunday weeks until it updates. Its meals are unaffected, because entries are stored by date (48.6).
+20. **The start of the week changes while a past or future week is showing.** Meals shows the new week that shares the most dates with it, so most of what the member was looking at stays on screen (48.7).
 
 ## Out of Scope (Meal Planning)
 
@@ -275,7 +327,7 @@ These are deferred and SHALL NOT appear in this phase's design, tasks or impleme
 - Meal types beyond breakfast, lunch and dinner (snacks, dessert), several entries in one slot, custom slots, and markers such as Leftovers or Eating out. Members type these as text.
 - Favourite or pinned meals, and suggestions drawn from past entries. *(Amended for the meal library: saved meals moved into scope under [`specs/meal-library/`](../meal-library/1-requirements.md).)*
 - Moving, swapping, dragging or copying a meal between slots, and copying or clearing a whole week. Other apps commonly offer these and the saved meals above ([research.md §6](./research.md#6-survey-of-meal-planning-apps)), so they're the first candidates for a later iteration.
-- A month view, and a configurable start of the week.
+- A month view. *(Amended 2026-10-25: a configurable start of the week moved into scope under [Requirement 48](#requirement-48-settings--start-of-the-week).)*
 - Assigning who cooks, who's eating, or servings.
 - Nutrition, calories and costs.
 - Reminders, notifications and home-screen widgets.
@@ -292,13 +344,15 @@ These are deferred and SHALL NOT appear in this phase's design, tasks or impleme
 6. A slot edited in airplane mode syncs once connectivity returns.
 7. CI proves that an account in another household can't read, change or receive events for meal entries.
 8. Error reports never contain meal text.
-9. No core table or policy changed (N24).
+9. No core table or policy changed (N24), apart from the start-of-the-week column and broadcast trigger on `households`. *(Amended 2026-10-25.)*
+10. Either member can make the week start on Sunday in Settings. Both phones then show Sunday-to-Saturday weeks, with every meal still on its date. *(Added 2026-10-25.)*
 
 ## Differences from SPEC.md and the Legacy App
 
 | Topic | SPEC.md / legacy | This document |
 |---|---|---|
 | Days | Legacy: fixed weekdays, one week that never changes | Real dates, and any week (K9, 31.4) |
+| Start of the week | Legacy: always Monday | The household's choice, Monday by default (K10, 48). *(Added 2026-10-25.)* |
 | Saving | Legacy: a write on every keystroke. SPEC §5.6: debounce saves by 600–800 ms | Automatic, no later than the end of an edit, and never on every keystroke (K14, 32.3). Design may also save during pauses |
 | Entry length | SPEC §5.6: up to 2,000 characters | Up to 500 (K12) |
 | Clearing a slot | Legacy: stores an empty string | Removes the entry (33.1) |

@@ -23,7 +23,7 @@ jest.mock('@/lib/reporting', () => ({ report: jest.fn(), setReportingUser: jest.
 const HOUSEHOLD_ID = 'household-1';
 const READY: HouseholdState = {
   status: 'ready',
-  household: { id: HOUSEHOLD_ID, name: 'Household One', timeZone: 'America/Denver' },
+  household: { id: HOUSEHOLD_ID, name: 'Household One', timeZone: 'America/Denver', weekStart: 0 },
   member: { userId: 'user-a', displayName: 'Member A' },
 };
 

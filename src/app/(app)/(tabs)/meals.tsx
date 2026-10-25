@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 
 import { useHouseholdToday } from '@/features/household/use-household-today';
+import { useWeekStart } from '@/features/household/use-week-start';
 import { mealPick } from '@/features/meal-library/handoff';
 import { DayCard } from '@/features/meals/components/day-card';
 import { SkeletonWeek } from '@/features/meals/components/skeleton-week';
@@ -18,7 +19,7 @@ import { LoadError, WaitingForConnection } from '@/features/meals/components/wee
 import { COPY } from '@/features/meals/constants';
 import type { Slot } from '@/features/meals/domain';
 import { type MealWeek, useMealWeek, useSetMeal } from '@/features/meals/hooks';
-import { addDays, formatDay, type IsoDate, weekStartOf } from '@/lib/calendar';
+import { addDays, formatDay, type IsoDate, reanchorWeek, weekStartOf } from '@/lib/calendar';
 import { useIsOnline } from '@/lib/query-client';
 import { ToastProvider, useToast } from '@/lib/toast';
 import { FormScrollView } from '@/ui/form-scroll-view';
@@ -47,12 +48,16 @@ function MealsWeek() {
   const theme = useTheme();
   const router = useRouter();
   const today = useHouseholdToday();
+  const liveStart = useWeekStart();
+  // The start day the week is laid out from. It follows the household's once no slot is open, so a
+  // change from the other phone never closes the editor (R48.8, DD66).
+  const [start, setStart] = useState(liveStart);
   // Tab screens stay mounted, so the week lasts while the app runs (R31.6), and a restart begins
   // at the current week (R31.1). A new day moves the Today pill but never the week (R34.3).
-  const [weekStart, setWeekStart] = useState(() => weekStartOf(today));
+  const [weekStart, setWeekStart] = useState(() => weekStartOf(today, liveStart));
   const [editing, setEditing] = useState<SlotKey | null>(null);
   const week = useMealWeek(weekStart);
-  const setMeal = useSetMeal();
+  const setMeal = useSetMeal(start);
   const { refreshing, onRefresh } = usePullToRefresh(week.refetch);
   useRefreshFailedToast(week);
 
@@ -128,11 +133,23 @@ function MealsWeek() {
   );
 
   // Changing week closes the editor too, which saves it (R32.3).
-  const showWeek = (start: IsoDate, scroll: boolean) => {
+  const showWeek = (first: IsoDate, scroll: boolean) => {
     scrollToToday.current = scroll;
     setEditing(null);
-    setWeekStart(start);
+    setWeekStart(first);
   };
+
+  // A new start day shows the new current week, scrolled to today, or else the new week sharing the
+  // most dates with this one (R48.7). It waits while a slot is open, or the picker is open for one.
+  const followStart = useEffectEvent(() => {
+    if (returning.current !== null) return;
+    const next = reanchorWeek({ weekStart, today, from: start, to: liveStart });
+    setStart(liveStart);
+    showWeek(next, next === weekStartOf(today, liveStart));
+  });
+  useEffect(() => {
+    if (liveStart !== start && editing === null) followStart();
+  }, [liveStart, start, editing]);
 
   // Stable, so the memoised day cards redraw only when their own day or open slot changes (N21).
   // A tapped slot starts from its entry, never from a meal chosen earlier.
@@ -164,10 +181,11 @@ function MealsWeek() {
     <Screen edges={['left', 'right']}>
       <WeekHeader
         weekStart={weekStart}
+        start={start}
         today={today}
         onPrevious={() => showWeek(addDays(weekStart, -7), false)}
         onNext={() => showWeek(addDays(weekStart, 7), false)}
-        onThisWeek={() => showWeek(weekStartOf(today), true)}
+        onThisWeek={() => showWeek(weekStartOf(today, start), true)}
       />
       {/* Not virtualised: seven cards stay cheap with 21 long meals, and each can be measured (N22). */}
       <FormScrollView

@@ -30,7 +30,12 @@ jest.mock('@/lib/reporting', () => ({
 
 const READY: HouseholdState = {
   status: 'ready',
-  household: { id: 'household-1', name: 'Household One', timeZone: 'America/Denver' },
+  household: {
+    id: 'household-1',
+    name: 'Household One',
+    timeZone: 'America/Denver',
+    weekStart: 0,
+  },
   member: { userId: 'user-a', displayName: 'Member A' },
 };
 jest.mock('./household-provider', () => ({ useHousehold: () => READY }));

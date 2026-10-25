@@ -15,14 +15,15 @@ import { mealPick } from '@/features/meal-library/handoff';
 import { DAY_KEYS } from '@/features/meals/constants';
 import { buildWeek, type MealEntry } from '@/features/meals/domain';
 import type { MealWeek, SetMealVariables } from '@/features/meals/hooks';
-import { addDays, type IsoDate } from '@/lib/calendar';
+import { addDays, type IsoDate, type Weekday } from '@/lib/calendar';
 import { useToast } from '@/lib/toast';
 import { touchTarget } from '@/test/a11y';
 import { makeItem, makeMealEntry } from '@/test/factories';
+import { themes } from '@/ui/theme';
 
 // Meals screen tests C-MEAL-01 to C-MEAL-14 and Add to groceries C-AGR-01 to C-AGR-05 (meals
-// 4-test-plan §4.3, §4.4), and the Library tab and Choose additions (meal-library 4-test-plan §4.2,
-// §4.7). The real Meals screen and add-item sheet run inside the real (app) and tabs layouts, so tab
+// 4-test-plan §4.3, §4.4), the Library tab and Choose additions (meal-library 4-test-plan §4.2,
+// §4.7), and the start of the week, C-MEAL-23 to C-MEAL-28 and C-WEEK-17 (meals 4-test-plan §14.3). The real Meals screen and add-item sheet run inside the real (app) and tabs layouts, so tab
 // focus, the header, the tab bar and the sheet behave as in the app. The hooks are mocked (§8.4):
 // the week comes from the real buildWeek over each test's entries, today is whatever the test sets,
 // and the grocery list is `mockList`. 2026-10-22 is a Thursday, in the week of 2026-10-19.
@@ -33,6 +34,8 @@ const THURSDAY = '2026-10-22' as IsoDate;
 /** What the mocked hooks return. Changing it re-renders the screen, as a real hook would. */
 const mockState = {
   today: THURSDAY,
+  /** The household's start of the week, which `useWeekStart` returns. Monday unless a test says. */
+  weekStart: 0 as Weekday,
   status: 'ready' as MealWeek['status'],
   entries: [] as MealEntry[],
   refreshFailedAt: null as number | null,
@@ -52,6 +55,8 @@ const update = (changes: Partial<typeof mockState>) =>
 
 const mockRefetch = jest.fn(async () => {});
 const mockSetMeal = jest.fn<void, [SetMealVariables]>();
+/** The start day the screen last gave `useSetMeal`. */
+let mockSetMealStart: Weekday | null = null;
 /** Each week start `useMealWeek` was called with. */
 let mockWeekStarts: IsoDate[] = [];
 
@@ -98,7 +103,8 @@ const mockHooks = {
   },
 
   // A failing save shows its toast as the real hook does, through the nearest ToastProvider (DD35).
-  useSetMeal() {
+  useSetMeal(start: Weekday) {
+    mockSetMealStart = start;
     const toast = useToast();
     return useCallback(
       (v: SetMealVariables) => {
@@ -118,7 +124,10 @@ const mockHooks = {
 
 jest.mock('@/features/meals/hooks', () => ({
   useMealWeek: (weekStart: IsoDate) => mockHooks.useMealWeek(weekStart),
-  useSetMeal: () => mockHooks.useSetMeal(),
+  useSetMeal: (start: Weekday) => mockHooks.useSetMeal(start),
+}));
+jest.mock('@/features/household/use-week-start', () => ({
+  useWeekStart: () => mockHooks.useMockState().weekStart,
 }));
 jest.mock('@/features/household/use-household-today', () => ({
   useHouseholdToday: () => mockHooks.useMockState().today,
@@ -138,6 +147,7 @@ jest.mock('@/features/groceries/hooks', () => ({
 
 // The (app) layout's channel, library handlers and variant, which these tests don't use.
 jest.mock('@/features/meal-library/realtime', () => ({ libraryTableHandlers: {} }));
+jest.mock('@/features/household/realtime', () => ({ householdTableHandlers: {} }));
 jest.mock('@/features/household/use-household-realtime', () => ({
   useHouseholdRealtime: () => {},
 }));
@@ -203,9 +213,11 @@ beforeEach(async () => {
   jest.clearAllMocks();
   mealPick.clear();
   mockWeekStarts = [];
+  mockSetMealStart = null;
   mockList = listOf([makeItem({ id: 'milk', name: 'Milk', category: 'dairy' })]);
   await update({
     today: THURSDAY,
+    weekStart: 0,
     status: 'ready',
     entries: [
       makeMealEntry({ id: 'e1', date: THURSDAY, mealType: 'breakfast', body: 'Porridge' }),
@@ -855,5 +867,114 @@ describe('Choose from Meal Library', () => {
 
     expect(mockSetMeal).not.toHaveBeenCalled();
     expect(editor()).toHaveDisplayValue('Tacos');
+  });
+});
+
+describe('Start of the week', () => {
+  const SUNDAY = 6;
+  const theme = themes.light;
+
+  it('C-MEAL-23 lays the week out from the household’s start day (R30.1, R48.4)', async () => {
+    await update({ weekStart: SUNDAY });
+    await renderMeals();
+
+    expect(screen.getAllByTestId(/^day-/).map((d) => d.props.testID)).toEqual([
+      'day-sun',
+      'day-mon',
+      'day-tue',
+      'day-wed',
+      'day-thu',
+      'day-fri',
+      'day-sat',
+    ]);
+    expect(dayHeaders()[0]).toBe('Sunday October 18, 0 of 3 meals planned');
+    expect(dayHeaders()[6]).toBe('Saturday October 24, 0 of 3 meals planned');
+    expect(range()).toHaveTextContent('Oct 18 – Oct 24');
+    expect(mockWeekStarts.at(-1)).toBe('2026-10-18');
+    expect(screen.queryByRole('button', { name: 'This week' })).toBeNull();
+    expect(mockSetMealStart).toBe(SUNDAY);
+  });
+
+  it('C-WEEK-17 keeps each day’s accent edge wherever it falls (R48.9)', async () => {
+    await update({ weekStart: SUNDAY });
+    await renderMeals();
+
+    expect(screen.getByTestId('day-sun').children[0]).toHaveStyle({
+      borderLeftColor: theme.accent,
+    });
+    expect(screen.getByTestId('day-sat').children[0]).toHaveStyle({ borderLeftColor: theme.sand });
+  });
+
+  it('C-MEAL-24 moves to the new current week, and scrolls to today, when the current week shows', async () => {
+    await renderMeals();
+    await layOut('day-thu', 840);
+    scrollTo.mockClear();
+
+    await update({ weekStart: SUNDAY });
+
+    expect(range()).toHaveTextContent('Oct 18 – Oct 24');
+    expect(mockWeekStarts.at(-1)).toBe('2026-10-18');
+    expect(screen.getAllByTestId(/^day-/)[0]).toHaveProp('testID', 'day-sun');
+    expect(mockSetMealStart).toBe(SUNDAY);
+    await layOut('day-thu', 1020);
+    expect(scrollTo.mock.calls).toEqual([[{ y: 1020, animated: false }]]);
+  });
+
+  it('C-MEAL-25 moves to the week sharing the most dates, without scrolling, when another week shows', async () => {
+    await renderMeals();
+    await layOut('day-thu', 840);
+    await press('Previous week');
+    await press('Previous week');
+    expect(range()).toHaveTextContent('Oct 5 – Oct 11');
+    scrollTo.mockClear();
+
+    await update({ weekStart: SUNDAY });
+
+    expect(range()).toHaveTextContent('Oct 4 – Oct 10');
+    expect(mockWeekStarts.at(-1)).toBe('2026-10-04');
+    await layOut('day-thu', 900);
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('C-MEAL-26 keeps an open slot open, with its text, and rearranges the week once it closes (R48.8)', async () => {
+    await renderMeals();
+    await fireEvent.press(screen.getByTestId('slot-thu-lunch'));
+    await typeInEditor('Soup');
+
+    await update({ weekStart: SUNDAY });
+
+    expect(screen.getByTestId('slot-editor')).toHaveProp('value', 'Soup');
+    expect(range()).toHaveTextContent('Oct 19 – Oct 25');
+    expect(mockSetMeal).not.toHaveBeenCalled();
+
+    await fireEvent(screen.getByTestId('slot-editor'), 'submitEditing');
+
+    expect(mockSetMeal.mock.calls).toEqual([[{ date: THURSDAY, mealType: 'lunch', body: 'Soup' }]]);
+    expect(range()).toHaveTextContent('Oct 18 – Oct 24');
+  });
+
+  it('C-MEAL-27 steps through weeks that begin on the new day', async () => {
+    await renderMeals();
+    await update({ weekStart: SUNDAY });
+
+    await press('Next week');
+    expect(range()).toHaveTextContent('Oct 25 – Oct 31');
+    await press('Previous week');
+    await press('Previous week');
+    expect(range()).toHaveTextContent('Oct 11 – Oct 17');
+    await press('This week');
+    expect(range()).toHaveTextContent('Oct 18 – Oct 24');
+    expect(screen.queryByRole('button', { name: 'This week' })).toBeNull();
+  });
+
+  it('C-MEAL-28 changes no meal when the start day changes (R48.6)', async () => {
+    await renderMeals();
+
+    await update({ weekStart: SUNDAY });
+    await update({ weekStart: 2 });
+
+    expect(range()).toHaveTextContent('Oct 21 – Oct 27');
+    expect(mockSetMeal).not.toHaveBeenCalled();
+    expect(within(screen.getByTestId('day-thu')).getByText('Tacos')).toBeOnTheScreen();
   });
 });

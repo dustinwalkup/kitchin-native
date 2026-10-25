@@ -567,7 +567,7 @@ The filter on `user_id` is needed because RLS lets a member see *all* membership
 ┌──────────────────────────────────────┐
 │ Groceries               ● Reconnecting│  pill only per 13.4
 │ 3 of 12 checked  ▓▓▓▓░░░░░░░░   25%  │  4.7; % bold cactus
-│                        Clear checked │  10.1
+│ Uncheck all            Clear checked │  10.6, 10.1
 ├──────────────────────────────────────┤
 │ Offline — changes will send when …   │  banner only while offline (13.1)
 │ 🥬 Produce                   [2 left]│  4.3; badge colour pair
@@ -598,6 +598,7 @@ The filter on `user_id` is needed because RLS lets a member see *all* membership
   | No items | The empty state, and no percentage | 4.8 |
 
 - **Clear checked:** a native confirmation, `Alert.alert('Clear 4 checked items?', …, [Cancel, Clear (destructive)])` (10.2, 10.5).
+- **Uncheck all:** on the left of the same row, apart from Clear checked. `planUncheckAll(items)` in `domain.ts` gives the items it reopens, whose count the button shows and disables on, and the ones it keeps checked (10.6, 10.7). It confirms with `Alert.alert('Uncheck 4 items?', …, [Cancel, Uncheck])` (10.8). The screen sends the ids to keep, not to uncheck, because they're usually none and keep the URL short (10.9). If the other phone opens a same-named item in the meantime, the update fails on `grocery_items_one_open_per_name`, which the mutation's `changed` outcome undoes with "The list changed on another device, so nothing was unchecked" (10.10). The public schema still has no functions (DB-S-11), so this is a PostgREST update, not an RPC. *(Added at the owner's request, 2026-10-25.)*
 
 **Add-item sheet** (5, 6):
 
@@ -691,6 +692,10 @@ export function deleteItem(id: string): Promise<void>;
 
 export function clearCheckedItems(listId: string): Promise<string[]>;
 //   .delete().eq('list_id', listId).eq('is_checked', true).select('id'): one statement (10.3, 10.4)
+
+export function uncheckAllItems(listId: string, keepIds: string[]): Promise<string[]>;
+//   .update({ is_checked: false }).eq('list_id', listId).eq('is_checked', true)
+//   .not('id', 'in', '(…keepIds)').select('id'): one statement (10.9). Added 2026-10-25.
 ```
 
 Each call sends only the column it changes (12.4). The app never sends `created_by`, `updated_by`, `checked_at` or `checked_by`, and the database would overwrite them anyway (19.7, 21.4).
@@ -715,6 +720,7 @@ export function useSetChecked(): (v: { id: string; isChecked: boolean }) => void
 export function useSetQuantity(): (v: { id: string; quantity: string | null }) => void;
 export function useDeleteItem(): (v: { id: string }) => void;
 export function useClearChecked(): () => void;
+export function useUncheckAll(): (v: { keepIds: string[] }) => void;   // 10.9, added 2026-10-25
 ```
 
 `useGroceryList` uses `select` to run `parseItemRow`, `buildSections` and `progress`. Invalid rows trigger `reportOnce('invalid_row:'+id+':'+field)`. `refetch` resolves once the fetch ends, so pull to refresh shows its spinner only for the member's own pull, not for background refetches. The screen shows a "Couldn't load groceries" toast with Retry for each new `refreshFailedAt` (4.10).
@@ -754,7 +760,7 @@ The household channel calls this through the coalescer (§3.6), so a burst of 20
 
 #### 3.5.5 Components
 
-`ProgressHeader`, `ClearCheckedButton`, `CategorySectionHeader`, `ItemRow` (swipeable via `ReanimatedSwipeable` from react-native-gesture-handler), `QuantityEditor`, `SkeletonRows`, `LoadError`, `GroceriesEmptyState`, `AddItemForm`, `CategoryChips` and `QuickAddChips`. Each one renders data and calls hooks; none touches Supabase. The Groceries screen calls the mutation hooks once and passes their functions to `ItemRow` and `ClearCheckedButton`, rather than each of up to 300 rows creating its own query and mutation observers (N3).
+`ProgressHeader`, `ClearCheckedButton`, `UncheckAllButton`, `CategorySectionHeader`, `ItemRow` (swipeable via `ReanimatedSwipeable` from react-native-gesture-handler), `QuantityEditor`, `SkeletonRows`, `LoadError`, `GroceriesEmptyState`, `AddItemForm`, `CategoryChips` and `QuickAddChips`. Each one renders data and calls hooks; none touches Supabase. The Groceries screen calls the mutation hooks once and passes their functions to `ItemRow` and `ClearCheckedButton`, rather than each of up to 300 rows creating its own query and mutation observers (N3).
 
 `testID`s are static, for example `item-row` or `quick-add-chip`. They never contain item names (26.7).
 
@@ -1516,7 +1522,7 @@ Member-facing text never includes codes or stack traces (14.9). Reports carry on
 | 7 Check and uncheck | §3.4, §3.5.2, §4.3 |
 | 8 Edit quantity | §3.4, §3.5.2 |
 | 9 Delete an item | §3.4, §3.5.2, DD11 |
-| 10 Clear checked items | §3.4, §3.5.2 |
+| 10 Clear checked items and Uncheck all | §3.4, §3.5.1, §3.5.2, §3.5.3 |
 | 11 Live updates | §2.5, §3.5.4, §3.6, §3.7, §4.5 |
 | 12 Instant feedback and conflicts | §3.5.3, §6 |
 | 13 Offline and connection states | §2.5, §3.6, §3.7 |

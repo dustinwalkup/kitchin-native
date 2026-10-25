@@ -464,6 +464,25 @@ The spec is [`specs/meal-library/`](../specs/meal-library/). Its requirements an
 
 ---
 
+## Start of the week
+
+You asked on 2026-10-25 for the household to choose the day its week starts on. It's an amendment to meal planning: Requirement 48 and the changes around it are in [`specs/meals/1-requirements.md`](../specs/meals/1-requirements.md#amendments-after-approval), with design §11, tasks §22 and test plan §14. The 🤖 lines mirror [`specs/meals/3-tasks.md`](../specs/meals/3-tasks.md) §22 **under the same numbers**, so tick both together. You approved the amendment on 2026-10-25.
+
+- [x] 🤖 **22.1** Database tests and the migration `household_week_start`
+- [x] 🤖 **22.2** Calendar takes the start day
+- [x] 🤖 **22.3** The household's start day: read, change and live updates
+- [x] 🤖 **22.4** Meals laid out from the start day
+- [x] 🤖 **22.5** Week starts on in Settings
+- [x] 🤖 **22.6** Docs follow-through
+- [ ] ✅ **WS.1** Two-simulator check against the local stack: `specs/meals/4-test-plan.md` §14.4, MT-22-01–08.
+- [ ] 👤 **WS.2** Review and commit the changes on `main`.
+- [ ] 👤 **WS.3** Deploy the migration (gate G16). Actions → "Deploy database" → **Run workflow** on `main`. Check that the dry run lists only `household_week_start`. Starting the run is your approval (R28.2).
+- [ ] 👤 **WS.4** Ship it to both phones. Actions → **EAS Deploy** → `ota-update`: nothing native changes. Only after WS.3 (R39.9). Open Kitchin, force-quit it, and open it again on each phone to load the update.
+- [ ] ✅ **WS.5** Two-phone check on production. On one phone, set Settings → Week starts on → Sunday. The other phone shows Sunday-to-Saturday weeks within a couple of seconds, and every meal stays on its date.
+- [ ] 🎉 **Start of the week done.**
+
+---
+
 ## Recurring maintenance
 
 - [ ] 👤 **Every ~80 days:** ship a new TestFlight build. Builds expire after 90 days, and an expired build stops opening. OTA updates don't reset that clock. Run Actions → **EAS Deploy** → `build-and-submit` (or `eas build --platform ios --profile production --auto-submit`).

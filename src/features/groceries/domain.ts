@@ -136,6 +136,29 @@ export function progress(items: GroceryItem[]): Progress {
   return { checked, total, percent: total === 0 ? null : Math.round((checked / total) * 100) };
 }
 
+/**
+ * Which checked items Uncheck all reopens and which it leaves checked. Only one open item may have a
+ * name (R5.6), so an item stays checked while an open item has its name, and of several checked
+ * items with one name only the newest reopens (R10.7).
+ */
+export function planUncheckAll(items: GroceryItem[]): { uncheckIds: string[]; keepIds: string[] } {
+  const taken = openNames(items);
+  const uncheckIds: string[] = [];
+  const keepIds: string[] = [];
+  // Newest first, so the newest of each name takes it.
+  const checked = items.filter((i) => i.isChecked).sort((a, b) => compareItems(b, a));
+  for (const item of checked) {
+    const name = normalizeName(item.name);
+    if (taken.has(name)) {
+      keepIds.push(item.id);
+    } else {
+      taken.add(name);
+      uncheckIds.push(item.id);
+    }
+  }
+  return { uncheckIds, keepIds };
+}
+
 /** Every common item by category; a chip is disabled while an open item has its name (R6.1, R6.2). */
 export function quickAddGroups(items: GroceryItem[]): QuickAddGroup[] {
   const open = openNames(items);

@@ -2,6 +2,7 @@
 
 > **Phase 2 of 4** in the EARS spec-driven process: 1-requirements → **2-design** → 3-tasks → 4-test-plan.
 > **Status:** Approved by the owner, 2026-10-19, including DD23–DD36 and the 32.7 amendment. Implements [1-requirements.md](./1-requirements.md), also approved 2026-10-19.
+> **Amended at the owner's request, 2026-10-25** (the start of the week, Requirement 48): DD62–DD67 and [§11](#11-start-of-the-week) added, and §3.1's `weekStartOf` takes the start day. **Approved by the owner, 2026-10-25**, with the matching changes to 1-requirements, 3-tasks and 4-test-plan.
 
 ## 1. Overview
 
@@ -47,6 +48,14 @@ This table settles the requirements' Open Items for Design Phase. **Approving th
 | DD34 | Mutation ordering | Every meal save and clear for a household shares one TanStack mutation scope, `meals:<householdId>` | In-order replay after being offline (13.3). Two saves to one slot land in the order they were made | 35.1, 35.3 |
 | DD35 | Meals toasts | The Meals screen has its own `ToastProvider placement="top"`, as the add-item sheet does | Meals is typed into, so a bottom toast would sit under the keyboard while another slot is open | 35.5 |
 | DD36 | Meals tab colour | The Meals screen sets `tabBarActiveTintColor: accent`. The tab bar reads its tint from the focused screen's options | Terracotta for Meals and cactus for Groceries, with no custom tab bar (finding 3) | 36.1 |
+| DD62 ★ | Where the start of the week lives | `households.week_start`: text, one of the seven lowercase English day names, default `'monday'`. Not a member's or a phone's preference | The household's other calendar setting, its time zone, is there, and members can already update the row (MVP §4.4). Names can't be misread the way numbers can: JavaScript's `getDay` and Postgres's `dow` count from Sunday = 0, `isodow` from Monday = 1, and `weekday` here from Monday = 0 | 48.2, 48.3, 48.12 |
+| DD63 | Following a change on the other phone | An `after update` broadcast trigger on `households`, through a new definer function that takes the topic from `id`. The app's `households` handler invalidates the membership query | The generic function reads `household_id`, which `households` doesn't have. The membership query already refetches on return to the foreground, which covers a phone that was closed | 48.5 |
+| DD64 | The control | A Settings row that pushes a list of the seven days with a checkmark, as iOS's own Calendar setting does. Plain React Native components | Seven options are too many for a segmented control. `@expo/ui`'s native picker is installed but unused, so it isn't known to be in the installed build. Plain components ship over the air either way | 48.1 |
+| DD65 | Saving the start day | Shown at once, then saved, but never held offline or retried: `networkMode: 'always'`, `retry: false`, and an offline check that fails at once, as library saves do (DD49). One mutation scope per household, and an undo only while the household still shows that choice (DD14) | Instant feedback (12.1), without a held change landing long after the member has moved on | 48.4, 48.10 |
+| DD66 | Which week to show after a change | Pure `reanchorWeek`: the new current week if the current week was showing, otherwise the new week holding the old week's fourth date. Meals applies it only while no slot is open | The fourth date gives the most overlap possible, at least four dates. Waiting for the editor keeps 35.2 | 48.7, 48.8 |
+| DD67 | A day's identity | `weekday` keeps 0 = Monday. `DAY_KEYS` and `DAY_ACCENTS` stay Monday-first, and everything indexes them by `weekday(date)`, never by a day's position in the week | Sunday keeps its key and its terracotta edge wherever it falls. The code already indexes this way | 48.9, 36.3 |
+
+DD62–DD67 were added on 2026-10-25 for Requirement 48. [§11](#11-start-of-the-week) holds their detail.
 
 ### 1.3 Research Findings
 
@@ -231,6 +240,8 @@ export function todayIn(timeZone: string, now?: number): IsoDate; // 34.1, see b
 export function formatDay(d: IsoDate): { weekday: string; date: string }; // "Thursday", "23 October" (30.1, 30.12)
 export function formatWeekRange(weekStart: IsoDate, today: IsoDate): string; // "20 Oct – 26 Oct" (30.7)
 ```
+
+*(Changed 2026-10-25: `weekStartOf` takes the household's start day instead of assuming Monday, and `reanchorWeek` is added. See [§11.2](#112-calendar).)*
 
 **Arithmetic.** A date converts to a UTC day number with `Date.UTC(y, m - 1, d) / 86_400_000` and back with `getUTC*`. Local getters such as `getDate`, `getDay` and `setHours` are never used (finding 2), and the lint rule enforces that.
 
@@ -653,7 +664,8 @@ The MVP controls (§8 of the MVP design) apply to `meal_entries` unchanged. Thes
 | MVP amendments (1.5, 11.2, 26.4) | §1.5, §3.3.5, §3.6, §6 |
 | N21, N22 Performance | DD25, DD26, §3.3.6, §3.4, §3.5 |
 | N23 Date rules | DD30, §3.1, §7 |
-| N24 Additive | §1.5, DD23 |
+| N24 Additive | §1.5, DD23, §11.7 |
+| 48 Start of the week *(added 2026-10-25)* | DD62–DD67, §11 |
 
 ---
 
@@ -674,3 +686,197 @@ Each item names the fallback if the assumption fails, and how it was resolved. A
 - **OI-18. Whitespace agreement.** **Resolved during test planning (finding 6).** The only character that Postgres treats as whitespace and `trim()` keeps is U+0085, so `trimEntry` strips it as well. DB-M-17 and U-MDOM-12 pin both sides. Any future disagreement would show up as a reported `validation` error (§6). Task 11.1 added `trimEntry`, and `SlotEditor` trims with it before comparing or saving.
 - **OI-19. SF Symbols.** Confirm that `cup.and.saucer.fill`, `sun.max.fill`, `moon.fill`, `fork.knife` and `cart.badge.plus` render on iOS 16.4. Fallback: the matching `MaterialCommunityIcons` glyphs that the grocery states already use.
   **Resolved in task 12.1: no fallback needed.** All five names are in the iOS 26.1 Simulator's `name_availability.plist`, and so are the week arrows, `chevron.left` and `chevron.right`. `sun.max.fill`, `moon.fill`, `cart.badge.plus` and the arrows date from iOS 13. `cup.and.saucer.fill` and `fork.knife` date from iOS 15 (SF Symbols 3). All are below the iOS 16.4 deployment target. MT-12-17 checks that they render.
+
+---
+
+## 11. Start of the Week
+
+*(Added 2026-10-25 at the owner's request, for [Requirement 48](./1-requirements.md#requirement-48-settings--start-of-the-week). Approved by the owner, 2026-10-25, with DD62–DD67.)*
+
+The household's start of the week is one new column on `households`. The app reads it with the household and changes it from a new Settings screen, and Meals takes it as an input instead of assuming Monday. Entries don't change: they're stored by date, so the setting only changes how dates group into weeks (48.6).
+
+### 11.1 Data Model
+
+Migration `household_week_start`, created with `npx supabase migration new household_week_start`. It's migration 6, after `meal_library_init`.
+
+```sql
+-- 48.3, 48.12 (DD62). Every existing household gets 'monday', the start it had before.
+alter table public.households
+  add column week_start text not null default 'monday'
+  constraint households_week_start_check check (week_start in
+    ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'));
+
+-- 48.5 (DD63). As private.broadcast_household_change, but households has id, not household_id.
+create function private.broadcast_household_row_change()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  begin
+    perform realtime.broadcast_changes(
+      'household:' || new.id::text, tg_op, tg_op, tg_table_name, tg_table_schema, new, old);
+  exception when others then
+    raise warning 'household broadcast failed: %', sqlstate;   -- the code only, never row content
+  end;
+  return null;
+end $$;
+revoke all on function private.broadcast_household_row_change() from public, anon, authenticated;
+
+create trigger households_90_broadcast after update on public.households
+  for each row execute function private.broadcast_household_row_change();
+```
+
+- **Grants and policies don't change.** Members already have `update` on `households` under "households: members update" (MVP §4.4), and `handle_household_write` already rejects changes to `id` and `created_at`. With this column, the fields a member can change are `name`, `time_zone` and `week_start` (MVP 20.4 as amended).
+- **Updates only.** Only the owner creates and deletes households (R20.3), and no phone has joined a household's topic before it exists, so inserts and deletes don't broadcast.
+- **The payload** carries the whole row, including the household's name. Only that household's members can join the topic (22.1), and the handler reads only `payload.table`.
+- **Backward compatible (28.5).** The column has a default, and the installed build selects named columns, so it never sees the new one. Its channel ignores the `households` event, because it has no handler for that table. Meals there keeps showing Monday-to-Sunday weeks until it updates (edge case 19).
+- **No seed or provisioning change.** A new household gets the default (48.3), and both seeded households start on Monday. The manual tests change it in Settings.
+- **Deploy order.** The migration deploys first through `deploy-db.yml`, then the app ships as an over-the-air update, since nothing native changes (R39.9).
+
+### 11.2 Calendar
+
+```ts
+/** 0 = Monday … 6 = Sunday, as `weekday` numbers them. */
+export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+export function weekday(d: IsoDate): Weekday;                     // unchanged
+export function weekStartOf(d: IsoDate, start: Weekday): IsoDate;  // the `start` day on or before d (48.4)
+//   addDays(d, -((weekday(d) - start + 7) % 7))
+export function reanchorWeek(v: {
+  weekStart: IsoDate; today: IsoDate; from: Weekday; to: Weekday;
+}): IsoDate;                                                        // 48.7, DD66
+```
+
+- `weekStartOf` takes the start day with no default, so no caller can fall back to Monday by accident. Its callers pass the start that Meals lays its week out with: the Meals screen, `WeekHeader` and `useSetMeal`.
+- `reanchorWeek` returns `weekStartOf(today, to)` when `weekStart` is `weekStartOf(today, from)`, the current week. Otherwise it returns `weekStartOf(addDays(weekStart, 3), to)`, the new week holding the old week's fourth date. That week shares 7 − k dates with the old one, where k is the shift between the two weeks, at most 3. So it shares at least four dates, and no other week starting on `to` shares more.
+- `buildWeek`, `weekDates` and the query keys don't change. `buildWeek` lays out seven dates from whatever `weekStart` it's given. A week's key is its first date, so weeks laid out from different start days never share a key.
+- `DAY_KEYS`, `DAY_ACCENTS` and `weekday` stay Monday-first, and `DayCard` and `SlotRow` already index them by `weekday(date)` (DD67). Sunday keeps `day-sun` and its terracotta edge whether it comes first or last (48.9).
+
+### 11.3 Household Data
+
+**`src/features/household/week-start.ts`**, pure (N17):
+
+```ts
+export const WEEK_START_VALUES = [
+  'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+] as const;                                                    // index = Weekday (DD62)
+export type WeekStartValue = (typeof WEEK_START_VALUES)[number];
+
+export const DEFAULT_WEEK_START: Weekday = 0;                  // Monday (48.3)
+export function parseWeekStart(value: string): Weekday | null; // null for a value it doesn't know (48.11)
+export function weekStartValue(day: Weekday): WeekStartValue;
+```
+
+**`api.ts`:**
+- `fetchMemberships` adds `week_start` to the embedded `households(…)` select. `Membership.household` gains `weekStart: Weekday | null`, from `parseWeekStart`.
+- A new call:
+
+  ```ts
+  /** Sets the household's start of the week (48.4). */
+  export async function updateWeekStart(householdId: string, day: Weekday): Promise<void>;
+  //   from('households').update({ week_start: weekStartValue(day) }).eq('id', householdId).select('id')
+  //   No row back means RLS hid the household, so it throws ApiError('forbidden').
+  //   Every other failure leaves through toApiError({ table: 'households', operation: 'update' }).
+  ```
+
+**`household-provider.tsx`:** the ready state's `household` gains `weekStart: Weekday | null`, passed through from the membership.
+
+**`use-week-start.ts`:**
+
+```ts
+/** The household's start day; Monday before the household is ready. */
+export function useWeekStart(): Weekday;
+//   A null weekStart gives Monday and reportOnce('household_week_start_invalid'), with no value (48.11, R26.3).
+
+export function useSetWeekStart(): { setWeekStart(day: Weekday): void; failed: boolean };
+```
+
+`useSetWeekStart` (DD65):
+
+| Phase | Behaviour |
+|---|---|
+| Options | `mutationKey: ['week-start-mutation', hid]`, `scope: { id: 'week-start:<hid>' }`, `networkMode: 'always'`, `retry: false` |
+| `mutationFn` | Throws `ApiError('network', { operation: 'offline' })` at once while `onlineManager` is offline, so nothing is held or sent (48.10). Otherwise calls `updateWeekStart` |
+| `onMutate` | `cancelQueries` and patch the cached memberships (`['membership']`), so the household shows the new day at once (48.4). Record `before` |
+| `onError` | Undo only if the household still shows this choice, so a later choice is never reverted (DD14). Report if the category is reportable |
+| `onSettled` | If no other week-start mutation is pending, invalidate `['membership']` |
+| `failed` | The latest mutation's `isError`. The next choice clears it |
+
+**`realtime.ts`** (household):
+
+```ts
+export function onHouseholdTableChange(qc: QueryClient): void {
+  if (qc.isMutating({ mutationKey: ['week-start-mutation'] }) > 0) return;  // the last onSettled refetches (11.5)
+  void qc.invalidateQueries({ queryKey: ['membership'] });
+}
+export const householdTableHandlers: TableHandlers = { households: onHouseholdTableChange };
+```
+
+The (app) layout merges `householdTableHandlers` into `TABLE_HANDLERS`. The membership query already refetches whenever the app returns to the foreground (`staleTime: 0`, `refetchOnWindowFocus`). That covers a phone that was closed, and a channel that was down, when the other member made the change (48.5).
+
+### 11.4 Meals
+
+- **The applied start.** `MealsWeek` reads `liveStart = useWeekStart()`, and keeps `start`, the day its week is laid out from, beside `weekStart` (§3.4). When `liveStart` differs from `start` and no slot is open, it sets `weekStart` to `reanchorWeek({ weekStart, today, from: start, to: liveStart })` and `start` to `liveStart`. It does this during render, React's pattern for adjusting state when an input changes. While a slot is open, the week keeps its layout. Closing the editor saves it (§3.5), and the next render rearranges the week (48.8, DD66).
+- **Scrolling.** Re-anchoring to the current week sets the scroll-to-today flag, as This week does (31.3). Re-anchoring to another week doesn't scroll.
+- **Navigation.** This week and the initial `weekStart` use `weekStartOf(today, start)`. Previous and Next still step by seven days. `WeekHeader` takes `start`, and shows This week unless `weekStartOf(today, start) === weekStart`.
+- **Saving.** `useSetMeal(start)` takes the screen's `start`, so its optimistic patch lands in the week on screen: `mealKeys.week(hid, weekStartOf(v.date, start))`. Meals is its only caller.
+- **Cache.** Weeks laid out from the old start day stay cached until sign-out (DD29). They're small, and switching back finds them warm.
+
+### 11.5 Settings and the Week Starts On Screen
+
+```
+Settings
+┌──────────────────────────────────────┐
+│ Signed in as         a@example.test  │
+│ Version                   1.2.0 (7)  │
+│ Environment             Production   │
+└──────────────────────────────────────┘
+┌──────────────────────────────────────┐
+│ Week starts on           Sunday   ›  │  pushes /week-start (48.1)
+└──────────────────────────────────────┘
+  Meals shows weeks from this day, for
+  everyone in the household.
+  [ Sign out ]
+
+‹ Settings        Week starts on
+┌──────────────────────────────────────┐
+│ Monday                               │
+│ Tuesday                              │
+│ …                                    │
+│ Saturday                             │
+│ Sunday                            ✓  │  selected (48.1)
+└──────────────────────────────────────┘
+  Couldn't change the start of the week   only after a failure (48.10)
+```
+
+- **Settings** gets a card between the account card and Sign out. It holds one row: "Week starts on", the day's name in `inkMuted`, and a chevron. Below the card, a footnote: "Meals shows weeks from this day, for everyone in the household." The row is a button of at least 44 pt, labelled "Week starts on, Sunday" with the hint "Changes the first day of the week", and it calls `router.push('/week-start')`.
+- **`src/app/(app)/week-start.tsx`** is a stack screen titled "Week starts on", pushed as the theme preview is. One card lists the seven days, Monday first. Each is named by `weekdayName` in `calendar.ts`, which formats a date in the week of 2026-10-19, a Monday, so the names follow the device's language (30.12). The selected day shows the `checkmark` SF Symbol in `accent` and has `accessibilityState={{ selected: true }}`, and every row has `accessibilityRole="button"`.
+- **Choosing.** Tapping a day calls `setWeekStart` and stays on the screen, as iOS's own lists do; Back returns to Settings. Tapping the selected day does nothing.
+- **Failure.** While `failed` is set, the screen shows "Couldn't change the start of the week" below the list in `destructive`, the way Settings shows a failed sign-out. The checkmark is already back on the earlier day (48.10).
+- **Test IDs** are static: `settings-week-start`, `week-start-<mon…sun>` and `week-start-error`.
+
+### 11.6 Error Handling
+
+| Case | Detected from | What the member sees | Reported? | Requirement |
+|---|---|---|---|---|
+| A change while offline | `onlineManager` | The check goes back to the earlier day, with "Couldn't change the start of the week" | No | 48.10 |
+| A change fails | `network`, `server` | The same | If reportable | 48.10 |
+| Not allowed | `forbidden` (no row updated, or `42501`) | The same | Yes | 48.10, 14.3 |
+| Rejected as invalid | `validation` (`23514`) | The same. The app only sends the seven values, so this means the app and the database disagree | Yes | 48.12 |
+| A value the app doesn't know | `parseWeekStart` returns null | Monday | Once (`household_week_start_invalid`) | 48.11 |
+
+### 11.7 Changes to Existing Files
+
+| File | Change | Why |
+|---|---|---|
+| `src/lib/calendar.ts` and its test | `Weekday`, `weekStartOf(d, start)`, `reanchorWeek`, and `weekdayName` for the day names in Settings | §11.2, §11.5 |
+| `src/features/household/api.ts`, `household-provider.tsx` and their tests | `week_start` in the membership select, `updateWeekStart`, and `weekStart` on the household | §11.3 |
+| `src/test/mock-backend.ts`, `src/test/factories.ts` | `mockHouseholdApi.updateWeekStart`; memberships carry `weekStart` | §11.3 |
+| `src/app/(app)/_layout.tsx` | `TABLE_HANDLERS` adds `householdTableHandlers`, and the stack adds `week-start` | §11.3, §11.5 |
+| `src/app/(app)/(tabs)/meals.tsx`, `week-header.tsx`, `src/features/meals/hooks.ts` and their tests | The start day as an input | §11.4 |
+| `src/app/(app)/(tabs)/settings.tsx`, `src/__tests__/settings.test.tsx` | The Week starts on row | §11.5 |
+| `supabase/tests/database/10_households.test.sql`, `30_realtime.test.sql` | The new column and broadcast | §11.1 |
+| `jest.config.js` | `week-start.ts` in the 95/90 group and `use-week-start.ts` in the 90/85 group | Same bars as `domain.ts` and `hooks.ts` |
+| `src/types/database.ts` | Regenerated | 27.2 |
+
+New files: `supabase/migrations/<ts>_household_week_start.sql`; `src/features/household/week-start.ts`, `use-week-start.ts` and `realtime.ts`, each with its test; `src/features/household/keys.ts`, which holds the membership query key and the week-start mutation key, so the (app) layout can import the handler without the API layer; `src/app/(app)/week-start.tsx`; and `src/__tests__/week-start.test.tsx`.
+
+No grocery or meal-library code changes, and no policy changes (N24 as amended).

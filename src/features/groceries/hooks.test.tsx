@@ -16,6 +16,7 @@ import {
   insertItem,
   setItemChecked,
   setItemQuantity,
+  uncheckAllItems,
 } from './api';
 import type { GroceryItemRow } from './domain';
 import {
@@ -25,6 +26,7 @@ import {
   useGroceryList,
   useSetChecked,
   useSetQuantity,
+  useUncheckAll,
 } from './hooks';
 
 jest.mock('./api', () => ({
@@ -34,6 +36,7 @@ jest.mock('./api', () => ({
   setItemQuantity: jest.fn(),
   deleteItem: jest.fn(),
   clearCheckedItems: jest.fn(),
+  uncheckAllItems: jest.fn(),
 }));
 jest.mock('expo-crypto', () => ({ randomUUID: jest.fn() }));
 
@@ -136,6 +139,14 @@ beforeEach(() => {
     server = server.filter((r) => !r.is_checked);
     return ids;
   });
+  jest.mocked(uncheckAllItems).mockImplementation(async (_, keepIds) => {
+    apiCalls.push('uncheck all');
+    const ids = server.filter((r) => r.is_checked && !keepIds.includes(r.id)).map((r) => r.id);
+    server = server.map((r) =>
+      ids.includes(r.id) ? { ...r, is_checked: false, checked_at: null } : r,
+    );
+    return ids;
+  });
 
   // The app's defaults, without the back-off delay between retries. `clear()` leaves 5-minute
   // garbage-collection timers behind (a settled mutation's, and the one a fetch still pending at
@@ -163,6 +174,7 @@ function useGroceries() {
     setQuantity: useSetQuantity(),
     remove: useDeleteItem(),
     clearChecked: useClearChecked(),
+    uncheckAll: useUncheckAll(),
   };
 }
 
@@ -605,6 +617,66 @@ describe('clear checked', () => {
     await waitFor(() => expect(mockShowToast).toHaveBeenCalled());
 
     expect(itemIds(hook)).toEqual(['bagels', 'bread', 'milk', 'peas', 'rice']);
+    await settle();
+  });
+});
+
+describe('uncheck all', () => {
+  it('U-MUT-20 reopens every checked item except those kept, at once', async () => {
+    const uncheck = deferred();
+    jest.mocked(uncheckAllItems).mockReturnValueOnce(uncheck.promise.then(() => []));
+    const hook = await renderGroceries();
+
+    await act(() => hook.result.current.uncheckAll({ keepIds: ['peas'] }));
+
+    await waitFor(() =>
+      expect(item(hook, 'milk')).toMatchObject({ isChecked: false, checkedAt: null }),
+    );
+    expect(item(hook, 'peas')).toMatchObject({ isChecked: true, checkedAt: T });
+    expect(uncheckAllItems).toHaveBeenCalledWith(LIST_ID, ['peas']);
+    uncheck.resolve();
+    await settle();
+  });
+
+  it('U-MUT-21 puts back only the checked state when it fails, keeping a queued quantity edit', async () => {
+    const uncheck = deferred();
+    const quantity = deferred();
+    jest.mocked(uncheckAllItems).mockReturnValueOnce(uncheck.promise.then(() => []));
+    jest.mocked(setItemQuantity).mockReturnValueOnce(quantity.promise);
+    const hook = await renderGroceries();
+
+    await act(() => hook.result.current.uncheckAll({ keepIds: [] }));
+    await act(() => hook.result.current.setQuantity({ id: 'milk', quantity: '2 gallons' }));
+    await waitFor(() =>
+      expect(item(hook, 'milk')).toMatchObject({ isChecked: false, quantity: '2 gallons' }),
+    );
+    await act(() => uncheck.reject(fail('server')));
+
+    await waitFor(() => {
+      expect(item(hook, 'milk')).toMatchObject({ isChecked: true, checkedAt: T });
+      expect(item(hook, 'peas')).toMatchObject({ isChecked: true, checkedAt: T });
+    });
+    expect(item(hook, 'milk')?.quantity).toBe('2 gallons');
+    expect(lastToast()).toMatchObject({ action: { label: 'Retry' } });
+    await act(() => quantity.resolve());
+    await settle();
+  });
+
+  it('U-MUT-22 changes nothing, without reporting, when the other device made a name clash', async () => {
+    jest
+      .mocked(uncheckAllItems)
+      .mockRejectedValueOnce(fail('conflict_duplicate', 'grocery_items_one_open_per_name'));
+    const hook = await renderGroceries();
+
+    await act(() => hook.result.current.uncheckAll({ keepIds: [] }));
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalled());
+
+    expect(item(hook, 'milk')?.isChecked).toBe(true);
+    expect(item(hook, 'peas')?.isChecked).toBe(true);
+    expect(lastToast()).toEqual({
+      message: 'The list changed on another device, so nothing was unchecked',
+    });
+    expect(report).not.toHaveBeenCalled();
     await settle();
   });
 });

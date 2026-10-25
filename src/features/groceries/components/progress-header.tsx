@@ -9,8 +9,8 @@ import type { Progress } from '../domain';
 
 /**
  * "3 of 12 checked", a cactus bar and the bold cactus percentage (R4.7, R16.3). An empty list has
- * no percentage (R4.8). VoiceOver reads the summary as one element. `children`, such as Clear
- * checked, go below it.
+ * no percentage (R4.8). VoiceOver reads the summary as one element. `children`, such as Uncheck
+ * all and Clear checked, go below it.
  */
 export function ProgressHeader({
   progress,

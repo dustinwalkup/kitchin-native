@@ -8,6 +8,7 @@ import {
   hasOpenItemNamed,
   normalizeName,
   parseItemRow,
+  planUncheckAll,
   progress,
   quickAddGroups,
   suggestCategory,
@@ -223,6 +224,48 @@ describe('progress', () => {
     [4, 4, 100],
   ])('U-DOM-09 %i of %i checked is %i%%', (checked, total, percent) => {
     expect(progress(list(checked, total))).toEqual({ checked, total, percent });
+  });
+});
+
+describe('planUncheckAll', () => {
+  it('U-DOM-15 reopens every checked item, and leaves open items alone', () => {
+    const items = [
+      makeItem({ id: 'eggs', name: 'Eggs' }),
+      makeItem({ id: 'milk', name: 'Milk', isChecked: true }),
+      makeItem({ id: 'rice', name: 'Rice', isChecked: true }),
+    ];
+    expect(planUncheckAll(items)).toEqual({ uncheckIds: ['rice', 'milk'], keepIds: [] });
+  });
+
+  it('U-DOM-15 keeps an item checked while an open item has its name, whatever the case', () => {
+    const items = [
+      makeItem({ id: 'milk', name: 'Milk' }),
+      makeItem({ id: 'old-milk', name: ' milk', isChecked: true }),
+    ];
+    expect(planUncheckAll(items)).toEqual({ uncheckIds: [], keepIds: ['old-milk'] });
+  });
+
+  it('U-DOM-15 reopens only the newest of several checked items with one name', () => {
+    const items = [
+      makeItem({
+        id: 'older',
+        name: 'Milk',
+        isChecked: true,
+        createdAt: '2026-10-11T12:00:00+00:00',
+      }),
+      makeItem({
+        id: 'newer',
+        name: 'MILK',
+        isChecked: true,
+        createdAt: '2026-10-18T12:00:00+00:00',
+      }),
+    ];
+    expect(planUncheckAll(items)).toEqual({ uncheckIds: ['newer'], keepIds: ['older'] });
+  });
+
+  it('U-DOM-15 has nothing to do for an empty list or one with nothing checked', () => {
+    expect(planUncheckAll([])).toEqual({ uncheckIds: [], keepIds: [] });
+    expect(planUncheckAll([makeItem()])).toEqual({ uncheckIds: [], keepIds: [] });
   });
 });
 

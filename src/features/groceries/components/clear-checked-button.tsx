@@ -40,6 +40,6 @@ export function ClearCheckedButton({ checkedCount, onClear }: ClearCheckedButton
 }
 
 const styles = StyleSheet.create({
-  button: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignSelf: 'flex-end' },
+  button: { minHeight: 44, minWidth: 44, justifyContent: 'center' },
   pressed: { opacity: 0.6 },
 });

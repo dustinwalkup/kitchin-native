@@ -75,7 +75,7 @@ afterEach(() => {
 
 function useMealsWithRealtime() {
   useHouseholdRealtime(handlers);
-  return { week: useMealWeek(WEEK), setMeal: useSetMeal() };
+  return { week: useMealWeek(WEEK), setMeal: useSetMeal(0) };
 }
 
 async function renderMeals() {

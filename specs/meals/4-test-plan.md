@@ -2,6 +2,7 @@
 
 > **Phase 4 of 4** in the EARS spec-driven process: 1-requirements → 2-design → 3-tasks → **4-test-plan**.
 > **Status:** Draft for owner review, 2026-10-19, to be approved together with [3-tasks.md](./3-tasks.md). Requirements and design were approved 2026-10-19.
+> **Amended at the owner's request, 2026-10-25:** [§14](#14-start-of-the-week) added for the start of the week (Requirement 48, tasks 22.1–22.5), with rows in §10 and §12. **Approved by the owner, 2026-10-25.**
 
 ## 1. Requirements Traceability
 
@@ -564,6 +565,7 @@ The MVP strategy applies (MVP §8.4). These are added:
 | N22 Smooth week | — | MT-12-12 |
 | N23 Date rules are pure and tested | U-CAL-*, U-MDOM-03–04, U-LNT-04–05 | — |
 | N24 Additive | DB-S-14–15 (no new structural cases needed), U-MRT-01 (grocery keys untouched) | MT-13-12, owner review in P2.2 |
+| R48 Start of the week *(added 2026-10-25)* | DB-H-19–23, DB-R-19–20, U-CAL-17–21, U-WKS-01–11, U-HH-07–10, U-MMUT-17, C-WEEK-16–17, C-MEAL-23–28, C-SET-06–07, C-WKS-01–06 | MT-22-01–08, `docs/TASKS.md` WS.5 |
 
 ---
 
@@ -589,6 +591,12 @@ These are written into [`specs/mvp/4-test-plan.md`](../mvp/4-test-plan.md) when 
 | DB-S-06 | The expected set adds `meal_entries` {SELECT, INSERT, UPDATE, DELETE} |
 | C-RTE-06 | "Exactly three tabs, in order: Groceries, Meals, Settings" |
 | §10, R1 row | Adds C-RTE-10 |
+| §2.2 *(added 2026-10-25)* | Adds DB-H-19–23 for the start of the week (§14.1) |
+| §3.8 *(added 2026-10-25)* | Adds U-HH-07–10 (§14.2) |
+| §4.4 *(added 2026-10-25)* | Adds C-SET-06–07 (§14.3) |
+| §10, R11, R15 and R20 rows *(added 2026-10-25)* | Add DB-R-19, C-SET-06–07 and DB-H-19–23 respectively |
+
+Task 22.6 writes the four rows added on 2026-10-25 into the MVP plan, marked *(Amended for the start of the week.)*
 
 ---
 
@@ -599,3 +607,90 @@ These are written into [`specs/mvp/4-test-plan.md`](../mvp/4-test-plan.md) when 
 - Running on an iOS 16.4 Simulator runtime. The symbols date from iOS 13 (MT-12-17), and the phones run a current iOS.
 - DST on a device. U-CAL-05 and U-CAL-10 cover it, and MT-13-13 covers the engine.
 - Everything under Out of Scope (Meal Planning) in 1-requirements.
+
+---
+
+## 14. Start of the Week
+
+*(Added 2026-10-25 for [Requirement 48](./1-requirements.md#requirement-48-settings--start-of-the-week), [design §11](./2-design.md#11-start-of-the-week) and tasks 22.1–22.5. Approved by the owner, 2026-10-25.)*
+
+New prefixes are `U-WKS` (the week-start rules, hook and live updates) and `C-WKS` (the Week starts on screen). Existing prefixes continue past their highest number: DB-H-19, DB-R-19, U-CAL-17, U-HH-07, U-MMUT-17, C-WEEK-16, C-MEAL-23 and C-SET-06. Manual checks are `MT-22-*`. §9's thresholds apply, with `week-start.ts` in the 95/90 group and `use-week-start.ts` in the 90/85 group (task 22.3).
+
+**Fixed dates.** 2026-10-19 is a Monday and 2026-10-25 a Sunday, as in U-CAL-03.
+
+### 14.1 Database — `10_households.test.sql`, `30_realtime.test.sql` (task 22.1)
+
+| ID | Test | Req |
+|---|---|---|
+| DB-H-19 | Both seeded households have `week_start = 'monday'`, and so does a household created by `private.provision_household` | R48.3 |
+| DB-H-20 | A sets Household One's `week_start` to each of the seven values in turn. Each update returns the new value, and `updated_at` advances | R48.4, R20.4 (amended) |
+| DB-H-21 | `'Sunday'`, `'sun'`, `''` and `'funday'` fail with `23514`, and null fails with `23502` | R48.12 |
+| DB-H-22 | A's update of Household Two's `week_start` affects 0 rows, and so does C's update of Household One's | R19, R48.2 |
+| DB-H-23 | Changing `week_start` leaves Household One's `meal_entries` exactly as they were | R48.6 |
+| DB-R-19 | An update to Household One's `week_start` as A broadcasts once on its topic, with table `households` and event `UPDATE` | R48.5 |
+| DB-R-20 | C can't read DB-R-19's message | R22.1 |
+
+The new definer function needs no structural case. The existing checks (`search_path = ''`, execute revoked, no functions in `public`) cover it, and DB-S-06's grants don't change.
+
+### 14.2 Unit — Calendar, Week Start and Household Data (tasks 22.2, 22.3)
+
+| ID | Test | Req |
+|---|---|---|
+| U-CAL-04 (amended) | As before, with `start` Monday (`0`) passed explicitly | R30.1, K10 |
+| U-CAL-17 | `weekStartOf('2026-10-21', start)`, a Wednesday, gives `2026-10-19` for Monday, `2026-10-18` for Sunday, `2026-10-21` for Wednesday and `2026-10-15` for Thursday | R48.4 |
+| U-CAL-18 | For every start day and each of 14 consecutive dates, `weekStartOf` falls on that start day, zero to six days before the date | R48.4, N23 |
+| U-CAL-19 | Across a year end with a Sunday start, `weekStartOf('2027-01-01', 6)` is `2026-12-27`, and its `weekDates` run to `2027-01-02` | R34.4, R48.4 |
+| U-CAL-20 | `reanchorWeek` with today `2026-10-25`: from the current Monday week (`2026-10-19`) to Sunday gives `2026-10-25`. From the Monday week of `2026-10-05` to Sunday gives `2026-10-04`. From the Sunday week of `2026-10-04` to Monday gives `2026-10-05` | R48.7 |
+| U-CAL-21 | For all 49 pairs of start days, and a week away from today, `reanchorWeek`'s result starts on the new day and shares at least four dates with the old week. No other week starting on that day shares more | R48.7, DD66 |
+| U-WKS-01 | `parseWeekStart` maps `'monday'`…`'sunday'` to 0…6, and `weekStartValue` maps them back | R48.12, DD62 |
+| U-WKS-02 | `parseWeekStart` returns null for `'Sunday'`, `'sun'`, `''` and `'funday'` | R48.11 |
+| U-HH-07 | `fetchMemberships` selects `week_start`, maps `'sunday'` to `weekStart: 6`, and maps an unknown value to null | R48.2, R48.11 |
+| U-HH-08 | `updateWeekStart(H1, 6)` sends exactly `{ week_start: 'sunday' }`, filtered on `id` | R48.4 |
+| U-HH-09 | `updateWeekStart` throws `forbidden` when no row comes back. Any other failure arrives as an `ApiError` without server text | R48.10, R26.4 |
+| U-HH-10 | The provider's ready state carries `weekStart` | R48.2 |
+| U-WKS-03 | `useWeekStart` returns the household's day, and Monday before the household is ready | R48.3 |
+| U-WKS-04 | A null `weekStart` gives Monday, and calls `reportOnce('household_week_start_invalid')` once across re-renders, with no value in the extras | R48.11, R26.3 |
+| U-WKS-05 | `setWeekStart(6)` shows Sunday in the cached membership at once, then calls `updateWeekStart` | R48.4 |
+| U-WKS-06 | A failure restores the earlier day and sets `failed`. A later choice made before the failure arrived survives it | R48.10, DD14 |
+| U-WKS-07 | Offline, a choice fails at once: `updateWeekStart` isn't called, the earlier day is restored and `failed` is set. Nothing is sent when the connection returns | R48.10, DD65 |
+| U-WKS-08 | Two quick choices run in order in one scope, and the second shows once both settle | R48.2, DD65 |
+| U-WKS-09 | Only the last week-start mutation to settle invalidates the membership query, and a new choice clears `failed` | DD65 |
+| U-WKS-10 | A `households` event invalidates the membership query, and leaves the meal, library and grocery queries alone | R48.5 |
+| U-WKS-11 | A `households` event while a week-start mutation is pending doesn't invalidate | R11.5 |
+| U-MMUT-17 | `useSetMeal(6)` patches the cached Sunday-first week that holds the date, and leaves a cached Monday-first week alone | R48.4, R12.1 |
+
+### 14.3 Components and Routes (tasks 22.4, 22.5)
+
+| ID | Test | Req |
+|---|---|---|
+| C-WEEK-16 | With a Sunday start and today `2026-10-25`, `WeekHeader` hides This week for the week of `2026-10-25` and shows it for the week of `2026-10-18` | R31.3, R48.4 |
+| C-WEEK-17 | In a Sunday-first week, the first card is `day-sun` with the `accent` edge and the last is `day-sat` with `sand` | R48.9, R36.3 |
+| C-MEAL-23 | With a Sunday start, Meals shows seven days from Sunday to Saturday, with the current week's dates, and the header's range runs Sunday to Saturday | R30.1 (amended), R30.7, R48.4 |
+| C-MEAL-24 | Changing the start while the current week shows moves to the new current week and scrolls to today | R48.7, R31.3 |
+| C-MEAL-25 | Changing the start while another week shows moves to `reanchorWeek`'s week, without scrolling | R48.7 |
+| C-MEAL-26 | A change while a slot is open leaves the editor open with its text. Closing it saves the slot, and then the week rearranges | R48.8, R35.2 |
+| C-MEAL-27 | After a change, Previous, Next and This week step through weeks that begin on the new day | R31.2, R31.3, R48.4 |
+| C-MEAL-28 | Changing the start calls no meal mutation | R48.6 |
+| C-SET-06 | Settings shows "Week starts on" with the household's day and the footnote. The row is labelled "Week starts on, Sunday" | R48.1, R15.1 (amended) |
+| C-SET-07 | Tapping the row opens `/week-start` | R48.1 |
+| C-WKS-01 | The screen lists the seven days, Monday to Sunday, named in the device locale. Only the household's day has the checkmark and `selected` | R48.1, R30.12 |
+| C-WKS-02 | Tapping Sunday calls `setWeekStart(6)` and moves the checkmark at once, and the screen stays open | R48.4 |
+| C-WKS-03 | Tapping the checked day does nothing | §11.5 |
+| C-WKS-04 | A failed change shows "Couldn't change the start of the week" with the checkmark back on the earlier day. The next choice hides the message | R48.10 |
+| C-WKS-05 | Every row is a button at least 44 pt high, and the test IDs are static | N10, N11 |
+| C-WKS-06 | A change from the other phone moves the checkmark while the screen is open | R48.5 |
+
+### 14.4 Manual — Two Simulators Against the Local Stack (after task 22.5)
+
+Run `npm run two-sims`, then sign in as **A** on one simulator and **B** on the other. Tick each box when it passes.
+
+- [ ] **MT-22-01** On A, Settings → Week starts on → Sunday. A's Meals shows Sunday to Saturday, with every seeded meal still on its date. (R48.4, R48.6)
+- [ ] **MT-22-02** B, with Meals open, shows Sunday to Saturday within about 2 seconds, and B's Settings says Sunday. (R48.5)
+- [ ] **MT-22-03** Sign B out and in as **C**. Household Two still starts on Monday. Sign back in as B. (R48.2)
+- [ ] **MT-22-04** On B, open a slot and type. On A, change the start to Wednesday. B's editor stays open with the text. Tapping Done saves it, and B's week then runs Wednesday to Tuesday. (R48.8, R35.2)
+- [ ] **MT-22-05** On A, go two weeks ahead, change the start day in Settings, and return to Meals. It shows a week sharing most of its dates with the one before. (R48.7)
+- [ ] **MT-22-06** Turn the Mac's Wi-Fi off and change the start on A. The checkmark goes back at once, and "Couldn't change the start of the week" shows. Turn Wi-Fi back on. Nothing changes until A chooses again. (R48.10)
+- [ ] **MT-22-07** With VoiceOver, the Settings row reads "Week starts on, Sunday", and the list says which day is selected. At the largest standard text size, nothing clips. (R48.1, N10–N12)
+- [ ] **MT-22-08** Set it back to Monday. Both simulators show Monday to Sunday again. (R48.4)
+
+The production check on both phones is `docs/TASKS.md` WS.5.

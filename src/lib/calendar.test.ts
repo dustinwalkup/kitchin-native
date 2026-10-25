@@ -6,11 +6,14 @@ import {
   formatWeekRange,
   isValidTimeZone,
   parseIsoDate,
+  reanchorWeek,
   todayIn,
   weekDates,
   weekStartOf,
   weekday,
+  weekdayName,
   type IsoDate,
+  type Weekday,
 } from './calendar';
 
 // specs/meals/4-test-plan.md §3.1. Instants are fixed with Date.UTC so the machine's own zone never
@@ -85,24 +88,103 @@ describe('weekday', () => {
   });
 });
 
+const MONDAY = 0;
+const WEDNESDAY = 2;
+const THURSDAY = 3;
+const SUNDAY = 6;
+const WEEKDAYS: Weekday[] = [0, 1, 2, 3, 4, 5, 6];
+
 describe('weekStartOf', () => {
   it.each(isoList('2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23'))(
     'U-CAL-04 gives the Monday for %s',
     (date) => {
-      expect(weekStartOf(date)).toBe('2026-10-19');
+      expect(weekStartOf(date, MONDAY)).toBe('2026-10-19');
     },
   );
 
   it.each(isoList('2026-10-24', '2026-10-25'))(
     'U-CAL-04 gives the Monday before the weekend day %s',
     (date) => {
-      expect(weekStartOf(date)).toBe('2026-10-19');
+      expect(weekStartOf(date, MONDAY)).toBe('2026-10-19');
     },
   );
 
   it('U-CAL-04 goes back across a year end', () => {
-    expect(weekStartOf(iso('2027-01-01'))).toBe('2026-12-28'); // a Friday
-    expect(weekStartOf(iso('2027-01-03'))).toBe('2026-12-28'); // a Sunday
+    expect(weekStartOf(iso('2027-01-01'), MONDAY)).toBe('2026-12-28'); // a Friday
+    expect(weekStartOf(iso('2027-01-03'), MONDAY)).toBe('2026-12-28'); // a Sunday
+  });
+
+  it.each([
+    [MONDAY, '2026-10-19'],
+    [SUNDAY, '2026-10-18'],
+    [WEDNESDAY, '2026-10-21'],
+    [THURSDAY, '2026-10-15'],
+  ])('U-CAL-17 gives the start day %i on or before Wednesday 2026-10-21', (start, expected) => {
+    expect(weekStartOf(iso('2026-10-21'), start as Weekday)).toBe(expected);
+  });
+
+  it.each(WEEKDAYS)('U-CAL-18 lands on start day %i, zero to six days back', (start) => {
+    for (let i = 0; i < 14; i += 1) {
+      const date = addDays(iso('2026-10-12'), i);
+      const weekStart = weekStartOf(date, start);
+      expect(weekday(weekStart)).toBe(start);
+      const back = (Date.parse(date) - Date.parse(weekStart)) / 86_400_000;
+      expect(back).toBeGreaterThanOrEqual(0);
+      expect(back).toBeLessThanOrEqual(6);
+    }
+  });
+
+  it('U-CAL-19 goes back across a year end from a Sunday start', () => {
+    const weekStart = weekStartOf(iso('2027-01-01'), SUNDAY);
+    expect(weekStart).toBe('2026-12-27');
+    expect(weekDates(weekStart).at(-1)).toBe('2027-01-02');
+  });
+});
+
+describe('weekdayName', () => {
+  it('names each day, Monday first, in the device locale (R48.1, R30.12)', () => {
+    expect(WEEKDAYS.map(weekdayName)).toEqual([
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ]);
+  });
+});
+
+describe('reanchorWeek', () => {
+  const today = iso('2026-10-25'); // a Sunday
+
+  it.each([
+    ['the current Monday week, to Sunday', '2026-10-19', MONDAY, SUNDAY, '2026-10-25'],
+    ['an earlier Monday week, to Sunday', '2026-10-05', MONDAY, SUNDAY, '2026-10-04'],
+    ['an earlier Sunday week, to Monday', '2026-10-04', SUNDAY, MONDAY, '2026-10-05'],
+  ])('U-CAL-20 moves %s', (_name, weekStart, from, to, expected) => {
+    expect(
+      reanchorWeek({ weekStart: iso(weekStart), today, from: from as Weekday, to: to as Weekday }),
+    ).toBe(expected);
+  });
+
+  /** How many dates two weeks share. */
+  const overlap = (a: IsoDate, b: IsoDate) =>
+    weekDates(a).filter((date) => weekDates(b).includes(date)).length;
+
+  it('U-CAL-21 keeps the most dates for every pair of start days (DD66)', () => {
+    for (const from of WEEKDAYS) {
+      for (const to of WEEKDAYS) {
+        // Three weeks before the current one, so the current-week rule never applies.
+        const weekStart = addDays(weekStartOf(today, from), -21);
+        const result = reanchorWeek({ weekStart, today, from, to });
+        expect(weekday(result)).toBe(to);
+        const shared = overlap(weekStart, result);
+        expect(shared).toBeGreaterThanOrEqual(4);
+        expect(overlap(weekStart, addDays(result, -7))).toBeLessThanOrEqual(shared);
+        expect(overlap(weekStart, addDays(result, 7))).toBeLessThanOrEqual(shared);
+      }
+    }
   });
 });
 

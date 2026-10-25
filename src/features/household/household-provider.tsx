@@ -4,7 +4,7 @@ import { createContext, type ReactNode, useContext, useEffect, useMemo } from 'r
 import { useAuth } from '@/features/auth/auth-provider';
 import { report, reportOnce } from '@/lib/reporting';
 
-import { fetchMemberships } from './api';
+import { fetchMemberships, type Membership } from './api';
 
 // The signed-in member's household (specs/mvp/2-design.md §3.3). It must sit inside the
 // AuthProvider and the QueryClientProvider.
@@ -16,7 +16,7 @@ export type HouseholdState =
   | { status: 'unreachable'; retry(): void } // R1.7
   | {
       status: 'ready';
-      household: { id: string; name: string; timeZone: string };
+      household: Membership['household']; // with the start of the week (meals R48.2)
       member: { userId: string; displayName: string };
     };
 

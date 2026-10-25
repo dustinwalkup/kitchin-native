@@ -22,7 +22,12 @@ type AuthCallback = (event: AuthChangeEvent, session: Session | null) => unknown
 export const SESSION = makeSession('user-a');
 
 export const MEMBERSHIP: Membership = {
-  household: { id: 'household-1', name: 'Household One', timeZone: 'America/Denver' },
+  household: {
+    id: 'household-1',
+    name: 'Household One',
+    timeZone: 'America/Denver',
+    weekStart: 0,
+  },
   displayName: 'Member A',
 };
 
@@ -44,7 +49,7 @@ export const mockSupabase = {
   removeChannel: mockRealtime.removeChannel,
 };
 
-export const mockHouseholdApi = { fetchMemberships: jest.fn() };
+export const mockHouseholdApi = { fetchMemberships: jest.fn(), updateWeekStart: jest.fn() };
 
 let listener: AuthCallback | null = null;
 
@@ -68,6 +73,7 @@ export function resetBackend({
     mock.mockReset();
   }
   mockHouseholdApi.fetchMemberships.mockReset();
+  mockHouseholdApi.updateWeekStart.mockReset();
   mockRealtime.reset();
 
   mockAuth.onAuthStateChange.mockImplementation((callback: AuthCallback) => {
@@ -91,6 +97,7 @@ export function resetBackend({
     return { error: null };
   });
   mockHouseholdApi.fetchMemberships.mockResolvedValue(memberships);
+  mockHouseholdApi.updateWeekStart.mockResolvedValue(undefined);
 }
 
 function isMock(value: unknown): value is jest.Mock {

@@ -1,23 +1,32 @@
 import * as Application from 'expo-application';
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/features/auth/auth-provider';
 import { useSignOut } from '@/features/auth/use-sign-out';
+import { useWeekStart } from '@/features/household/use-week-start';
+import { weekdayName } from '@/lib/calendar';
 import { env } from '@/lib/env';
 import { reportTestError } from '@/lib/reporting';
 import { Button } from '@/ui/button';
 import { Card } from '@/ui/card';
 import { Screen } from '@/ui/screen';
 import { Text } from '@/ui/text';
+import { useTheme } from '@/ui/use-theme';
 
 const ENVIRONMENTS = { development: 'Development', production: 'Production' } as const;
 
 const VERSION = `${Application.nativeApplicationVersion ?? '–'} (${Application.nativeBuildVersion ?? '–'})`;
 
-/** The account, the build and Sign out, plus development tools in the development variant (R15). */
+/**
+ * The account, the build, the household's start of the week and Sign out, plus development tools in
+ * the development variant (R15, meals R48.1).
+ */
 export default function Settings() {
   const router = useRouter();
+  const theme = useTheme();
+  const weekStart = weekdayName(useWeekStart());
   const { state } = useAuth();
   const { confirmSignOut, pending, message } = useSignOut();
   const email = state.status === 'signedIn' ? state.session.user.email : undefined;
@@ -30,6 +39,34 @@ export default function Settings() {
           <Row label="Version" value={VERSION} />
           <Row label="Environment" value={ENVIRONMENTS[env.variant]} />
         </Card>
+
+        {/* The household's, so it says it applies to both members (R48.2, design §11.5). */}
+        <View style={styles.group}>
+          <Card>
+            <Pressable
+              testID="settings-week-start"
+              accessibilityRole="button"
+              accessibilityLabel={`Week starts on, ${weekStart}`}
+              accessibilityHint="Changes the first day of the week"
+              onPress={() => router.push('/week-start')}
+              style={({ pressed }) => [styles.row, styles.link, pressed && styles.pressed]}
+            >
+              <Text>Week starts on</Text>
+              <Text color="inkMuted" style={styles.linkValue}>
+                {weekStart}
+              </Text>
+              <SymbolView
+                name="chevron.right"
+                weight="semibold"
+                tintColor={theme.inkMuted}
+                size={13}
+              />
+            </Pressable>
+          </Card>
+          <Text variant="footnote" color="inkMuted">
+            Meals shows weeks from this day, for everyone in the household.
+          </Text>
+        </View>
 
         <View style={styles.group}>
           <Button label="Sign out" variant="secondary" loading={pending} onPress={confirmSignOut} />
@@ -75,5 +112,9 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 24 },
   group: { gap: 12 },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 16, minHeight: 44 },
+  link: { alignItems: 'center', gap: 8 },
+  // Fills the row, so the day sits beside the chevron.
+  linkValue: { flex: 1, textAlign: 'right' },
+  pressed: { opacity: 0.6 },
   value: { flexShrink: 1, textAlign: 'right' },
 });

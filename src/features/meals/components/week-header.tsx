@@ -1,12 +1,14 @@
 import { type SFSymbol, SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { formatWeekRange, type IsoDate, weekStartOf } from '@/lib/calendar';
+import { formatWeekRange, type IsoDate, type Weekday, weekStartOf } from '@/lib/calendar';
 import { Text } from '@/ui/text';
 import { useTheme } from '@/ui/use-theme';
 
 export interface WeekHeaderProps {
   weekStart: IsoDate;
+  /** The household's start day, which the week is laid out from (R48.4). */
+  start: Weekday;
   /** The household's today (R34.1), which decides whether This week shows. */
   today: IsoDate;
   onPrevious: () => void;
@@ -18,9 +20,16 @@ export interface WeekHeaderProps {
  * ‹, the week's dates and ›, with This week below while another week shows (R30.7, R31.2, R31.3,
  * DD29). A white band, so the terracotta arrows are the measured ICON_PAIRS entry.
  */
-export function WeekHeader({ weekStart, today, onPrevious, onNext, onThisWeek }: WeekHeaderProps) {
+export function WeekHeader({
+  weekStart,
+  start,
+  today,
+  onPrevious,
+  onNext,
+  onThisWeek,
+}: WeekHeaderProps) {
   const theme = useTheme();
-  const isCurrentWeek = weekStartOf(today) === weekStart;
+  const isCurrentWeek = weekStartOf(today, start) === weekStart;
 
   return (
     <View

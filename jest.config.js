@@ -21,6 +21,8 @@ const thresholdGroups = [
       './scripts/check-secrets.mjs',
       // specs/meals/4-test-plan.md §9.
       './src/lib/calendar.ts',
+      // specs/meals/4-test-plan.md §14.
+      './src/features/household/week-start.ts',
     ],
   },
   {

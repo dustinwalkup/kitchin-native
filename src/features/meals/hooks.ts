@@ -11,7 +11,7 @@ import {
 import { useCallback, useEffect } from 'react';
 
 import { useHousehold } from '@/features/household/household-provider';
-import { addDays, type IsoDate, weekStartOf } from '@/lib/calendar';
+import { addDays, type IsoDate, type Weekday, weekStartOf } from '@/lib/calendar';
 import { classifyError, isRetryable } from '@/lib/errors';
 import { report, reportOnce } from '@/lib/reporting';
 import { useToast } from '@/lib/toast';
@@ -153,9 +153,10 @@ function putSlot(rows: Rows, v: SetMealVariables, row: MealEntryRow | null): Row
 /**
  * Saves or clears a slot (design §3.3.4). The slot shows the change at once (R32.6), and a failure
  * undoes it only while the slot still shows it (DD14). Calls made before the household has loaded
- * are ignored; the screen offers no slots until then.
+ * are ignored; the screen offers no slots until then. `start` is the start day the screen lays its
+ * week out from, so the change shows in the week on screen (R48.4, design §11.4).
  */
-export function useSetMeal(): (v: SetMealVariables) => void {
+export function useSetMeal(start: Weekday): (v: SetMealVariables) => void {
   const queryClient = useQueryClient();
   const toast = useToast();
   const householdId = useHouseholdId();
@@ -174,7 +175,7 @@ export function useSetMeal(): (v: SetMealVariables) => void {
         : saveEntry({ householdId: hid, date, mealType, body }),
 
     onMutate: async (v): Promise<Applied | undefined> => {
-      const weekKey = mealKeys.week(hid, weekStartOf(v.date));
+      const weekKey = mealKeys.week(hid, weekStartOf(v.date, start));
       // A refetch already on its way would overwrite the change.
       await queryClient.cancelQueries({ queryKey: weekKey });
       const rows = queryClient.getQueryData<Rows>(weekKey);

@@ -6,9 +6,10 @@ import { Alert, type AlertButton } from 'react-native';
 import type { SignOutResult } from '@/features/auth/auth-provider';
 import type { AppVariant } from '@/lib/env-guard';
 import { queryClient } from '@/lib/query-client';
-import { resetBackend } from '@/test/mock-backend';
+import { MEMBERSHIP, resetBackend } from '@/test/mock-backend';
 
-// Settings tests C-SET-01–05 (4-test-plan §4.7), on the real routes. The auth provider's sign-out
+// Settings tests C-SET-01–05 (4-test-plan §4.7), and C-SET-06–07 for the start of the week (meals
+// 4-test-plan §14.3), on the real routes. The auth provider's sign-out
 // rules have their own tests (auth-provider.test.tsx), so here `useAuth` returns a signed-in
 // member whose signOut each test controls. Sentry is the global mock from jest-setup.ts.
 
@@ -170,5 +171,41 @@ describe('Settings', () => {
       expect.objectContaining({ message: 'Kitchin test error' }),
       { tags: { category: 'test' } },
     );
+  });
+});
+
+describe('Settings: the start of the week', () => {
+  it('C-SET-06 shows the household’s start of the week, and says it’s for the whole household', async () => {
+    resetBackend({
+      memberships: [{ ...MEMBERSHIP, household: { ...MEMBERSHIP.household, weekStart: 6 } }],
+    });
+    await renderSettings();
+
+    const row = screen.getByTestId('settings-week-start');
+    expect(row).toHaveProp('accessibilityRole', 'button');
+    expect(row).toHaveProp('accessibilityLabel', 'Week starts on, Sunday');
+    expect(row).toHaveProp('accessibilityHint', 'Changes the first day of the week');
+    expect(screen.getByText('Sunday')).toBeOnTheScreen();
+    expect(
+      screen.getByText('Meals shows weeks from this day, for everyone in the household.'),
+    ).toBeOnTheScreen();
+  });
+
+  it('C-SET-06 shows Monday for a household that hasn’t changed it', async () => {
+    await renderSettings();
+
+    expect(screen.getByTestId('settings-week-start')).toHaveProp(
+      'accessibilityLabel',
+      'Week starts on, Monday',
+    );
+  });
+
+  it('C-SET-07 opens the list of days', async () => {
+    const app = await renderSettings();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Week starts on, Monday' }));
+
+    expect(app.getPathname()).toBe('/week-start');
+    expect(screen.getByTestId('week-start-sun')).toBeOnTheScreen();
   });
 });

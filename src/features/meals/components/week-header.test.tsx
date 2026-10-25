@@ -1,13 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import type { IsoDate } from '@/lib/calendar';
+import type { IsoDate, Weekday } from '@/lib/calendar';
 import { touchTarget } from '@/test/a11y';
 import { themes } from '@/ui/theme';
 
 import { WeekHeader } from './week-header';
 
-// Week components C-WEEK-10 and C-WEEK-11 (meals 4-test-plan §4.1). Today is Thursday 2026-10-22,
-// in the week of 2026-10-19.
+// Week components C-WEEK-10 and C-WEEK-11 (meals 4-test-plan §4.1), and C-WEEK-16 (§14.3). Today
+// is Thursday 2026-10-22, in the Monday week of 2026-10-19 and the Sunday week of 2026-10-18.
 
 const onPrevious = jest.fn();
 const onNext = jest.fn();
@@ -15,9 +15,10 @@ const onThisWeek = jest.fn();
 
 const TODAY = '2026-10-22' as IsoDate;
 
-const ui = (weekStart: string) => (
+const ui = (weekStart: string, start: Weekday = 0) => (
   <WeekHeader
     weekStart={weekStart as IsoDate}
+    start={start}
     today={TODAY}
     onPrevious={onPrevious}
     onNext={onNext}
@@ -62,6 +63,19 @@ describe('WeekHeader', () => {
       expect(onNext).not.toHaveBeenCalled();
     },
   );
+
+  it('C-WEEK-16 decides the current week from the start day (R48.4)', async () => {
+    await render(ui('2026-10-18', 6));
+
+    expect(screen.getByRole('header')).toHaveTextContent('Oct 18 – Oct 24');
+    expect(screen.queryByRole('button', { name: 'This week' })).not.toBeOnTheScreen();
+  });
+
+  it('C-WEEK-16 shows This week on a Sunday week that isn’t the current one', async () => {
+    await render(ui('2026-10-11', 6));
+
+    expect(screen.getByRole('button', { name: 'This week' })).toBeOnTheScreen();
+  });
 
   it.each(['week-previous', 'week-next', 'week-this'])(
     'C-WEEK-11 %s is at least 44 × 44 pt',

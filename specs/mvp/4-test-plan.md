@@ -132,6 +132,11 @@ The structural queries skip the `tests` schema, which exists only in local and C
 | DB-H-16 | A | Set H1 `name` to `''`, or to 101 characters | `23514` | R20.5 |
 | DB-H-17 | postgres | Insert a membership with a 51-character `display_name` | `23514` | R20.6 |
 | DB-H-18 | A, with JWT claims that add `user_metadata.household_id = H2` and `app_metadata.household_id = H2` | `select` households | Only H1, so metadata is ignored | R18.6, R19.12 |
+| DB-H-19 | postgres | Read the seeded households' `week_start`, and insert a household with only a name and time zone | `monday` for all of them. *(Amended for the start of the week; meals 4-test-plan §14.)* | R20.5, meals R48.3 |
+| DB-H-20 | A | Set H1's `week_start` to each of the seven days | Each stored, and `updated_at` advances | R20.4, meals R48.4 |
+| DB-H-21 | A | Set H1's `week_start` to `Sunday`, `sun`, `''` or `funday`; or to null | `23514`; null `23502` | R20.5, meals R48.12 |
+| DB-H-22 | A on H2; C on H1 | Update `week_start` | 0 rows | R19, meals R48.2 |
+| DB-H-23 | A | Change H1's `week_start` | H1's meal entries unchanged | meals R48.6 |
 
 ### 2.3 Provisioning — `40_provisioning.test.sql` (task 2.6, extended by 4.2)
 
@@ -341,6 +346,10 @@ Fixtures are built at runtime, so the test file never contains a real-looking se
 | U-HH-04 | 2 rows → `ready` with the older row, and one `membership_multiple` report | R1.6 |
 | U-HH-05 | Paused query (offline) or network error → `unreachable`; back online → `ready` without member action | R1.7 |
 | U-HH-06 | `forbidden` or `server` error → `unreachable`, and the error is reported | R1.7, R26.1 |
+| U-HH-07 | `fetchMemberships` selects `week_start` and maps it to `weekStart`, and an unknown value to null. *(Amended for the start of the week; meals 4-test-plan §14.)* | meals R48.2, R48.11 |
+| U-HH-08 | `updateWeekStart` sends only `week_start`, filtered on the household's `id` | meals R48.4 |
+| U-HH-09 | `updateWeekStart` throws `forbidden` when no row comes back, and a classified `ApiError` otherwise | meals R48.10, R26.4 |
+| U-HH-10 | The ready state carries `weekStart` | meals R48.2 |
 
 ### 3.9 Grocery Domain — `domain.test.ts`, `constants.test.ts` (task 4.3)
 
@@ -360,6 +369,7 @@ Fixtures are built at runtime, so the test file never contains a real-looking se
 | U-DOM-12 | `parseItemRow`: category `snacks` → Other, with `unknownCategory: true` | R14.7 |
 | U-DOM-13 | `parseItemRow`: a missing `name`, or a null `id` → invalid, naming the field | R14.8 |
 | U-DOM-14 | `parseItemRow` maps snake_case rows to camel-case `GroceryItem` | §4.7 |
+| U-DOM-15 | `planUncheckAll`: every checked item reopens; one stays checked while an open item has its name, whatever the case; of two checked with one name only the newer reopens | R10.7 |
 
 ### 3.10 Grocery API — `api.test.ts` (task 4.4)
 
@@ -371,6 +381,7 @@ Fixtures are built at runtime, so the test file never contains a real-looking se
 | U-API-04 | `setItemQuantity` sends only `quantity`; an empty result throws `not_found` | R8.3, R12.4 |
 | U-API-05 | `deleteItem` with 0 rows deleted resolves | R9.3 |
 | U-API-06 | `clearCheckedItems` filters on `list_id` and `is_checked = true`, and returns the deleted IDs | R10.3 |
+| U-API-08 | `uncheckAllItems` sends only `is_checked: false`, filters on `list_id`, `is_checked = true` and `id not in` the kept ids (no `not` filter when there are none), and returns the unchecked IDs | R10.9 |
 | U-API-07 | Every failure throws an `ApiError` carrying table and operation, with no raw server text | R26.4 |
 
 ### 3.11 Grocery Queries and Mutations — `hooks.test.tsx` (task 4.5)
@@ -390,6 +401,9 @@ These run with a real `QueryClient`, a mocked `api.ts` and a controllable `onlin
 | U-MUT-09 | Delete is optimistic; on failure the item comes back in its original section position | R9.2, R12.2 |
 | U-MUT-10 | Delete when the item is already gone (0 rows): success, no toast | R9.3 |
 | U-MUT-11 | Clear checked removes every checked item at once; on failure they all come back | R10.3, R12.2 |
+| U-MUT-20 | Uncheck all reopens every checked item except the kept ones before `uncheckAllItems` resolves | R10.9, R12.1 |
+| U-MUT-21 | Uncheck all fails with `server`: only the checked state comes back, a queued quantity edit survives, and the toast offers Retry | R12.2, DD14 |
+| U-MUT-22 | Uncheck all fails with `conflict_duplicate` on `grocery_items_one_open_per_name`: nothing stays unchecked; the toast says "The list changed on another device, so nothing was unchecked"; nothing is reported | R10.10 |
 | U-MUT-12 | Two mutations in the same scope: the second API call starts only after the first settles | R13.3, DD15 |
 | U-MUT-13 | Offline: mutations show optimistically and don't call the API; back online, the calls happen in their original order | R13.2, R13.3 |
 | U-MUT-14 | Offline, add an item and then check it; back online, the insert happens before the update | R13.3, DD15 |
@@ -496,6 +510,8 @@ These run with a real `QueryClient`, a mocked `api.ts` and a controllable `onlin
 | C-SET-03 | An `offline` sign-out result shows "Signing out needs a connection" and stays on Settings | R3.9 |
 | C-SET-04 | Development shows "Theme preview" and "Send test error"; production shows neither | R15.3, R15.4 |
 | C-SET-05 | "Send test error" calls the reporting facade with a fixed error, with no household content | R15.3, R26.4 |
+| C-SET-06 | Shows "Week starts on" with the household's day, read as "Week starts on, Sunday", and the footnote. *(Amended for the start of the week; meals 4-test-plan §14.)* | R15.1, meals R48.1 |
+| C-SET-07 | The Week starts on row opens `/week-start` | meals R48.1 |
 
 ### 4.5 Groceries Screen — `groceries.test.tsx` (task 4.6)
 
@@ -513,7 +529,7 @@ These run with a real `QueryClient`, a mocked `api.ts` and a controllable `onlin
 | C-GRO-10 | Paused with no data shows the offline banner and "Waiting for connection…" | R13.1 |
 | C-GRO-11 | Every `testID` is static; no `testID` contains an item name | R26.7 |
 
-### 4.6 Item Interactions — `item-row.test.tsx`, `clear-checked.test.tsx` (task 4.7)
+### 4.6 Item Interactions — `item-row.test.tsx`, `clear-checked.test.tsx`, `uncheck-all-button.test.tsx` (task 4.7)
 
 | ID | Test | Req |
 |---|---|---|
@@ -527,6 +543,9 @@ These run with a real `QueryClient`, a mocked `api.ts` and a controllable `onlin
 | C-ITEM-08 | Clear checked asks "Clear 4 checked items?"; Cancel calls nothing | R10.2, R10.5 |
 | C-ITEM-09 | Confirming calls `clearChecked()` once | R10.3 |
 | C-ITEM-10 | The quantity button is at least 44 pt even when it shows only "＋" | N11 |
+| C-ITEM-11 | Uncheck all is disabled when nothing can be unchecked | R10.6 |
+| C-ITEM-12 | Uncheck all asks "Uncheck 4 items?" with Cancel and a non-destructive Uncheck; Cancel calls nothing | R10.8 |
+| C-ITEM-13 | Confirming calls `uncheckAll` once; on the screen, with the ids `planUncheckAll` keeps checked | R10.7, R10.9 |
 
 ### 4.7 Add-item Sheet — `add-item.test.tsx` (task 4.8)
 
@@ -612,6 +631,7 @@ Start the stack with `npx supabase start`. The seed passwords are in `supabase/s
 - [ ] **MT-4-07** Change Eggs' quantity to "2 dozen", then clear it. Both changes show immediately. (R8.1–R8.3)
 - [x] **MT-4-08** Swipe left on an item and delete it. It disappears without a confirmation. (R9.1, R9.2)
 - [ ] **MT-4-09** Check three items, then tap Clear checked. The prompt says "Clear 3 checked items?". Cancel changes nothing; Clear removes exactly those three. (R10.1–R10.5)
+- [ ] **MT-4-20** Check three items, one of them Milk, then add "milk" again. Tap Uncheck all. The prompt says "Uncheck 2 items?". Cancel changes nothing; Uncheck reopens the other two, and the checked Milk stays checked. (R10.6–R10.9, edge case 23)
 - [ ] **MT-4-10** Delete everything. You see the empty state, and the header has no percentage. (R4.8)
 - [ ] **MT-4-11** Pull down on the list. It reloads. (R4.11)
 - [ ] **MT-4-12** Cut the Mac's network (Wi-Fi off, or Network Link Conditioner at 100 % loss). The offline banner appears. Add an item and check another; both show immediately. Restore the network: both are saved, in order, and the banner goes away. (R13.1–R13.3)
@@ -839,17 +859,17 @@ Excluded: `src/types/database.ts` (generated), `src/app/**/_layout.tsx` (covered
 | R7 Check and uncheck | DB-G-15–17, U-API-03, U-MUT-05, U-MUT-17, C-ITEM-01 | MT-4-05 |
 | R8 Edit quantity | U-DOM-05, U-API-04, U-MUT-08, C-ITEM-02–03 | MT-4-07, MT-5-08 |
 | R9 Delete an item | U-API-05, U-MUT-09–10, C-ITEM-04 | MT-4-08 |
-| R10 Clear checked items | DB-G-29, U-API-06, U-MUT-11, C-ITEM-07–09 | MT-4-09, MT-5-04 |
-| R11 Live updates | DB-R-08–09, U-COA-01–03, U-CH-02, U-CH-04–05, U-CH-08, U-RT-01–02, U-MUT-15 | MT-5-01, MT-5-02, MT-5-06, MT-5-07, MT-5-09 |
+| R10 Clear checked items and Uncheck all | DB-G-29, U-DOM-15, U-API-06, U-API-08, U-MUT-11, U-MUT-20–22, C-ITEM-07–09, C-ITEM-11–13 | MT-4-09, MT-4-20, MT-5-04 |
+| R11 Live updates | DB-R-08–09, DB-R-19, U-COA-01–03, U-CH-02, U-CH-04–05, U-CH-08, U-RT-01–02, U-MUT-15 | MT-5-01, MT-5-02, MT-5-06, MT-5-07, MT-5-09 |
 | R12 Instant feedback and conflicts | DB-G-28, U-API-02–04, U-MUT-01–11, U-MUT-15 | MT-5-05 |
 | R13 Offline and connection states | U-MUT-12–14, U-MUT-19, U-CH-03, U-CH-05, U-RT-03–04, C-GRO-10, C-NET-01–02 | MT-4-12, MT-5-07, MT-8-05 |
 | R14 Error handling | U-ERR-01–10, U-DOM-12–13, U-MUT-16, U-MUT-18, C-ERR-01–03 | — |
-| R15 Settings | C-RTE-07, C-SET-01–05 | MT-3-02, MT-3-08, MT-6-01, MT-8-01 |
+| R15 Settings | C-RTE-07, C-SET-01–07 | MT-3-02, MT-3-08, MT-6-01, MT-8-01 |
 | R16 Visual identity | U-THM-01–06, U-LNT-01, U-CFG-05, C-UI-08, C-SIGN-08 | MT-1-02, MT-1-03 |
 | R17 View preference | Not built (DD18) | — |
 | R18 Account policy | DB-H-18 (metadata ignored) | MT-3-09, MT-7-03, MT-7-05 |
 | R19 Household data isolation | DB-S-01–03, DB-S-05, DB-S-08–09, DB-S-11–13, DB-H-01–05, DB-H-13–14, DB-H-18, DB-G-01–09, DB-G-11–13, DB-G-30 | MT-5-10, MT-7-04 |
-| R20 Households and memberships | DB-S-06, DB-H-01–03, DB-H-06–17 | — |
+| R20 Households and memberships | DB-S-06, DB-H-01–03, DB-H-06–17, DB-H-19–23 | — |
 | R21 Grocery data integrity | DB-S-06, DB-G-09–10, DB-G-14, DB-G-18, DB-G-20–27, U-MUT-07 | MT-4-06, MT-7-06 |
 | R22 Realtime authorization | DB-S-16, DB-R-01–10, U-CH-01 | MT-5-10, MT-7-05 |
 | R23 Provisioning | DB-S-10, DB-P-01–07, U-AST-01 | MT-7-06 |

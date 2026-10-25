@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useEffectEvent, useState } from 'react';
-import { RefreshControl, SectionList, StyleSheet } from 'react-native';
+import { RefreshControl, SectionList, StyleSheet, View } from 'react-native';
 
 import {
   ADD_ITEM_BUTTON_CLEARANCE,
@@ -16,6 +16,8 @@ import {
 } from '@/features/groceries/components/list-states';
 import { ProgressHeader } from '@/features/groceries/components/progress-header';
 import { SkeletonRows } from '@/features/groceries/components/skeleton-rows';
+import { UncheckAllButton } from '@/features/groceries/components/uncheck-all-button';
+import { planUncheckAll } from '@/features/groceries/domain';
 import {
   type GroceryList,
   useClearChecked,
@@ -23,6 +25,7 @@ import {
   useGroceryList,
   useSetChecked,
   useSetQuantity,
+  useUncheckAll,
 } from '@/features/groceries/hooks';
 import { useIsOnline } from '@/lib/query-client';
 import { useToast } from '@/lib/toast';
@@ -42,6 +45,8 @@ export default function Groceries() {
   const setQuantity = useSetQuantity();
   const deleteItem = useDeleteItem();
   const clearChecked = useClearChecked();
+  const uncheckAll = useUncheckAll();
+  const { uncheckIds, keepIds } = planUncheckAll(list.items);
 
   const sections = list.sections.map((section) => ({ ...section, data: section.items }));
   const openAddItem = () => router.push('/add-item');
@@ -68,7 +73,13 @@ export default function Groceries() {
         ListHeaderComponent={
           list.progress.total > 0 ? (
             <ProgressHeader progress={list.progress}>
-              <ClearCheckedButton checkedCount={list.progress.checked} onClear={clearChecked} />
+              <View style={styles.actions}>
+                <UncheckAllButton
+                  uncheckCount={uncheckIds.length}
+                  onUncheck={() => uncheckAll({ keepIds })}
+                />
+                <ClearCheckedButton checkedCount={list.progress.checked} onClear={clearChecked} />
+              </View>
             </ProgressHeader>
           ) : undefined
         }
@@ -153,6 +164,8 @@ function useRefreshFailedToast({ refreshFailedAt, refetch }: GroceryList) {
 }
 
 const styles = StyleSheet.create({
+  // Apart, so the destructive Clear checked isn't a slip of the thumb away.
+  actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   content: { paddingBottom: ADD_ITEM_BUTTON_CLEARANCE },
   fill: { flexGrow: 1 },
 });

@@ -6,6 +6,8 @@
 > **Amendment proposed during test planning** (approved together with `4-test-plan.md`): edge case 22 added.
 > **Amended for meal planning** (approved with `specs/meals/2-design.md`, 2026-10-19): the glossary, 1.5, 11.2, 26.4 and Out of Scope. See [specs/meals/1-requirements.md](../meals/1-requirements.md#amendments-to-the-mvp-requirements).
 > **Amended for the meal library** (approved with `specs/meal-library/2-design.md`, 2026-10-19): the glossary, 11.2, 13.2, 14.1, 23.2 and 26.4. 1.5 at the owner's request, 2026-10-24. See [specs/meal-library/1-requirements.md](../meal-library/1-requirements.md#amendments-to-earlier-requirements).
+> **Amended for the start of the week** (approved with `specs/meals/2-design.md` §11, 2026-10-25): 11.2, 13.2, 14.1, 15.1, 20.4 and 20.5. See [specs/meals/1-requirements.md](../meals/1-requirements.md#amendments-after-approval).
+> **Amended at the owner's request** (2026-10-25): Uncheck all, as 10.6–10.10 and edge case 23. See [Requirement 10](#requirement-10-groceries--clear-checked-items).
 > **Amended for app deploys** (proposed with `specs/app-deploy/spec.md`, 2026-10-19, awaiting approval): 25.4, 26.9 and Out of Scope. See [specs/app-deploy/spec.md](../app-deploy/spec.md#amendments-to-the-mvp-requirements).
 
 ## Introduction
@@ -44,7 +46,7 @@ The MVP also lays the foundation that every later feature reuses: household-scop
   - add an item (name, category, optional quantity)
   - quick-add from common items, without duplicates
   - check and uncheck, recording who and when
-  - edit quantity, delete, and clear checked items
+  - edit quantity, delete, clear checked items, and uncheck them all *(Uncheck all added 2026-10-25)*
 - Live updates between the two phones, with offline, reconnecting and error states.
 - A Settings screen.
 - The legacy desert look, in light appearance only.
@@ -76,7 +78,7 @@ The requirements below depend on these decisions. Each one is a SPEC §16 recomm
 | Area | Requirements |
 |---|---|
 | Access | 1 App states and routing · 2 Sign in · 3 Session lifetime and sign out |
-| Groceries | 4 List view · 5 Add an item · 6 Quick-add · 7 Check and uncheck · 8 Edit quantity · 9 Delete an item · 10 Clear checked items |
+| Groceries | 4 List view · 5 Add an item · 6 Quick-add · 7 Check and uncheck · 8 Edit quantity · 9 Delete an item · 10 Clear checked items and Uncheck all |
 | Sync | 11 Live updates between phones · 12 Instant feedback and conflicting changes · 13 Offline and connection states · 14 Error handling |
 | App | 15 Settings · 16 Visual identity · 17 Per-device view preference (optional) |
 | Data protection | 18 Account policy · 19 Household data isolation · 20 Households and memberships · 21 Grocery data integrity · 22 Realtime authorization · 23 Provisioning |
@@ -213,6 +215,8 @@ The requirements below depend on these decisions. Each one is a SPEC §16 recomm
 
 **User Story:** As a member, I want to clear everything we've bought in one step, so that the list is ready for the next trip.
 
+**User Story:** As a member, I want to put everything we've bought back on the list in one step, so that the items we buy every week don't have to be added again. *(Added at the owner's request, 2026-10-25.)*
+
 #### Acceptance Criteria
 
 1. WHILE the list has at least one checked item, the app SHALL offer Clear checked. WHILE it has none, the action SHALL be disabled or hidden.
@@ -220,6 +224,11 @@ The requirements below depend on these decisions. Each one is a SPEC §16 recomm
 3. WHEN the member confirms THEN the system SHALL delete, in a single operation, every item that is checked at the moment the backend processes the request.
 4. IF the other member unchecks an item before the backend processes the request THEN that item SHALL NOT be deleted.
 5. WHEN the member cancels THEN nothing SHALL change.
+6. WHILE the list has at least one checked item that 10.7 would reopen, the app SHALL also offer Uncheck all. WHILE it has none, the action SHALL be disabled. *(Added at the owner's request, 2026-10-25.)*
+7. Uncheck all SHALL leave a checked item checked IF an open item has the same normalized name, and of several checked items with the same normalized name it SHALL reopen only the most recently added, so that it never makes a second open item with one name (5.6, 5.7). *(Added at the owner's request, 2026-10-25.)*
+8. WHEN the member chooses Uncheck all THEN the app SHALL ask for confirmation, stating how many items will be unchecked. WHEN the member cancels THEN nothing SHALL change. *(Added at the owner's request, 2026-10-25.)*
+9. WHEN the member confirms THEN the system SHALL uncheck (7.2), in a single operation, every item that is checked when the backend processes the request, except those 10.7 leaves checked. *(Added at the owner's request, 2026-10-25.)*
+10. IF a change on the other phone means 10.9 would make a second open item with one name THEN nothing SHALL be unchecked, and the app SHALL say the list changed on another device, without reporting an error. *(Added at the owner's request, 2026-10-25.)*
 
 ### Requirement 11: Sync — Live Updates Between Phones
 
@@ -228,7 +237,7 @@ The requirements below depend on these decisions. Each one is a SPEC §16 recomm
 #### Acceptance Criteria
 
 1. WHEN a change to household data is saved on one phone THEN the other phone SHALL show the change within 2 seconds (target: about 1 second), provided the app is in the foreground and online.
-2. Live updates SHALL cover adding, checking, unchecking, editing, deleting and clearing items, saving and clearing meal slots, and adding, editing and deleting library meals and creating tags. *(Amended for meal planning and for the meal library.)*
+2. Live updates SHALL cover adding, checking, unchecking, editing, deleting and clearing items, saving and clearing meal slots, adding, editing and deleting library meals and creating tags, and changing the household's start of the week (meals 48.5). *(Amended for meal planning, for the meal library and for the start of the week.)*
 3. WHEN the app returns to the foreground, regains connectivity, or re-establishes its live-update connection THEN it SHALL reload household data from the backend, so that any changes it missed appear.
 4. WHEN many changes arrive together (for example, the other member clears 20 checked items) THEN the app SHALL apply them as one update, not redraw once per item.
 5. WHILE a member's own change is being saved, incoming updates for the same list SHALL NOT make that change flicker or temporarily revert.
@@ -254,7 +263,7 @@ The requirements below depend on these decisions. Each one is a SPEC §16 recomm
 #### Acceptance Criteria
 
 1. WHILE the device has no network connection, the app SHALL show the banner "Offline — changes will send when you're back online" and SHALL keep showing the last-loaded list.
-2. WHILE the device is offline, the app SHALL accept a member's changes, show them immediately (12.1), and hold them for sending. Saving or deleting a library meal is the exception: it fails at once while offline and isn't held (meal library 46.3). *(Amended for the meal library.)*
+2. WHILE the device is offline, the app SHALL accept a member's changes, show them immediately (12.1), and hold them for sending. Saving or deleting a library meal is the exception: it fails at once while offline and isn't held (meal library 46.3). So is changing the household's start of the week (meals 48.10). *(Amended for the meal library and for the start of the week.)*
 3. WHEN connectivity returns while the app is still running THEN the app SHALL send the held changes in the order they were made, then reload the list.
 4. WHILE the app is in the foreground and its live-update connection has been down for more than 3 seconds, the app SHALL show a small, non-blocking "Reconnecting…" indicator. It SHALL remove the indicator once reconnected.
 5. The app SHALL re-establish the live-update connection automatically, without member action.
@@ -265,7 +274,7 @@ The requirements below depend on these decisions. Each one is a SPEC §16 recomm
 
 #### Acceptance Criteria
 
-1. IF a request fails because the device is offline or the network timed out THEN the app SHALL show the offline banner (13.1) and retry automatically. A library save or delete isn't retried automatically; the meal form offers Retry instead (meal library 46.3). *(Amended for the meal library.)*
+1. IF a request fails because the device is offline or the network timed out THEN the app SHALL show the offline banner (13.1) and retry automatically. A library save or delete isn't retried automatically; the meal form offers Retry instead (meal library 46.3). Nor is a change to the household's start of the week, which the member makes again (meals 48.10). *(Amended for the meal library and for the start of the week.)*
 2. IF the session can't be refreshed THEN the app SHALL follow 3.6.
 3. IF the database denies access to a request THEN the app SHALL show "You don't have access to that".
 4. IF the database rejects a value as invalid THEN the app SHALL show an inline message at the relevant field.
@@ -281,7 +290,7 @@ The requirements below depend on these decisions. Each one is a SPEC §16 recomm
 
 #### Acceptance Criteria
 
-1. Settings SHALL show the signed-in account's email, the app version and build number, and the environment (development or production).
+1. Settings SHALL show the signed-in account's email, the app version and build number, and the environment (development or production). It SHALL also show the household's start of the week, which a member can change there (meals 48.1). *(Amended for the start of the week.)*
 2. Settings SHALL offer Sign out, and SHALL ask for confirmation before signing out (3.5).
 3. WHERE the app is the development variant, Settings SHALL also offer:
    - a theme preview screen that shows every colour token as a labelled swatch
@@ -356,8 +365,8 @@ This requirement applies only if the owner confirms the single-category view for
 1. A member SHALL be able to read the membership records (including display names) of their own household, and of no other household.
 2. No signed-in user SHALL be able to create, change or delete a membership record through the API.
 3. No signed-in user SHALL be able to create or delete a household through the API.
-4. A member SHALL be able to change only their household's name and time zone. IF a request changes any other household field THEN the database SHALL reject it.
-5. Each household SHALL store a name of 1–100 characters and an IANA time zone, such as `America/Chicago` (K5).
+4. A member SHALL be able to change only their household's name, time zone and start of the week. IF a request changes any other household field THEN the database SHALL reject it. *(Amended for the start of the week.)*
+5. Each household SHALL store a name of 1–100 characters, an IANA time zone, such as `America/Chicago` (K5), and its start of the week, one of the seven days, Monday by default (meals 48.3, 48.12). *(Amended for the start of the week.)*
 6. Each membership SHALL store a display name of 1–50 characters.
 7. The app SHALL contain no code path that creates households or writes memberships.
 
@@ -621,6 +630,7 @@ This requirement applies only if the owner confirms the single-category view for
 20. **The app is launched with no connection while signed in.** It shows "Can't reach Kitchin" with Retry, and continues on its own once connectivity returns (1.7). *(Added during design.)*
 21. **Sign out while offline.** The app says signing out needs a connection and stays signed in (3.9). *(Added during design.)*
 22. **Unchecking an item when an open item with the same name exists.** For example, "Milk" was checked and then re-added. The database rejects the uncheck (21.3), so the item stays checked and the app says "Milk is already on the list" (5.6). *(Added during test planning.)*
+23. **Uncheck all when an item is on the list twice.** A checked Milk stays checked while an open Milk is on the list, until it's cleared. Of two checked Milks, only the newer one is unchecked (10.7). *(Added at the owner's request, 2026-10-25.)*
 
 ## Out of Scope (MVP)
 

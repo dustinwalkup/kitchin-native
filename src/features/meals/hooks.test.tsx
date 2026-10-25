@@ -3,7 +3,7 @@ import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
-import type { IsoDate } from '@/lib/calendar';
+import type { IsoDate, Weekday } from '@/lib/calendar';
 import { ApiError } from '@/lib/errors';
 import { queryClient as appQueryClient } from '@/lib/query-client';
 import { report } from '@/lib/reporting';
@@ -116,15 +116,20 @@ afterEach(() => {
   onlineManager.setOnline(true);
 });
 
-function useMeals({ weekStart }: { weekStart: IsoDate }) {
-  return { week: useMealWeek(weekStart), setMeal: useSetMeal() };
+// Monday unless a test gives another start day.
+function useMeals({ weekStart, start = 0 }: { weekStart: IsoDate; start?: Weekday }) {
+  return { week: useMealWeek(weekStart), setMeal: useSetMeal(start) };
 }
 
-async function renderMeals({ weekStart = WEEK, waitForReady = true } = {}) {
+async function renderMeals({
+  weekStart = WEEK,
+  start,
+  waitForReady = true,
+}: { weekStart?: IsoDate; start?: Weekday; waitForReady?: boolean } = {}) {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
-  const hook = await renderHook(useMeals, { wrapper, initialProps: { weekStart } });
+  const hook = await renderHook(useMeals, { wrapper, initialProps: { weekStart, start } });
   if (waitForReady) await waitFor(() => expect(hook.result.current.week.status).toBe('ready'));
   return hook;
 }
@@ -366,6 +371,28 @@ describe('useMealWeek', () => {
 });
 
 describe('useSetMeal', () => {
+  it('U-MMUT-17 shows a save in the week laid out from the screen’s start day (R48.4)', async () => {
+    const save = deferred();
+    const serverSave = jest.mocked(saveEntry).getMockImplementation()!;
+    jest.mocked(saveEntry).mockImplementationOnce(async (v) => {
+      await save.promise;
+      await serverSave(v);
+    });
+    // A Monday-first week is cached as well, as it would be after the start day changed.
+    queryClient.setQueryData(mealKeys.week('household-1', WEEK), ROWS);
+    const sundayWeek = iso('2026-10-18');
+    const hook = await renderMeals({ weekStart: sundayWeek, start: 6 });
+
+    await act(() =>
+      hook.result.current.setMeal({ date: iso(WED), mealType: 'dinner', body: 'Pizza' }),
+    );
+
+    await waitFor(() => expect(body(hook, WED, 'dinner')).toBe('Pizza'));
+    expect(queryClient.getQueryData(mealKeys.week('household-1', WEEK))).toEqual(ROWS);
+    save.resolve();
+    await settle();
+  });
+
   it('U-MMUT-01 shows the new text in a planned slot before saveEntry resolves', async () => {
     const save = deferred();
     const serverSave = jest.mocked(saveEntry).getMockImplementation()!;
