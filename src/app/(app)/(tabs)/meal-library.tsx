@@ -125,9 +125,10 @@ function useDeleteFromList() {
 }
 
 /**
- * On focus, says what the form just did: "Meal saved" with the Just saved row, or "Meal deleted"
- * (R42.9, R44.3, DD55). The hand-off is applied once, so a second focus repeats neither (DD51).
- * Leaving the screen, for the form or another tab, ends the Just saved row.
+ * On focus, says what the form just did: "Meal saved", with the Just saved row if the search or
+ * tags hide the meal, or "Meal deleted" (R42.9, R44.3, DD55). The hand-off is applied once, so a
+ * second focus repeats neither (DD51). Leaving the screen, for the form or another tab, ends the
+ * Just saved row.
  */
 function useLastSaved() {
   const toast = useToast();

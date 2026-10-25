@@ -281,7 +281,7 @@ These run with a real `QueryClient`, a mocked `api.ts` and a controllable `onlin
 | C-LBR-07 | No match shows "No meals match" with Clear filters, below the search and filter. An empty library shows "No saved meals yet", the sentence and Add meal, with no search or filter | R41.8, R40.9 |
 | C-LBR-08 | `MealRow` shows the name and its tag pills in order, with no `numberOfLines`. It reads "Tacos. Tags: Dinner, Quick & Easy", or "Tacos" with no tags | R40.3, R40.5, N27 |
 | C-LBR-09 | A selected `TagChip` shows "✓ Dinner", is labelled "Dinner" and has `accessibilityState.selected` | R43.1, N10, N13 |
-| C-LBR-10 | Given a just-saved meal, a "Just saved" row shows it above the list even when the search hides it; changing the search or tags removes the row | R42.9, R45.9, DD55 |
+| C-LBR-10 | Given a just-saved meal that the search or tags hide, a "Just saved" row shows it above the list; changing the search or tags removes the row. A meal the list already shows has no Just saved row and is listed once | R42.9, R45.9, DD55 |
 | C-LBR-11 | `SkeletonRows`, `LoadError` ("Couldn't load meals" with Retry) and `WaitingForConnection` render for their states | R40.8, R40.10, R13.1 |
 | C-LBR-12 | Rows, the filter, Clear filters and chips are at least 44 × 44 pt, counting `hitSlop` | N11 |
 | C-LBR-13 | `testID`s hold only static parts and IDs; none contains a meal name or tag name | R26.7 |
@@ -298,7 +298,7 @@ These run with a real `QueryClient`, a mocked `api.ts` and a controllable `onlin
 | C-LIB-05 | Tapping a row opens `/meal-form` with only the meal's `id` as a param | R40.7, DD51 |
 | C-LIB-06 | Each state in the §3.8 table, including an error over a cached list: the list stays, and a "Couldn't load meals" toast with Retry shows at the top | R40.8–R40.10, DD60 |
 | C-LIB-07 | Pull to refresh calls `refetch` | R40.11 |
-| C-LIB-08 | On focus with `lastSaved` set to a save, "Meal saved" shows with the Just saved row; set to a delete, "Meal deleted" shows. A second focus doesn't repeat either | R42.9, R44.3, DD51 |
+| C-LIB-08 | On focus with `lastSaved` set to a save, "Meal saved" shows, with the Just saved row only if the search or tags hide the meal; set to a delete, "Meal deleted" shows. A second focus doesn't repeat either | R42.9, R44.3, DD51 |
 | C-LIB-09 | The library starts with an empty search and no tags, and keeps both after the form closes | R41.9 |
 | C-LIB-10 | Offline, the banner shows and the cached list stays | R46.3, R13.1 |
 | C-LIB-11 | Every library row ends with a chevron, has Delete behind a swipe, hidden from VoiceOver, and has a Delete accessibility action. With `onDelete` the card's edge is on the swipeable; picker rows have none of these *(added 2026-10-24)* | R40.7, R44.8, R45.10, N10 |
@@ -362,7 +362,7 @@ These run with a real `QueryClient`, a mocked `api.ts` and a controllable `onlin
 | C-PICK-04 | Tapping "Tacos" sets `mealPick` to `{ date, mealType, text: 'Tacos\nBeef, corn tortillas' }` and goes back | R45.3, R45.4 |
 | C-PICK-05 | Cancel goes back without setting `mealPick` | R45.7 |
 | C-PICK-06 | "+ Add new meal" sets `newMealName` from the search and opens `/meal-form` | R45.8, R42.6 |
-| C-PICK-07 | Back from a save, the picker shows "Meal saved" and the Just saved row, even with a search that hides the meal; tapping that row chooses it | R45.9 |
+| C-PICK-07 | Back from a save, the picker shows "Meal saved" and, with a search that hides the meal, the Just saved row; tapping that row chooses it | R45.9 |
 | C-PICK-08 | The library's states show in the picker; an empty library says so and offers "+ Add new meal" | R45.12 |
 | C-PICK-09 | Rows have the hint "Chooses this meal"; nothing offers edit or delete | R45.10 |
 | C-PICK-10 | Search and Filter by tags narrow the list as in the library; a meal with no tags can be found and chosen | R45.2 |
@@ -404,7 +404,7 @@ As in the MVP and meals plans, tick each box when it passes. If one fails, recor
 - [ ] **MT-18-01** On Meals, go to a later week, then tap the Library tab. The Meal Library lists the seeded meals in alphabetical order with their tags, each with a chevron. The Meals tab shows the same week. *(Changed 2026-10-24.)* (R40.1–R40.4, R40.7)
 - [ ] **MT-18-02** Search "jalapeno". "Jalapeño poppers" shows. Search "TACO": "Chicken tacos" shows. (R41.1)
 - [ ] **MT-18-03** Open Filter by tags; all tags show. Pick Dinner and Quick & Easy, then collapse it: only "Chicken tacos" shows, and the filter shows "2" and both names. Clear filters brings everything back. (R41)
-- [ ] **MT-18-04** Add meal with only the name "Toast". It's saved, "Meal saved" shows, and it's under Just saved and in its place in the list. (R42, SC1)
+- [ ] **MT-18-04** Add meal with only the name "Toast". It's saved, "Meal saved" shows, and it's listed once, in its place, with no Just saved row. (R42, SC1, DD55)
 - [ ] **MT-18-05** Add a meal with a description, three lines of ingredients, two starter tags and a new tag "Weeknight". Then edit another meal and type "weeknight" as a new tag: the existing tag is selected, and no second one appears. (R42, R43, SC1, SC3)
 - [ ] **MT-18-06** Save with an empty name: "Enter a meal name". Paste 150 characters into Name: 100 stay, and the counter shows. Type and delete around the limit in each field: no flicker, and the cursor doesn't jump (OI-23). (R42.3, R42.5)
 - [ ] **MT-18-07** Edit a meal's description and tags; the library shows the change. Edit again, change something and tap Cancel: "Discard changes?" appears. Keep editing stays; Discard leaves without saving. (R42.7, R42.12, SC5)
@@ -422,7 +422,7 @@ As in the MVP and meals plans, tick each box when it passes. If one fails, recor
 - [ ] **MT-19-02** Choose "Chicken tacos", which has a description. The picker closes, the slot shows the name and description on two lines, its editor is open, and the keyboard is up (OI-21). (R45.3, R45.4)
 - [ ] **MT-19-03** Add " — no cheese" and tap Done. The slot saves it. Open the library: "Chicken tacos" is unchanged. (R45.5, R45.6, SC8)
 - [ ] **MT-19-04** Type "Pasta" in a slot, open the picker and swipe it down. "Pasta" is there and the editor is open. (R45.7)
-- [ ] **MT-19-05** In the picker, search "lasag" and tap "+ Add new meal". The form opens full screen over the picker, with "lasag" as the name. Save "Lasagna": you're back in the picker with Lasagna under Just saved. Tap it to choose it (OI-20). (R45.8, R45.9, SC9)
+- [ ] **MT-19-05** In the picker, search "lasag" and tap "+ Add new meal". The form opens full screen over the picker, with "lasag" as the name. Save "Lasagna": you're back in the picker with Lasagna in the results, listed once. Tap it to choose it (OI-20). (R45.8, R45.9, SC9)
 - [ ] **MT-19-06** In the picker, set a search and a tag, scroll, open "+ Add new meal" and Cancel. The picker's search, tag and scroll position are as they were (OI-20). (R45.9)
 - [ ] **MT-19-07** Edit, then delete, the library meal you chose in MT-19-02. The planned slot doesn't change. (R44.6, R45.6, SC6)
 - [ ] **MT-19-08** With Wi-Fi off, choose a meal for a slot. It shows at once with the banner, and it's saved when Wi-Fi comes back. (R46.3, R35.1)

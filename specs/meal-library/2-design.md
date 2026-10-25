@@ -46,7 +46,7 @@ This table settles the requirements' Open Items for Design Phase. **Approving th
 | DD52 (OI 2) | Choosing a meal | Opening the picker closes the slot's editor, which saves its draft (32.3), as opening Add to groceries does. When Meals regains focus, it saves the chosen text with `useSetMeal` and reopens that slot's editor. Closing the picker without choosing reopens the editor too | Uses the existing editor and save path unchanged. Meals stays mounted, so its toasts can report a failed save (35.5) | 45.3–45.7 |
 | DD53 (OI 7) | Browser and filter | One `MealBrowser`: a search field, a collapsed Filter by tags row that expands in place to chips, Clear filters, and a virtualized list | No sheet and no state to pass back. Compact until opened (41.3) | 41, 45.2, N29 |
 | DD54 (OI 6) | Search and order | Search folds both sides with `normalize('NFD')`, removes U+0300–U+036F and lower-cases, then checks "contains". Order uses one cached `Intl.Collator(undefined, { sensitivity: 'base', numeric: true })`, then exact text, then ID | Hermes on iOS normalizes through CoreFoundation and collates through Foundation with the device locale (finding 2). The tie-breaks make the order stable | 41.1, 40.4, K25 |
-| DD55 (OI 9) | Showing a meal just saved | A "Just saved" row at the top of the list shows the meal that was just saved, whatever the search and tags, until the member changes the search or tags or leaves the screen. The meal also sits in its usual place | No scrolling to a row of unknown height, and the member's filters stay as they were | 42.9, 45.9 |
+| DD55 (OI 9) | Showing a meal just saved | When the search or tags hide the meal just saved, a "Just saved" row at the top of the list shows it, until the member changes the search or tags or leaves the screen. When the list already shows the meal, it shows only in its usual place, so it's never listed twice. *(Changed 2026-10-25: the row showed whatever the filters, so an unfiltered list showed the meal twice.)* | No scrolling to a row of unknown height, and the member's filters stay as they were | 42.9, 45.9 |
 | DD56 | Field limits in the form | `maxLength` set to the field's UTF-16 length plus the characters it has left, recomputed on each change, with the value clamped again on save | The approach meals OI-16 recommends: native input stops at the limit, so there's no flicker or cursor jump. If the owner settles OI-16 differently, the form follows the same choice | 42.3 |
 | DD57 | Terracotta controls | `Chip` and `Button` gain an optional `tone: 'accent'`. Selected tag chips are terracotta with bold white text and a leading ✓. Tag pills in the list are ink on `accentSoft` | Meals' colour (40.12). The ✓ marks selection by more than colour (43.1, N13). Existing callers keep cactus | 40.12, 43.1 |
 | DD58 | Rejected values | `classifyError` also keeps a CHECK constraint's name for `23514`, as it already does for a unique constraint's name for `23505`. The form maps the constraint to its field | 42.10 asks for the message at the field. A constraint name holds no row content | 42.10, 14.4 |
@@ -213,7 +213,7 @@ Had the member closed the picker instead, step 4 would only reopen the editor, s
 
 1. In the picker, the member searches "lasag", finds nothing and taps "+ Add new meal". The picker sets the name hand-off to "lasag" and pushes `/meal-form`, which opens full screen over the picker with Name "lasag" (42.6).
 2. The member finishes the name, "Lasagna", and taps Save. On success the form sets `lastSaved` and closes.
-3. The picker regains focus. It shows "Meal saved" and a Just saved row with Lasagna at the top, above the search's results (45.9, DD55). The member taps it, and the flow continues at step 3 above.
+3. The picker regains focus. It shows "Meal saved", and Lasagna is in the search's results. Had the search or tags hidden it, a Just saved row would show it at the top (45.9, DD55). The member taps it, and the flow continues at step 3 above.
 
 #### Both members edit one meal
 
@@ -477,7 +477,7 @@ export const mealPick:    Handoff<{ date: IsoDate; mealType: MealType; text: str
 Each `set` gets a new `id`. A reader remembers the last `id` it applied in a ref and ignores a repeat, so React's development double-invoke, or a second focus event, can't apply one twice. Readers clear what they've applied. The values live in memory only and never reach storage, routes or reports (26.4).
 
 - **`newMealName`.** The library and the picker set it from the search field, or clear it, just before they push `/meal-form`. The form reads it once in its initial state (42.6).
-- **`lastSaved`.** The form sets it after a successful save or delete. The library or picker reads it when it regains focus, shows "Meal saved" or "Meal deleted", and for a save shows the Just saved row (DD55).
+- **`lastSaved`.** The form sets it after a successful save or delete. The library or picker reads it when it regains focus, shows "Meal saved" or "Meal deleted", and for a save shows the Just saved row if the search or tags hide the meal (DD55).
 - **`mealPick`.** The picker sets it when the member chooses, then goes back. Meals reads it when it regains focus (§3.11).
 
 ### 3.7 Components
@@ -508,7 +508,7 @@ None of them touches Supabase. `testID`s hold only static parts and IDs: `librar
 │ └─────────────────────────────────┘  │
 │ Filter by tags · 2 ▾   Clear filters │  41.2, 41.3, 41.7
 │ Dinner, Quick & Easy                 │  which tags (41.3)
-│ JUST SAVED                           │  DD55, after a save only
+│ JUST SAVED                           │  DD55, after a save the filters hide
 │ ┌ Chicken tacos ────────────────┐ ›  │
 │ │ [Dinner] [Quick & Easy]       │    │  chevron: the row opens (40.7)
 │ └───────────────────────────────┘    │
@@ -524,7 +524,7 @@ None of them touches Supabase. `testID`s hold only static parts and IDs: `librar
 - **Structure.** `<ToastProvider placement="top"><Screen edges={['left', 'right']}><MealBrowser … /></Screen></ToastProvider>` (DD60); the tab bar takes the bottom edge. Tapping a row pushes `/meal-form?id=<id>` (40.7). Add meal sets `newMealName` from the search, or clears it, and pushes `/meal-form` (42.6).
 - **Delete from the list (44.8, DD61).** `MealBrowser` gets `onDeleteMeal` and `rowDisclosure`, and passes them to every `MealRow`, the Just saved row too. Delete closes the swipe, then shows the alert with `deleteTitle(name)`, `deleteBody`, Cancel and a destructive Delete. On Delete, `useDeleteMeal(id)`: `ok` shows "Meal deleted", and the meal leaves the list when the mutation puts the library without it (K24). Not `ok`: `describeProblem({ kind: 'delete', outcome })` gives the toast's message, with Retry when it offers one. Retry deletes again without asking. The handler is a stable `useCallback`, so the memoised rows don't redraw as the member types (N25).
 - **List.** A `FlatList` keyed by ID, with memoised rows, `keyboardShouldPersistTaps="handled"`, `keyboardDismissMode="on-drag"` and a `RefreshControl` (40.11). The root keyboard toolbar shows over it, as on the other card screens.
-- **Focus.** On focus, the screen reads `lastSaved`: "Meal saved" with the Just saved row, or "Meal deleted" (42.9, 44.3). Leaving it, for the form or another tab, ends the Just saved row.
+- **Focus.** On focus, the screen reads `lastSaved`: "Meal saved", with the Just saved row if the search or tags hide the meal, or "Meal deleted" (42.9, 44.3, DD55). Leaving it, for the form or another tab, ends the Just saved row.
 - **States.**
 
   | Library state | Shows | Requirement |
@@ -603,7 +603,7 @@ None of them touches Supabase. `testID`s hold only static parts and IDs: `librar
 - **Route options.** `{ presentation: 'modal', title: 'Choose a meal' }`, with `headerLeft` Cancel. Params: `date` and `mealType`. If either fails `parseIsoDate` or isn't a known meal type, the picker goes back at once and reports `picker_bad_params` once.
 - **Structure.** `<ToastProvider placement="top">`, a `Screen`, the "For Thursday dinner" line from `formatDay` and the meals `slotName`, then `MealBrowser` with "+ Add new meal" in its header slot, and the picker's own `KeyboardToolbar` (DD60).
 - **Choose (45.3).** A row's hint is "Chooses this meal". Tapping sets `mealPick` to `{ date, mealType, text: copiedText(meal) }`, then `router.back()`.
-- **Add new meal (45.8, 45.9).** Sets `newMealName` from the search and pushes `/meal-form`, which presents full screen over the picker. On return, the picker reads `lastSaved` and shows the Just saved row and "Meal saved". Cancelling the form leaves the picker as it was.
+- **Add new meal (45.8, 45.9).** Sets `newMealName` from the search and pushes `/meal-form`, which presents full screen over the picker. On return, the picker reads `lastSaved` and shows "Meal saved", with the Just saved row if the search or tags hide the meal. Cancelling the form leaves the picker as it was.
 - **States (45.12).** As the library's, except that the empty state's action is "+ Add new meal". The cached library shows at once and refreshes in the background (45.11).
 - **Not offered.** No pull to refresh beyond the library's own, and no edit or delete (45.10).
 

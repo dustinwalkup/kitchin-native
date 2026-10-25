@@ -126,10 +126,10 @@ function PickerScreen({ date, mealType }: { date: IsoDate; mealType: MealType })
 }
 
 /**
- * On focus after "+ Add new meal" saved, shows "Meal saved" and the Just saved row, so the meal can
- * be chosen straight away whatever the search and tags (R45.9, DD55). The form opens from here
- * only to add, so there's no delete to report. The hand-off is applied once, so a second focus
- * doesn't repeat it (DD51). Leaving the picker ends the Just saved row.
+ * On focus after "+ Add new meal" saved, shows "Meal saved" and, if the search or tags hide the
+ * meal, the Just saved row, so it can be chosen straight away (R45.9, DD55). The form opens from
+ * here only to add, so there's no delete to report. The hand-off is applied once, so a second
+ * focus doesn't repeat it (DD51). Leaving the picker ends the Just saved row.
  */
 function useLastSaved() {
   const toast = useToast();

@@ -189,7 +189,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
     - Filter by tags starts collapsed with no chips shown; opening it shows every tag; selecting tags filters with AND; the count and the selected names show while collapsed
     - Clear filters appears only while there's a search or a selected tag, and empties both
     - "No meals match" with Clear filters, distinct from the empty library
-    - the Just saved row shows a given meal above the list whatever the filters, and goes when the search or tags change
+    - the Just saved row shows a given meal above the list when the filters hide it, and goes when the search or tags change; a meal the list shows is listed once (DD55, changed 2026-10-25)
     - rows show the name and tags in order, wrap rather than truncate, and read "Tacos. Tags: Dinner, Quick & Easy"
     - a selected `TagChip` shows ✓, and VoiceOver reads the name and "selected"
     - the filter reads "Filter by tags, 2 selected", with its expanded state
@@ -205,7 +205,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
     - an open slot editor saves when the library opens
     - every state in the §3.8 table, and pull to refresh
     - Add meal sets `newMealName` from the search and opens `/meal-form`; a row opens `/meal-form?id=<id>`
-    - on focus after a save, "Meal saved" shows with the Just saved row; after a delete, "Meal deleted"
+    - on focus after a save, "Meal saved" shows, with the Just saved row if the filters hide the meal; after a delete, "Meal deleted"
     - the library opens with an empty search and no tags, and keeps them after returning from the form
   - Update `src/__tests__/routing.test.tsx` for the new route, and `meals.test.tsx` for the header button.
   - In the Simulator, with 300 meals of five tags each loaded by a local-only SQL snippet (not the seed), check that the list scrolls smoothly and searching keeps up with typing (N25).
@@ -254,7 +254,7 @@ This list contains only coding work. Owner steps are in [`docs/TASKS.md` → Mea
     - a cached library shows at once; the picker opens with an empty search and no tags
     - tapping a meal sets `mealPick` to the slot and `copiedText(meal)`, then goes back
     - Cancel goes back without setting `mealPick`
-    - "+ Add new meal" sets `newMealName` from the search and opens `/meal-form`; after a save, the picker shows "Meal saved" and the Just saved row, even when the search hides the meal
+    - "+ Add new meal" sets `newMealName` from the search and opens `/meal-form`; after a save, the picker shows "Meal saved" and, when the search hides the meal, the Just saved row
     - the empty library offers "+ Add new meal"; no row offers edit or delete
   - _Requirements: R45.2–R45.4, R45.7–R45.12_ — _Design: §3.10, DD50, DD51, DD55, DD60_
 

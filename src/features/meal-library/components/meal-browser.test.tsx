@@ -265,11 +265,15 @@ describe('MealBrowser', () => {
     const justSaved = (id: number, mealId: string) => props({ justSaved: { id, mealId } });
     const justSavedRow = () => screen.queryByTestId('library-just-saved');
 
-    it('C-LBR-10 shows the meal above the list even when the search hides it', async () => {
+    /** Beef stew, saved while the search "taco" hides it. */
+    async function saveHiddenStew() {
       await render(<MealBrowser {...props()} />);
       await fireEvent.changeText(search(), 'taco');
-
       await screen.rerender(<MealBrowser {...justSaved(1, STEW)} />);
+    }
+
+    it('C-LBR-10 shows the meal above the list when the search hides it', async () => {
+      await saveHiddenStew();
 
       const row = within(justSavedRow()!);
       expect(row.getByRole('header', { name: 'Just saved' })).toBeOnTheScreen();
@@ -280,44 +284,56 @@ describe('MealBrowser', () => {
       expect(onPressMeal).toHaveBeenCalledWith(LIBRARY.meals[0]);
     });
 
-    it('DD55 the meal also sits in its usual place in the list', async () => {
+    it('DD55 shows the meal once, in its place, when the list shows it', async () => {
       await render(<MealBrowser {...justSaved(1, STEW)} />);
 
-      expect(justSavedRow()).toBeOnTheScreen();
-      expect(screen.getAllByTestId(`meal-row-${STEW}`)).toHaveLength(2);
+      expect(justSavedRow()).toBeNull();
+      expect(screen.getAllByTestId(`meal-row-${STEW}`)).toHaveLength(1);
       expect(listed()).toEqual([STEW, POPPERS, OATS, TACOS]);
     });
 
-    it('C-LBR-10 goes when the search changes', async () => {
-      await render(<MealBrowser {...justSaved(1, STEW)} />);
+    it('DD55 shows the meal once, in its place, when the search finds it', async () => {
+      await render(<MealBrowser {...props()} />);
+      await fireEvent.changeText(search(), 'stew');
 
-      await fireEvent.changeText(search(), 'b');
+      await screen.rerender(<MealBrowser {...justSaved(1, STEW)} />);
 
       expect(justSavedRow()).toBeNull();
       expect(listed()).toEqual([STEW]);
     });
 
-    it('C-LBR-10 goes when the tags change', async () => {
-      await render(<MealBrowser {...justSaved(1, STEW)} />);
+    it('C-LBR-10 goes when the search changes', async () => {
+      await saveHiddenStew();
 
-      await selectTags('Dinner');
+      // "o" still hides Beef stew.
+      await fireEvent.changeText(search(), 'o');
+
+      expect(justSavedRow()).toBeNull();
+      expect(listed()).toEqual([POPPERS, OATS, TACOS]);
+    });
+
+    it('C-LBR-10 goes when the tags change', async () => {
+      await saveHiddenStew();
+
+      // Quick & Easy still hides Beef stew.
+      await selectTags('Quick & Easy');
 
       expect(justSavedRow()).toBeNull();
     });
 
     it('C-LBR-10 goes when Clear filters empties the search and tags', async () => {
-      await render(<MealBrowser {...props()} />);
-      await fireEvent.changeText(search(), 'taco');
-      await screen.rerender(<MealBrowser {...justSaved(1, STEW)} />);
+      await saveHiddenStew();
 
       await fireEvent.press(clearFilters()!);
 
       expect(justSavedRow()).toBeNull();
+      expect(screen.getAllByTestId(`meal-row-${STEW}`)).toHaveLength(1);
     });
 
     it('DD51 shows again for the next save, even of the same meal', async () => {
-      await render(<MealBrowser {...justSaved(1, STEW)} />);
-      await fireEvent.changeText(search(), 'taco');
+      await saveHiddenStew();
+      await fireEvent.changeText(search(), 'tac');
+      expect(justSavedRow()).toBeNull();
 
       await screen.rerender(<MealBrowser {...justSaved(2, STEW)} />);
 
@@ -325,7 +341,8 @@ describe('MealBrowser', () => {
     });
 
     it('DD55 goes when the screen passes null, and shows nothing for a meal not in the library', async () => {
-      await render(<MealBrowser {...justSaved(1, STEW)} />);
+      await saveHiddenStew();
+      expect(justSavedRow()).toBeOnTheScreen();
 
       await screen.rerender(<MealBrowser {...props({ justSaved: null })} />);
       expect(justSavedRow()).toBeNull();
@@ -414,7 +431,10 @@ describe('MealBrowser', () => {
   });
 
   it('C-LBR-13 no test ID holds a meal or tag name', async () => {
-    await render(<MealBrowser {...props({ justSaved: { id: 1, mealId: STEW } })} />);
+    await render(<MealBrowser {...props()} />);
+    // The search hides Beef stew, so it shows as the Just saved row.
+    await fireEvent.changeText(search(), 'taco');
+    await screen.rerender(<MealBrowser {...props({ justSaved: { id: 1, mealId: STEW } })} />);
     await fireEvent.press(filter());
 
     const testIDs = screen
@@ -467,15 +487,17 @@ describe('MealBrowser', () => {
 
   it('R44.8 gives every row, the Just saved row too, Delete and a chevron when asked', async () => {
     const onDeleteMeal = jest.fn();
-    await render(
-      <MealBrowser
-        {...props({ onDeleteMeal, rowDisclosure: true, justSaved: { id: 1, mealId: TACOS } })}
-      />,
+    const rowProps = { onDeleteMeal, rowDisclosure: true };
+    await render(<MealBrowser {...props(rowProps)} />);
+    // The search hides Tacos, so it shows as the Just saved row.
+    await fireEvent.changeText(search(), 'e');
+    await screen.rerender(
+      <MealBrowser {...props({ ...rowProps, justSaved: { id: 1, mealId: TACOS } })} />,
     );
 
     const deletes = screen.getAllByTestId(/^meal-delete-/, { includeHiddenElements: true });
-    // Four rows, and the Just saved copy of Tacos.
-    expect(deletes).toHaveLength(5);
+    // Three listed rows, and the Just saved row of Tacos.
+    expect(deletes).toHaveLength(4);
     await fireEvent.press(deletes[0]);
     expect(onDeleteMeal).toHaveBeenCalledWith(expect.objectContaining({ id: TACOS }));
     for (const row of screen.getAllByTestId(/^meal-row-/)) {

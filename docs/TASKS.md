@@ -446,7 +446,7 @@ The spec is [`specs/meal-library/`](../specs/meal-library/). Its requirements an
   - [ ] A changes a meal's description while B adds a tag to it → both changes stay
   - [ ] B deletes a meal while A has it open. A taps Save → "This meal was deleted on another device"; **Save as new meal** brings it back
   - [ ] Open a slot on A, tap **Choose from Meal Library**, and pick a meal → the slot shows its name and description on both simulators. Then edit or delete that meal in the library → the planned slot doesn't change
-  - [ ] In the picker, tap **+ Add new meal**, save it → you're back in the picker with it under **Just saved**, ready to choose
+  - [ ] In the picker, tap **+ Add new meal**, save it → you're back in the picker with it ready to choose: in the list, or under **Just saved** if the search or tags hide it
   - [ ] On A, open the **Library** tab, swipe a meal left, tap **Delete** and confirm → it leaves both libraries
   - [ ] Turn the Mac's Wi-Fi off. Saving a library meal fails at once and keeps what you typed. Choosing a meal for a slot still works and sends when you're back online
   - [ ] Sign in as **C** → sees only Household Two's library, with none of Household One's meals or custom tags

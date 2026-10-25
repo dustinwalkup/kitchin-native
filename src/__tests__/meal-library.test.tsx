@@ -433,6 +433,18 @@ describe('after the form (C-LIB-08)', () => {
     expect(lastSaved.read()).toBeNull();
   });
 
+  it('lists a saved meal once, in its place, when the list already shows it (DD55)', async () => {
+    await renderLibrary();
+    await addMeal();
+
+    await act(async () => lastSaved.set({ mealId: TACOS, kind: 'saved' }));
+    await closeForm();
+
+    expect(within(toast()!).getByText('Meal saved')).toBeOnTheScreen();
+    expect(justSavedRow()).toBeNull();
+    expect(screen.getAllByTestId(`meal-row-${TACOS}`)).toHaveLength(1);
+  });
+
   it('shows "Meal deleted", with no Just saved row, after a delete', async () => {
     await renderLibrary();
     await fireEvent.press(row(TACOS));
@@ -449,6 +461,8 @@ describe('after the form (C-LIB-08)', () => {
 
   it("doesn't repeat either on a second focus, and leaving ends the Just saved row", async () => {
     await renderLibrary();
+    // The search hides Beef stew, so it shows as the Just saved row.
+    await fireEvent.changeText(search(), 'taco');
     await addMeal();
     await act(async () => lastSaved.set({ mealId: STEW, kind: 'saved' }));
     await closeForm();
@@ -656,7 +670,9 @@ describe('Meal form screen', () => {
     expect(savedWith(0).meal.name).toBe('Fish tacos');
     expect(randomUUID).not.toHaveBeenCalled();
     expect(app.getPathname()).toBe('/meal-library');
-    expect(within(justSavedRow()!).getByTestId(`meal-row-${TACOS}`)).toBeOnTheScreen();
+    // Once, in its place, since nothing hides it (DD55).
+    expect(justSavedRow()).toBeNull();
+    expect(screen.getAllByTestId(`meal-row-${TACOS}`)).toHaveLength(1);
   });
 
   it('C-LFS-05 Save on an unchanged edit goes back without saving', async () => {

@@ -43,7 +43,8 @@ export interface MealBrowserProps {
   emptyAction: { label: string; onPress: () => void };
   /**
    * The meal just saved, with its `lastSaved` hand-off ID, for the Just saved row (DD55). The row
-   * shows until the member changes the search or tags; the screen passes null once they leave.
+   * shows only while the search or tags hide the meal, and until the member changes either; the
+   * screen passes null once they leave.
    */
   justSaved?: { id: number; mealId: string } | null;
   /** Follows the search as it changes, so the screen can start a new meal's name from it (R42.6). */
@@ -86,8 +87,11 @@ export function MealBrowser({
   // Filtering 300 meals is well inside a keystroke's 100 ms (N25), and the rows are memoised.
   const visible = useMemo(() => filterMeals(meals, { query, tagIds }), [meals, query, tagIds]);
   const filtering = query !== '' || tagIds.size > 0;
+  // Only while the search or tags hide the meal, so it never shows twice (DD55).
   const justSavedMeal =
-    justSaved !== null && justSaved.id !== dismissedId
+    justSaved !== null &&
+    justSaved.id !== dismissedId &&
+    !visible.some((meal) => meal.id === justSaved.mealId)
       ? meals.find((meal) => meal.id === justSaved.mealId)
       : undefined;
 
@@ -208,7 +212,7 @@ function BrowserState({
   }
 }
 
-/** The meal just saved, above the list whatever the filters; it's in its usual place too (DD55). */
+/** The meal just saved, above the list, when the search or tags leave it out of the list (DD55). */
 function JustSaved(props: MealRowProps) {
   return (
     <View testID="library-just-saved" style={styles.justSaved}>
