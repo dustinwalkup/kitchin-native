@@ -319,9 +319,9 @@ select throws_ok(
 
 -- A and B: tags. A tag's key is its name in lower case, with each run of whitespace as one space (DD44).
 
-select throws_ok($$ select pg_temp.insert_tag('DINNER') $$, '23505',
+select throws_ok($$ select pg_temp.insert_tag('HIGH PROTEIN') $$, '23505',
   'duplicate key value violates unique constraint "library_tags_one_per_name"',
-  'DB-L-12 a plain insert of DINNER fails on library_tags_one_per_name');
+  'DB-L-12 a plain insert of HIGH PROTEIN fails on library_tags_one_per_name');
 select throws_ok($$ select pg_temp.insert_tag('Fixture  Taco   Night') $$, '23505',
   'duplicate key value violates unique constraint "library_tags_one_per_name"',
   'DB-L-12 a plain insert of "Fixture  Taco   Night" fails on library_tags_one_per_name');
